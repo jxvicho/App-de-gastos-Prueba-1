@@ -1,0 +1,343 @@
+// ============================================================
+// SCHEMA DE BASE DE DATOS — App de gastos vía WhatsApp + correo
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+// USUARIOS
+// ------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique // correo de login del producto (puede ser distinto al correo bancario)
+  passwordHash String? // null si el usuario se registró solo con Google/Outlook
+  phoneNumber  String?  @unique // número de WhatsApp en formato E.164, ej. +51987654321
+  timezone     String   @default("America/Lima")
+  currency     String   @default("PEN")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relaciones
+  emailAccounts     EmailAccount[]
+  categories        Category[]
+  transactions      Transaction[]
+  budgets           Budget[]
+  rules             Rule[]
+  recurringPayments RecurringPayment[]
+  reminders         Reminder[]
+  accountsCards     AccountCard[]
+  whatsappSession   WhatsappSession?
+  onboarding        OnboardingState?
+
+  @@map("users")
+}
+
+// Estado del onboarding (qué pasos ya completó, como en las capturas de Clever)
+model OnboardingState {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  banksSelected      Boolean  @default(false)
+  emailLinked        Boolean  @default(false)
+  whatsappLinked     Boolean  @default(false)
+  completedAt        DateTime?
+  createdAt          DateTime @default(now())
+
+  @@map("onboarding_states")
+}
+
+// ------------------------------------------------------------
+// CORREO VINCULADO (Gmail / Outlook vía OAuth)
+// ------------------------------------------------------------
+
+enum EmailProvider {
+  GMAIL
+  OUTLOOK
+}
+
+model EmailAccount {
+  id                String        @id @default(uuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          EmailProvider
+  emailAddress      String
+  accessToken       String        @db.Text // encriptado a nivel de aplicación antes de guardar
+  refreshToken      String        @db.Text // encriptado
+  tokenExpiresAt     DateTime
+  // Para Gmail: historyId del último watch procesado. Para Outlook: subscriptionId.
+  syncCursor        String?
+  watchExpiresAt    DateTime? // cuándo vence la suscripción push (hay que renovarla)
+  isActive          Boolean       @default(true)
+  lastSyncedAt      DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  bankSenders BankSender[]
+
+  @@unique([userId, emailAddress])
+  @@map("email_accounts")
+}
+
+// Qué bancos/billeteras seleccionó el usuario (de qué remitentes leer)
+model BankSender {
+  id             String       @id @default(uuid())
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  bankKey        String // ej. "bcp", "interbank", "bbva_pe", "scotiabank_pe", "yape", "banco_ripley"
+  displayName    String // ej. "BCP", "Yape"
+  senderEmails   String[] // direcciones de correo que envían notificaciones de este banco
+  addedManually  Boolean      @default(false) // true si el usuario añadió un correo custom no listado
+  createdAt      DateTime     @default(now())
+
+  @@unique([emailAccountId, bankKey])
+  @@map("bank_senders")
+}
+
+// Catálogo de bancos soportados (referencia estática, se puede poblar con un seed)
+model BankCatalog {
+  id           String   @id @default(uuid())
+  bankKey      String   @unique
+  displayName  String
+  country      String   @default("PE")
+  logoUrl      String?
+  senderEmails String[] // remitentes conocidos, usados para sugerir automáticamente
+  isActive     Boolean  @default(true)
+
+  @@map("bank_catalog")
+}
+
+// ------------------------------------------------------------
+// TARJETAS Y CUENTAS (lo que ve el usuario en "Tarjetas / Cuentas")
+// ------------------------------------------------------------
+
+enum AccountCardType {
+  DEBIT_CARD
+  CREDIT_CARD
+  BANK_ACCOUNT
+  WALLET // Yape, Plin, etc.
+}
+
+model AccountCard {
+  id           String          @id @default(uuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         AccountCardType
+  bankKey      String
+  displayName  String // ej. "BBVA Crédito", "Yape"
+  lastDigits   String? // últimos 4 dígitos, si aplica
+  colorHex     String? // color para UI
+  isArchived   Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+
+  transactions Transaction[]
+
+  @@map("accounts_cards")
+}
+
+// ------------------------------------------------------------
+// CATEGORÍAS
+// ------------------------------------------------------------
+
+model Category {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String // ej. "Supermercado", "Delivery", "Apoyo a terceros"
+  icon      String? // nombre de ícono o emoji
+  colorHex  String?
+  isDefault Boolean  @default(false) // true para las 25 categorías precargadas
+  isArchived Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  transactions      Transaction[]
+  budgetCategories  BudgetCategory[]
+  rules             Rule[]
+
+  @@unique([userId, name])
+  @@map("categories")
+}
+
+// ------------------------------------------------------------
+// TRANSACCIONES (el corazón del sistema)
+// ------------------------------------------------------------
+
+enum TransactionType {
+  EXPENSE
+  INCOME
+}
+
+enum TransactionSource {
+  EMAIL_AUTO   // detectado automáticamente leyendo el correo
+  WHATSAPP_MANUAL // el usuario lo dictó por WhatsApp ("me depositaron 200 soles...")
+  DASHBOARD_MANUAL // agregado a mano en el dashboard
+  CSV_IMPORT   // importado desde CSV/Excel
+}
+
+enum TransactionStatus {
+  PENDING_CONFIRMATION // el bot preguntó "¿lo anotamos?" y espera respuesta (ventana de 48h)
+  CONFIRMED
+  REJECTED
+  AUTO_CONFIRMED // el usuario tiene "manos libres" activado, se guarda sin preguntar
+}
+
+model Transaction {
+  id             String             @id @default(uuid())
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           TransactionType    @default(EXPENSE)
+  amount         Decimal            @db.Decimal(12, 2)
+  currency       String             @default("PEN")
+  merchant       String? // "Comercio" en las capturas, ej. "AHORRAMASMARKET G"
+  description    String? // ej. "Plin - Pago a Olga Huaman"
+  categoryId     String?
+  category       Category?          @relation(fields: [categoryId], references: [id])
+  accountCardId  String?
+  accountCard    AccountCard?       @relation(fields: [accountCardId], references: [id])
+  bankKey        String? // por si aún no se vinculó a un AccountCard concreto
+  source         TransactionSource
+  status         TransactionStatus  @default(PENDING_CONFIRMATION)
+  occurredAt     DateTime // fecha del gasto real (extraída del correo, no de cuándo se procesó)
+  rawEmailId     String? // referencia al correo original, para trazabilidad/debug
+  extractionMeta Json? // lo que devolvió el modelo de IA al parsear (para auditar/reentrenar prompts)
+  confirmedAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([userId, occurredAt])
+  @@index([userId, status])
+  @@map("transactions")
+}
+
+// ------------------------------------------------------------
+// PRESUPUESTOS
+// ------------------------------------------------------------
+
+model Budget {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope        String   @default("PERSONAL") // "PERSONAL" | "EMPRESA" (como el toggle en las capturas)
+  periodStart  DateTime // inicio del mes/periodo
+  periodEnd    DateTime
+  totalAmount  Decimal  @db.Decimal(12, 2)
+  currency     String   @default("PEN")
+  createdAt    DateTime @default(now())
+
+  categories BudgetCategory[]
+
+  @@map("budgets")
+}
+
+model BudgetCategory {
+  id         String   @id @default(uuid())
+  budgetId   String
+  budget     Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  amount     Decimal  @db.Decimal(12, 2) // tope asignado a esa categoría
+
+  @@unique([budgetId, categoryId])
+  @@map("budget_categories")
+}
+
+// ------------------------------------------------------------
+// PAGOS RECURRENTES DETECTADOS (Netflix, Rappi Prime, etc.)
+// ------------------------------------------------------------
+
+model RecurringPayment {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchant      String // ej. "Netflix"
+  amount        Decimal  @db.Decimal(12, 2)
+  currency      String   @default("PEN")
+  dayOfMonth    Int // día en que suele cobrarse
+  isActive      Boolean  @default(true)
+  lastChargedAt DateTime?
+  detectedAt    DateTime @default(now())
+
+  @@map("recurring_payments")
+}
+
+// ------------------------------------------------------------
+// REGLAS PERSONALIZADAS ("siempre que gaste en Starbucks, ponlo en Comida")
+// ------------------------------------------------------------
+
+model Rule {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchField    String // "merchant" | "description"
+  matchValue    String // ej. "Starbucks"
+  categoryId    String
+  category      Category @relation(fields: [categoryId], references: [id])
+  createdFromText String? // el mensaje original de WhatsApp que generó la regla, para trazabilidad
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@map("rules")
+}
+
+// ------------------------------------------------------------
+// RECORDATORIOS
+// ------------------------------------------------------------
+
+model Reminder {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  notes     String?
+  dueAt     DateTime
+  isSent    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("reminders")
+}
+
+// ------------------------------------------------------------
+// WHATSAPP
+// ------------------------------------------------------------
+
+model WhatsappSession {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  waPhoneNumberId   String // ID del número de negocio de Meta que le habla
+  isHandsFree       Boolean  @default(false) // "Manos libres" — confirma automático sin preguntar
+  lastMessageAt     DateTime?
+  createdAt         DateTime @default(now())
+
+  messages WhatsappMessage[]
+
+  @@map("whatsapp_sessions")
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+// Log de mensajes, útil para dar contexto conversacional al modelo de IA y para debug
+model WhatsappMessage {
+  id              String            @id @default(uuid())
+  sessionId       String
+  session         WhatsappSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  direction       MessageDirection
+  content         String            @db.Text
+  relatedTxnId    String? // si el mensaje fue una confirmación de gasto, referencia a la transacción
+  metaMessageId   String? // ID del mensaje en la API de Meta, para tracking de entrega
+  createdAt       DateTime          @default(now())
+
+  @@index([sessionId, createdAt])
+  @@map("whatsapp_messages")
+}
