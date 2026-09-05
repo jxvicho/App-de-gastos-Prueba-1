@@ -155,6 +155,7 @@ model Category {
   icon      String? // nombre de ícono o emoji
   colorHex  String?
   isDefault Boolean  @default(false) // true para las 25 categorías precargadas
+  excludeFromTotals Boolean @default(false)
   isArchived Boolean @default(false)
   createdAt DateTime @default(now())
 

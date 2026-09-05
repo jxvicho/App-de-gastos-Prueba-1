@@ -1,5 +1,5 @@
 {
-  "name": "gastos-backend",
+  "name": "gastia-backend",
   "version": "0.1.0",
   "private": true,
   "description": "Backend: ingesta de correos, bot de WhatsApp y API para el dashboard",
@@ -12,6 +12,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:reset-test-user": "tsx prisma/resetTestUser.ts",
     "lint": "eslint src --ext .ts"
   },
   "prisma": {

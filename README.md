@@ -1,4 +1,4 @@
-# Backend — App de gastos vía WhatsApp + correo
+# Gastia — Backend
 
 Fase 1 del proyecto: **modelo de datos + backend base**. Incluye:
 
