@@ -7,6 +7,7 @@ import { apiRouter } from "./routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { emailSyncWorker } from "./queues/emailSyncWorker";
 import { scheduleEmailSyncRepeatable } from "./queues/emailSyncQueue";
+import { keepDatabaseAwake } from "./config/keepAlive";
 
 const app = express();
 
@@ -41,6 +42,14 @@ app.listen(env.PORT, () => {
   console.log(`✅ Backend corriendo en ${env.APP_BASE_URL} (puerto ${env.PORT})`);
   console.log(`🖥️  Dashboard disponible en la misma URL`);
 });
+
+const KEEP_ALIVE_INTERVAL_MS = 180_000; // 3 minutos, menor al auto-suspend de Neon (~5 min)
+setInterval(() => {
+  keepDatabaseAwake().catch((err) => {
+    console.error("❌ Error en el keep-alive de base de datos:", err);
+  });
+}, KEEP_ALIVE_INTERVAL_MS);
+console.log("🔄 Keep-alive de base de datos activo");
 
 scheduleEmailSyncRepeatable().catch((err) => {
   console.error("❌ No se pudo programar la sincronización de correo:", err);

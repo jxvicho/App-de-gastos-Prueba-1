@@ -44,8 +44,11 @@ emailAccountsRouter.post(
     });
     if (catalogEntries.length === 0) throw new AppError("Ninguno de los bancos indicados existe", 422);
 
-    await prisma.$transaction(
-      catalogEntries.map((bank) =>
+    await prisma.$transaction([
+      prisma.bankSender.deleteMany({
+        where: { emailAccountId: account.id, bankKey: { notIn: parsed.data.bankKeys } },
+      }),
+      ...catalogEntries.map((bank) =>
         prisma.bankSender.upsert({
           where: { emailAccountId_bankKey: { emailAccountId: account.id, bankKey: bank.bankKey } },
           update: { senderEmails: bank.senderEmails, displayName: bank.displayName },
@@ -56,8 +59,8 @@ emailAccountsRouter.post(
             senderEmails: bank.senderEmails,
           },
         })
-      )
-    );
+      ),
+    ]);
 
     await prisma.onboardingState.update({
       where: { userId: req.userId! },
