@@ -1,5 +1,5 @@
 import { Client } from "@microsoft/microsoft-graph-client";
-import type { EmailAccount, BankSender } from "@prisma/client";
+import { Prisma, type EmailAccount, type BankSender } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { decrypt, encrypt } from "../utils/crypto";
 import { getMicrosoftAccessToken } from "./microsoftOAuth";
@@ -94,25 +94,33 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
 
     if (!extracted.isTransaction || !extracted.amount) continue;
 
-    await prisma.transaction.create({
-      data: {
-        userId: account.userId,
-        type: extracted.type ?? "EXPENSE",
-        amount: extracted.amount,
-        currency: extracted.currency ?? "PEN",
-        merchant: extracted.merchant,
-        description: extracted.description,
-        bankKey: bank.bankKey,
-        source: "EMAIL_AUTO",
-        status: "PENDING_CONFIRMATION",
-        occurredAt: extracted.occurredAt
-          ? new Date(extracted.occurredAt)
-          : new Date(message.receivedDateTime),
-        rawEmailId: message.id,
-        extractionMeta: extracted as any,
-      },
-    });
-    createdCount++;
+    try {
+      await prisma.transaction.create({
+        data: {
+          userId: account.userId,
+          type: extracted.type ?? "EXPENSE",
+          amount: extracted.amount,
+          currency: extracted.currency ?? "PEN",
+          merchant: extracted.merchant,
+          description: extracted.description,
+          bankKey: bank.bankKey,
+          source: "EMAIL_AUTO",
+          status: "PENDING_CONFIRMATION",
+          occurredAt: extracted.occurredAt
+            ? new Date(extracted.occurredAt)
+            : new Date(message.receivedDateTime),
+          rawEmailId: message.id,
+          extractionMeta: extracted as any,
+        },
+      });
+      createdCount++;
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        console.log("Transacción duplicada omitida (correo ya procesado)");
+        continue;
+      }
+      console.error(`Error guardando la transacción del correo ${message.id}:`, err);
+    }
   }
 
   console.log(`Cuenta ${account.emailAddress}: ${createdCount} transacciones nuevas creadas`);
