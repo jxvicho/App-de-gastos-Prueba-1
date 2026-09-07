@@ -472,7 +472,6 @@
 
   <div class="topbar">
     <div class="brand">
-      <div class="brand-mark">P</div>
       <div>
         <h1>Gastia</h1>
         <p>Tu resumen financiero, actualizado en tiempo real</p>
@@ -1078,12 +1077,6 @@ function renderInsights(rows, byCat, sumAbs){
         });
       }
     }
-  } else {
-    cards.push({
-      warn:false,
-      tag:"Ingresos",
-      text:`Registraste ${rows.length} ingresos en el periodo filtrado, por un total de ${fmt(sumAbs)}.`
-    });
   }
 
   cards.slice(0,2).forEach(c=>{
@@ -1093,7 +1086,36 @@ function renderInsights(rows, byCat, sumAbs){
     wrap.appendChild(div);
   });
 
+  wrap.appendChild(buildTodaySpendCard());
   wrap.appendChild(buildBudgetCard());
+}
+
+function buildTodaySpendCard(){
+  const today = todayStr();
+  const todaysExpenses = TXNS.filter(t => t.type === "egreso" && t.date === today && !(CAT_META[t.category] && CAT_META[t.category].excluded));
+  const total = todaysExpenses.reduce((s,t)=>s+t.amount,0);
+
+  const filteredExpenses = getFiltered(false, true).filter(t=>t.type==="egreso" && !(CAT_META[t.category] && CAT_META[t.category].excluded));
+  let avgPerDay = 0;
+  if (filteredExpenses.length) {
+    const dates = filteredExpenses.map(t=>t.date).sort();
+    const first = new Date(dates[0]), last = new Date(dates[dates.length-1]);
+    const days = Math.max(1, Math.round((last-first)/86400000)+1);
+    avgPerDay = filteredExpenses.reduce((s,t)=>s+t.amount,0) / days;
+  }
+
+  const maxTxn = todaysExpenses.length ? todaysExpenses.reduce((a,b)=> b.amount>a.amount?b:a) : null;
+
+  const div = document.createElement("div");
+  div.className = "insight";
+  div.innerHTML = `
+    <div class="itag">Gasté hoy</div>
+    <p style="font-size:22px;font-weight:700;margin:2px 0 6px;">${fmt(total)}</p>
+    <p style="margin:0 0 8px;color:var(--ink-soft);font-size:12.5px;">Promedio ${fmtShort(avgPerDay)} al día</p>
+    <p style="margin:0;font-size:12.5px;color:var(--ink-soft);">Mayor gasto</p>
+    <p style="margin:0;font-weight:600;">${maxTxn ? maxTxn.desc + " · " + fmt(maxTxn.amount) : "Sin movimientos hoy"}</p>
+  `;
+  return div;
 }
 
 function buildBudgetCard(){
@@ -1229,7 +1251,10 @@ function renderTable(){
       const idx = Number(this.dataset.idx);
       const newKey = this.value;
       const prevKey = TXNS[idx].category;
+      const prevType = TXNS[idx].type;
+      const isIncome = CAT_META[newKey] && CAT_META[newKey].label === "Ingresos";
       TXNS[idx].category = newKey;
+      TXNS[idx].type = isIncome ? "ingreso" : "egreso";
       renderAll();
       try {
         await api(`/transactions/${TXNS[idx].id}/category`, {
@@ -1238,6 +1263,7 @@ function renderTable(){
         });
       } catch (err) {
         TXNS[idx].category = prevKey; // revertimos si el backend rechazó el cambio
+        TXNS[idx].type = prevType;
         renderAll();
         alert("No se pudo guardar el cambio de categoría: " + err.message);
       }

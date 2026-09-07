@@ -97,3 +97,35 @@ transactionsRouter.patch(
     res.json(updated);
   })
 );
+
+const changeCategorySchema = z.object({ categoryId: z.string().uuid() });
+
+transactionsRouter.patch(
+  "/:id/category",
+  asyncHandler(async (req, res) => {
+    const parsed = changeCategorySchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError("categoryId inválido", 422);
+
+    const transaction = await prisma.transaction.findFirst({
+      where: { id: req.params.id, userId: req.userId },
+    });
+    if (!transaction) throw new AppError("Transacción no encontrada", 404);
+
+    const category = await prisma.category.findFirst({
+      where: { id: parsed.data.categoryId, userId: req.userId },
+    });
+    if (!category) throw new AppError("Categoría no encontrada", 404);
+
+    // La categoría "Ingresos" es especial: asignar un movimiento a ella lo
+    // reclasifica automáticamente como ingreso, y sacarlo de ahí lo vuelve
+    // a clasificar como egreso.
+    const newType = category.name === "Ingresos" ? "INCOME" : "EXPENSE";
+
+    const updated = await prisma.transaction.update({
+      where: { id: transaction.id },
+      data: { categoryId: category.id, type: newType },
+    });
+
+    res.json(updated);
+  })
+);
