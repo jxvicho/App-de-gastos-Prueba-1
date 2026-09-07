@@ -19,7 +19,7 @@ const BANKS = [
   {
     bankKey: "bbva_pe",
     displayName: "BBVA Perú",
-    senderEmails: ["notificaciones@bbva.pe"],
+    senderEmails: ["procesos@bbva.com.pe", "notificaciones@bbva.pe"],
   },
   {
     bankKey: "scotiabank_pe",

@@ -35,6 +35,9 @@ const envSchema = z.object({
   WHATSAPP_APP_SECRET: z.string().optional().default(""),
 
   ANTHROPIC_API_KEY: z.string().optional().default(""),
+
+  GEMINI_API_KEY: z.string().optional().default(""),
+  GEMINI_MODEL_EXTRACTION: z.string().default("gemini-2.5-flash"),
 });
 
 const parsed = envSchema.safeParse(process.env);

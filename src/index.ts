@@ -5,6 +5,8 @@ import path from "path";
 import { env } from "./config/env";
 import { apiRouter } from "./routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { emailSyncWorker } from "./queues/emailSyncWorker";
+import { scheduleEmailSyncRepeatable } from "./queues/emailSyncQueue";
 
 const app = express();
 
@@ -16,6 +18,7 @@ app.use(
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "font-src": ["'self'", "https://fonts.gstatic.com"],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        "script-src": ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
       },
     },
   })
@@ -38,3 +41,9 @@ app.listen(env.PORT, () => {
   console.log(`✅ Backend corriendo en ${env.APP_BASE_URL} (puerto ${env.PORT})`);
   console.log(`🖥️  Dashboard disponible en la misma URL`);
 });
+
+scheduleEmailSyncRepeatable().catch((err) => {
+  console.error("❌ No se pudo programar la sincronización de correo:", err);
+});
+console.log("📬 Worker de sincronización de correo activo");
+void emailSyncWorker;
