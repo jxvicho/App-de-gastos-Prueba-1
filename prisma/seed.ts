@@ -32,21 +32,57 @@ const BANKS = [
     senderEmails: ["notificaciones@yape.com.pe"],
   },
   {
-    bankKey: "plin",
-    displayName: "Plin",
-    senderEmails: ["notificaciones@plin.pe"],
+    bankKey: "banco_pichincha",
+    displayName: "Banco Pichincha",
+    senderEmails: ["notificaciones@pichincha.pe"],
   },
   {
-    bankKey: "banco_ripley",
-    displayName: "Banco Ripley",
-    senderEmails: ["notificaciones@bancoripley.com.pe"],
+    bankKey: "banco_falabella",
+    displayName: "Banco Falabella",
+    senderEmails: ["notificaciones@bancofalabella.pe"],
   },
   {
-    bankKey: "banifit",
-    displayName: "Banifit",
-    senderEmails: ["notificaciones@banifit.pe"],
+    bankKey: "agora",
+    displayName: "Agora",
+    senderEmails: ["notificaciones@agora.pe"],
+  },
+  {
+    bankKey: "sip",
+    displayName: "SIP",
+    senderEmails: ["notificaciones@sip.pe"],
+  },
+  {
+    bankKey: "diners",
+    displayName: "Diners",
+    senderEmails: ["notificaciones@dinersclub.com.pe"],
+  },
+  {
+    bankKey: "io",
+    displayName: "IO",
+    senderEmails: ["notificaciones@io.pe"],
+  },
+  {
+    bankKey: "banbif",
+    displayName: "BanBif",
+    senderEmails: ["notificaciones@banbif.com.pe"],
+  },
+  {
+    bankKey: "banco_nacion",
+    displayName: "Banco de la Nación",
+    senderEmails: ["notificaciones@bn.com.pe"],
+  },
+  {
+    bankKey: "lemon_cash",
+    displayName: "Lemon Cash",
+    senderEmails: ["notificaciones@lemon.me"],
   },
 ];
+
+// Bancos que salieron del catálogo definitivo. Los desactivamos en vez de
+// borrarlos, porque no hay FK entre BankSender y BankCatalog: si alguna
+// cuenta ya tiene un BankSender apuntando a uno de estos bankKey, un delete
+// lo dejaría como referencia suelta.
+const DEACTIVATED_BANK_KEYS = ["banifit", "banco_ripley", "plin"];
 
 async function main() {
   for (const bank of BANKS) {
@@ -56,7 +92,14 @@ async function main() {
       create: bank,
     });
   }
+
+  await prisma.bankCatalog.updateMany({
+    where: { bankKey: { in: DEACTIVATED_BANK_KEYS } },
+    data: { isActive: false },
+  });
+
   console.log(`✅ Seed completo: ${BANKS.length} bancos cargados en el catálogo`);
+  console.log(`🚫 Bancos desactivados: ${DEACTIVATED_BANK_KEYS.join(", ")}`);
 }
 
 main()

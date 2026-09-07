@@ -579,6 +579,7 @@
       <div class="table-tools">
         <input class="search" id="searchInput" placeholder="Buscar por nombre o comercio…">
         <button class="manage-cat-btn" id="openCatModalBtn">⚙ Categorías</button>
+        <button class="manage-cat-btn" id="openConfigModalBtn">🔗 Configuración</button>
       </div>
     </div>
     <div class="chips" id="chipRow"></div>
@@ -651,6 +652,38 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="configModalOverlay">
+  <div class="modal-box">
+    <h4>Configuración</h4>
+    <div class="modal-sub">Conecta tus correos y elige qué bancos leer para detectar tus movimientos automáticamente.</div>
+
+    <div class="modal-field">
+      <label>Correos conectados</label>
+      <div class="modal-list" id="connected-accounts-list"></div>
+      <div class="modal-actions">
+        <button class="btn-save" id="connect-outlook-btn" style="flex:none;">📧 Conectar Outlook</button>
+        <button class="btn-cancel" disabled style="flex:none;opacity:.5;cursor:not-allowed;">✉️ Conectar Gmail (próximamente)</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="modal-field">
+      <label>Tus bancos</label>
+      <input type="text" id="bank-search" placeholder="Busca tu banco...">
+      <div class="modal-list" id="bank-list" style="margin-top:10px;"></div>
+      <div class="modal-actions">
+        <button class="btn-save" id="save-banks-btn" style="flex:none;">Guardar bancos</button>
+        <span id="save-banks-status" style="align-self:center;font-size:12.5px;color:var(--green-600);font-weight:700;"></span>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:6px;">
+      <button class="btn-cancel" id="closeConfigModalBtn" style="width:100%;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="budgetModalOverlay">
   <div class="modal-box budget-modal-box">
     <h4>Presupuesto mensual</h4>
@@ -688,6 +721,7 @@ const SWATCH_PALETTE = ["#1a5da8","#2472c8","#0e2f5a","#5b93d3","#8fb8e8","#123a
   "#0891b2","#0d9488","#7c3aed","#c026d3","#dc2626","#ea580c","#65a30d","#475569"];
 
 let CAT_META = {};
+let EMAIL_ACCOUNTS = [];
 
 let selectedIcon = ICON_PALETTE[0];
 
@@ -1671,6 +1705,154 @@ document.addEventListener("click", e=>{
 });
 
 /* =========================================================
+   CONFIGURACIÓN (correos conectados + bancos a leer)
+   ========================================================= */
+async function loadEmailAccounts(){
+  const wrap = document.getElementById("connected-accounts-list");
+  wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">Cargando…</div>`;
+  try {
+    EMAIL_ACCOUNTS = await api("/email-accounts");
+  } catch(err) {
+    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">No se pudieron cargar tus correos: ${err.message}</div>`;
+    return;
+  }
+
+  wrap.innerHTML = "";
+  if(!EMAIL_ACCOUNTS.length){
+    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">Aún no conectaste ningún correo.</div>`;
+    return;
+  }
+  EMAIL_ACCOUNTS.forEach(acc=>{
+    const icon = acc.provider === "OUTLOOK" ? "📧" : "✉️";
+    const row = document.createElement("div");
+    row.className = "cat-item";
+    row.innerHTML = `
+      <div class="ic">${icon}</div>
+      <span class="nm">${acc.emailAddress}</span>
+      <button class="icon-btn danger disconnect-account-btn" data-id="${acc.id}" title="Desconectar">🗑</button>
+    `;
+    wrap.appendChild(row);
+  });
+
+  wrap.querySelectorAll(".disconnect-account-btn").forEach(btn=>{
+    btn.addEventListener("click", async function(){
+      if(!confirm("¿Desconectar este correo? Dejaremos de leer sus notificaciones bancarias.")) return;
+      this.disabled = true;
+      try {
+        await api(`/email-accounts/${this.dataset.id}`, { method:"DELETE" });
+        await loadEmailAccounts();
+        await loadBankCatalog();
+      } catch(err) {
+        alert("No se pudo desconectar el correo: " + err.message);
+        this.disabled = false;
+      }
+    });
+  });
+}
+
+async function loadBankCatalog(){
+  const wrap = document.getElementById("bank-list");
+  wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">Cargando…</div>`;
+  let banks;
+  try {
+    banks = await api("/banks");
+  } catch(err) {
+    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">No se pudo cargar el catálogo de bancos: ${err.message}</div>`;
+    return;
+  }
+
+  const activeAccount = EMAIL_ACCOUNTS[0];
+  const selectedKeys = new Set((activeAccount?.bankSenders || []).map(b=>b.bankKey));
+
+  wrap.innerHTML = "";
+  banks.forEach(bank=>{
+    const row = document.createElement("label");
+    row.className = "cat-item";
+    row.style.cursor = "pointer";
+    row.dataset.name = bank.displayName.toLowerCase();
+    row.innerHTML = `
+      <input type="checkbox" class="bank-checkbox" value="${bank.bankKey}" ${selectedKeys.has(bank.bankKey) ? "checked" : ""}>
+      <span class="nm">${bank.displayName}</span>
+    `;
+    wrap.appendChild(row);
+  });
+}
+
+function openConfigModal(){
+  document.getElementById("configModalOverlay").classList.add("open");
+  loadEmailAccounts().then(loadBankCatalog);
+}
+function closeConfigModal(){
+  document.getElementById("configModalOverlay").classList.remove("open");
+}
+document.getElementById("openConfigModalBtn").addEventListener("click", openConfigModal);
+document.getElementById("closeConfigModalBtn").addEventListener("click", closeConfigModal);
+document.getElementById("configModalOverlay").addEventListener("click", e=>{
+  if(e.target.id === "configModalOverlay") closeConfigModal();
+});
+
+document.getElementById("connect-outlook-btn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("connect-outlook-btn");
+  btn.disabled = true;
+  try {
+    const data = await api("/email-accounts/auth/microsoft");
+    window.location.href = data.url;
+  } catch(err) {
+    alert("No se pudo iniciar la conexión con Outlook: " + err.message);
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("save-banks-btn").addEventListener("click", async ()=>{
+  const account = EMAIL_ACCOUNTS[0];
+  if(!account){
+    alert("Conecta un correo primero para poder elegir tus bancos.");
+    return;
+  }
+  const bankKeys = Array.from(document.querySelectorAll(".bank-checkbox:checked")).map(cb=>cb.value);
+  if(!bankKeys.length){
+    alert("Selecciona al menos un banco.");
+    return;
+  }
+  const btn = document.getElementById("save-banks-btn");
+  btn.disabled = true;
+  try {
+    await api(`/email-accounts/${account.id}/banks`, {
+      method: "POST",
+      body: JSON.stringify({ bankKeys }),
+    });
+    const status = document.getElementById("save-banks-status");
+    status.textContent = "✓ Guardado";
+    setTimeout(()=>{ status.textContent = ""; }, 2500);
+    btn.disabled = false;
+    // Recargamos en segundo plano, sin bloquear la confirmación visual.
+    loadEmailAccounts();
+    loadBankCatalog();
+  } catch(err) {
+    alert("No se pudieron guardar los bancos: " + err.message);
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("bank-search").addEventListener("input", e=>{
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll("#bank-list .cat-item").forEach(row=>{
+    row.style.display = row.dataset.name.includes(q) ? "" : "none";
+  });
+});
+
+function checkEmailConnectedRedirect(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get("email_connected") === "1"){
+    params.delete("email_connected");
+    const rest = params.toString();
+    const newUrl = window.location.pathname + (rest ? "?"+rest : "") + window.location.hash;
+    history.replaceState({}, "", newUrl);
+    openConfigModal();
+  }
+}
+
+/* =========================================================
    EXPORT TO EXCEL
    ========================================================= */
 document.getElementById("exportBtn").addEventListener("click", ()=>{
@@ -1768,6 +1950,7 @@ async function enterApp(){
   document.getElementById("appRoot").hidden = false;
   try {
     await loadData();
+    checkEmailConnectedRedirect();
   } catch(err) {
     // Token inválido o vencido: regresamos al login
     localStorage.clear();
