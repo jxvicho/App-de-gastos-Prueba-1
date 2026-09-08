@@ -25,7 +25,16 @@ app.use(
   })
 );
 app.use(cors({ origin: env.DASHBOARD_BASE_URL, credentials: true }));
-app.use(express.json());
+app.use(
+  express.json({
+    // Guardamos el buffer crudo del body: el webhook de WhatsApp firma el
+    // payload exacto que Meta envía, y validar contra el JSON re-serializado
+    // por Express (distinto orden de keys/espacios) rompería la firma HMAC.
+    verify: (req, _res, buf) => {
+      (req as express.Request).rawBody = buf;
+    },
+  })
+);
 
 app.use("/api", apiRouter);
 

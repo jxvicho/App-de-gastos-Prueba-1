@@ -6,6 +6,7 @@ import { transactionsRouter } from "./transactions";
 import { budgetsRouter } from "./budgets";
 import { emailAccountsRouter } from "./emailAccounts";
 import { banksRouter } from "./banks";
+import { whatsappRouter } from "./whatsapp";
 
 export const apiRouter = Router();
 
@@ -16,5 +17,4 @@ apiRouter.use("/transactions", transactionsRouter);
 apiRouter.use("/budgets", budgetsRouter);
 apiRouter.use("/email-accounts", emailAccountsRouter);
 apiRouter.use("/banks", banksRouter);
-
-// Fase 3 (próxima): apiRouter.use("/whatsapp", whatsappWebhookRouter);
+apiRouter.use("/whatsapp", whatsappRouter);
