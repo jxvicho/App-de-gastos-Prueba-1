@@ -580,6 +580,7 @@
         <input class="search" id="searchInput" placeholder="Buscar por nombre o comercio…">
         <button class="manage-cat-btn" id="openCatModalBtn">⚙ Categorías</button>
         <button class="manage-cat-btn" id="openConfigModalBtn">🔗 Configuración</button>
+        <button class="manage-cat-btn" id="openRulesModalBtn">📏 Reglas</button>
       </div>
     </div>
     <div class="chips" id="chipRow"></div>
@@ -680,6 +681,45 @@
 
     <div class="modal-actions" style="margin-top:6px;">
       <button class="btn-cancel" id="closeConfigModalBtn" style="width:100%;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="rulesModalOverlay">
+  <div class="modal-box">
+    <h4>Reglas de categorización</h4>
+    <div class="modal-sub">Cuando un movimiento nuevo coincide con una regla, Gastia lo categoriza directo — tienen prioridad sobre lo que sugiera la IA.</div>
+    <div class="modal-sub" id="rulesActiveCount" style="margin-top:-10px;color:var(--blue-700);font-weight:700;"></div>
+
+    <div class="modal-list" id="rulesList"></div>
+
+    <div class="divider"></div>
+    <div class="new-cat-toggle" id="newRuleToggle">＋ Crear nueva regla</div>
+    <div class="new-cat-form" id="newRuleForm">
+      <div class="modal-field">
+        <label>Cuándo</label>
+        <select id="newRuleType">
+          <option value="MERCHANT_CONTAINS">El comercio contiene…</option>
+          <option value="AMOUNT_GREATER_THAN">El monto es mayor a…</option>
+          <option value="AMOUNT_LESS_THAN">El monto es menor a…</option>
+          <option value="AMOUNT_EQUALS">El monto es igual a…</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label id="newRuleValueLabel">Texto a buscar</label>
+        <input type="text" id="newRuleValue" placeholder="Ej. Burger King">
+      </div>
+      <div class="modal-field">
+        <label>Mover a categoría:</label>
+        <select id="newRuleCategory"></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-save" id="createRuleBtn" style="flex:none;width:100%;">Crear regla</button>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn-cancel" id="closeRulesModalBtn" style="width:100%;">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1851,6 +1891,192 @@ function checkEmailConnectedRedirect(){
     openConfigModal();
   }
 }
+
+/* =========================================================
+   REGLAS DE CATEGORIZACIÓN
+   ========================================================= */
+const RULE_TYPE_LABELS = {
+  MERCHANT_CONTAINS: (v) => `El comercio contiene "${v}"`,
+  AMOUNT_GREATER_THAN: (v) => `El monto es mayor a ${fmt(Number(v))}`,
+  AMOUNT_LESS_THAN: (v) => `El monto es menor a ${fmt(Number(v))}`,
+  AMOUNT_EQUALS: (v) => `El monto es igual a ${fmt(Number(v))}`,
+};
+const RULE_TYPE_ICON = {
+  MERCHANT_CONTAINS: "🏪",
+  AMOUNT_GREATER_THAN: "💰",
+  AMOUNT_LESS_THAN: "💰",
+  AMOUNT_EQUALS: "💰",
+};
+
+async function loadCategoryRules(){
+  const wrap = document.getElementById("rulesList");
+  wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">Cargando…</div>`;
+  let rules;
+  try {
+    rules = await api("/category-rules");
+  } catch(err) {
+    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">No se pudieron cargar las reglas: ${err.message}</div>`;
+    return;
+  }
+
+  const activeCount = rules.filter(r=>r.isActive).length;
+  document.getElementById("rulesActiveCount").textContent =
+    rules.length ? `${activeCount} regla${activeCount===1?"":"s"} activa${activeCount===1?"":"s"} de ${rules.length} en total` : "";
+
+  wrap.innerHTML = "";
+  if(!rules.length){
+    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">Aún no tienes reglas. Crea una abajo, o pídeselo al bot por WhatsApp (ej. "todo gasto en Burger King va a Alimentación").</div>`;
+    return;
+  }
+
+  rules.forEach(rule=>{
+    const catMeta = CAT_META[rule.categoryId];
+    const catLabel = catMeta ? `${catMeta.icon} ${catMeta.label}` : (rule.category ? rule.category.name : "Sin categoría");
+    const criterion = (RULE_TYPE_LABELS[rule.type] || (v=>v))(rule.value);
+    const sourceTag = rule.source === "WHATSAPP" ? "📲 WhatsApp" : "🖥️ Dashboard";
+
+    const row = document.createElement("div");
+    row.className = "cat-item";
+    row.innerHTML = `
+      <div class="ic">${RULE_TYPE_ICON[rule.type] || "🏷️"}</div>
+      <span class="nm">${criterion} → ${catLabel}<br><span style="font-weight:400;color:var(--ink-faint);font-size:11px;">${sourceTag}</span></span>
+      <label class="toggle-wrap ${rule.isActive?"on":""}" data-id="${rule.id}" style="cursor:pointer;">
+        <span class="toggle"></span>
+      </label>
+      <button class="icon-btn edit-rule-btn" data-id="${rule.id}" title="Editar regla">✏️</button>
+      <button class="icon-btn danger del-rule-btn" data-id="${rule.id}" title="Eliminar regla">🗑</button>
+    `;
+    row.querySelector(".edit-rule-btn").addEventListener("click", ()=> startEditRule(rule));
+    wrap.appendChild(row);
+  });
+
+  wrap.querySelectorAll(".toggle-wrap").forEach(toggle=>{
+    toggle.addEventListener("click", async function(){
+      const id = this.dataset.id;
+      const nowOn = !this.classList.contains("on");
+      this.classList.toggle("on", nowOn);
+      try {
+        await api(`/category-rules/${id}`, { method:"PATCH", body: JSON.stringify({ isActive: nowOn }) });
+        await loadCategoryRules();
+      } catch(err) {
+        this.classList.toggle("on", !nowOn);
+        alert("No se pudo actualizar la regla: " + err.message);
+      }
+    });
+  });
+
+  wrap.querySelectorAll(".del-rule-btn").forEach(btn=>{
+    btn.addEventListener("click", async function(){
+      if(!confirm("¿Eliminar esta regla? Los movimientos ya categorizados no cambian, solo deja de aplicarse a los nuevos.")) return;
+      this.disabled = true;
+      try {
+        await api(`/category-rules/${this.dataset.id}`, { method:"DELETE" });
+        await loadCategoryRules();
+      } catch(err) {
+        alert("No se pudo eliminar la regla: " + err.message);
+        this.disabled = false;
+      }
+    });
+  });
+}
+
+function populateRuleCategorySelect(){
+  const select = document.getElementById("newRuleCategory");
+  select.innerHTML = Object.entries(CAT_META)
+    .map(([key, meta])=> `<option value="${key}">${meta.icon} ${meta.label}</option>`)
+    .join("");
+}
+
+let editingRuleId = null;
+
+function resetRuleForm(){
+  editingRuleId = null;
+  document.getElementById("newRuleValue").value = "";
+  document.getElementById("newRuleType").value = "MERCHANT_CONTAINS";
+  document.getElementById("newRuleType").dispatchEvent(new Event("change"));
+  document.getElementById("createRuleBtn").textContent = "Crear regla";
+}
+
+function startEditRule(rule){
+  editingRuleId = rule.id;
+  document.getElementById("newRuleType").value = rule.type;
+  document.getElementById("newRuleType").dispatchEvent(new Event("change"));
+  document.getElementById("newRuleValue").value = rule.value;
+  document.getElementById("newRuleCategory").value = rule.categoryId;
+  document.getElementById("createRuleBtn").textContent = "Guardar cambios";
+  document.getElementById("newRuleForm").classList.add("open");
+  document.getElementById("newRuleValue").scrollIntoView({ behavior:"smooth", block:"center" });
+}
+
+function openRulesModal(){
+  document.getElementById("newRuleForm").classList.remove("open");
+  populateRuleCategorySelect();
+  resetRuleForm();
+  document.getElementById("rulesModalOverlay").classList.add("open");
+  loadCategoryRules();
+}
+function closeRulesModal(){
+  document.getElementById("rulesModalOverlay").classList.remove("open");
+}
+document.getElementById("openRulesModalBtn").addEventListener("click", openRulesModal);
+document.getElementById("closeRulesModalBtn").addEventListener("click", closeRulesModal);
+document.getElementById("rulesModalOverlay").addEventListener("click", e=>{
+  if(e.target.id === "rulesModalOverlay") closeRulesModal();
+});
+document.getElementById("newRuleToggle").addEventListener("click", ()=>{
+  const form = document.getElementById("newRuleForm");
+  if(editingRuleId){
+    // Ya estaba editando una regla — "＋ Crear nueva regla" siempre vuelve a modo creación.
+    resetRuleForm();
+    form.classList.add("open");
+  } else {
+    form.classList.toggle("open");
+  }
+});
+document.getElementById("newRuleType").addEventListener("change", function(){
+  document.getElementById("newRuleValueLabel").textContent =
+    this.value === "MERCHANT_CONTAINS" ? "Texto a buscar en el comercio" : "Monto (S/)";
+  document.getElementById("newRuleValue").placeholder =
+    this.value === "MERCHANT_CONTAINS" ? "Ej. Burger King" : "Ej. 100";
+  document.getElementById("newRuleValue").type = this.value === "MERCHANT_CONTAINS" ? "text" : "number";
+});
+document.getElementById("createRuleBtn").addEventListener("click", async ()=>{
+  const type = document.getElementById("newRuleType").value;
+  const value = document.getElementById("newRuleValue").value.trim();
+  const categoryId = document.getElementById("newRuleCategory").value;
+
+  if(!value){
+    document.getElementById("newRuleValue").focus();
+    return;
+  }
+  if(type !== "MERCHANT_CONTAINS" && isNaN(parseFloat(value))){
+    alert("El valor debe ser un número para reglas de monto.");
+    return;
+  }
+
+  const btn = document.getElementById("createRuleBtn");
+  btn.disabled = true;
+  try {
+    if(editingRuleId){
+      await api(`/category-rules/${editingRuleId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ type, value, categoryId }),
+      });
+    } else {
+      await api("/category-rules", {
+        method: "POST",
+        body: JSON.stringify({ type, value, categoryId }),
+      });
+    }
+    resetRuleForm();
+    document.getElementById("newRuleForm").classList.remove("open");
+    await loadCategoryRules();
+  } catch(err) {
+    alert(`No se pudo ${editingRuleId ? "guardar los cambios de" : "crear"} la regla: ` + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 /* =========================================================
    EXPORT TO EXCEL
