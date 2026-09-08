@@ -31,7 +31,7 @@ model User {
   categories        Category[]
   transactions      Transaction[]
   budgets           Budget[]
-  rules             Rule[]
+  categoryRules     CategoryRule[]
   recurringPayments RecurringPayment[]
   reminders         Reminder[]
   accountsCards     AccountCard[]
@@ -161,7 +161,7 @@ model Category {
 
   transactions      Transaction[]
   budgetCategories  BudgetCategory[]
-  rules             Rule[]
+  categoryRules     CategoryRule[]
 
   @@unique([userId, name])
   @@map("categories")
@@ -283,22 +283,38 @@ model RecurringPayment {
 }
 
 // ------------------------------------------------------------
-// REGLAS PERSONALIZADAS ("siempre que gaste en Starbucks, ponlo en Comida")
+// REGLAS DE CATEGORIZACIÓN AUTOMÁTICA (comercio o monto -> categoría),
+// creadas desde WhatsApp en lenguaje natural o desde el dashboard.
 // ------------------------------------------------------------
 
-model Rule {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  matchField    String // "merchant" | "description"
-  matchValue    String // ej. "Starbucks"
-  categoryId    String
-  category      Category @relation(fields: [categoryId], references: [id])
-  createdFromText String? // el mensaje original de WhatsApp que generó la regla, para trazabilidad
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
+enum RuleType {
+  MERCHANT_CONTAINS
+  AMOUNT_GREATER_THAN
+  AMOUNT_LESS_THAN
+  AMOUNT_EQUALS
+}
 
-  @@map("rules")
+enum RuleSource {
+  WHATSAPP
+  DASHBOARD
+}
+
+model CategoryRule {
+  id         String     @id @default(uuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       RuleType
+  // MERCHANT_CONTAINS: texto a buscar en el comercio (case/tilde-insensitive).
+  // AMOUNT_*: el número serializado como string, ej. "50.00" — se parsea al evaluar.
+  value      String
+  categoryId String
+  category   Category   @relation(fields: [categoryId], references: [id])
+  isActive   Boolean    @default(true)
+  source     RuleSource @default(DASHBOARD)
+  createdAt  DateTime   @default(now())
+
+  @@index([userId, isActive])
+  @@map("category_rules")
 }
 
 // ------------------------------------------------------------
