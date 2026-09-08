@@ -213,9 +213,21 @@ model Transaction {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
+  // wamid del último mensaje de notificación de WhatsApp mandado para esta
+  // transacción ("¿Lo anotamos?"). Permite mapear la respuesta del usuario
+  // (context.id del mensaje entrante) a esta transacción exacta, en vez de
+  // asumir que se refiere a la más reciente pendiente.
+  lastNotificationMessageId String?
+
+  // Borrado lógico: si tiene fecha, el movimiento se considera "eliminado"
+  // y se excluye de resúmenes/listados/identificación, pero el status
+  // (ej. CONFIRMED) y el resto del historial quedan intactos y es reversible.
+  deletedAt DateTime?
+
   @@unique([userId, rawEmailId])
   @@index([userId, occurredAt])
   @@index([userId, status])
+  @@index([lastNotificationMessageId])
   @@map("transactions")
 }
 
