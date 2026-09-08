@@ -34,6 +34,31 @@ categoriesRouter.post(
       throw new AppError(parsed.error.issues[0].message, 422);
     }
 
+    // El nombre es único por usuario (userId, name) — eliminar una categoría
+    // es un soft-delete (isArchived), así que su nombre sigue "ocupado". Si
+    // existe una archivada con el mismo nombre, se reactiva en vez de
+    // intentar crear una fila nueva (que chocaría con ese índice único y
+    // daría un 500 genérico).
+    const existing = await prisma.category.findFirst({
+      where: { userId: req.userId, name: parsed.data.name },
+    });
+
+    if (existing) {
+      if (!existing.isArchived) {
+        throw new AppError("Ya tienes una categoría con ese nombre", 409);
+      }
+      const reactivated = await prisma.category.update({
+        where: { id: existing.id },
+        data: {
+          isArchived: false,
+          icon: parsed.data.icon ?? existing.icon,
+          colorHex: parsed.data.colorHex ?? existing.colorHex,
+        },
+      });
+      res.status(201).json(reactivated);
+      return;
+    }
+
     const category = await prisma.category.create({
       data: { ...parsed.data, userId: req.userId! },
     });
@@ -48,6 +73,28 @@ categoriesRouter.delete(
       where: { id: req.params.id, userId: req.userId },
     });
     if (!category) throw new AppError("Categoría no encontrada", 404);
+
+    // Antes de archivarla, reasignamos sus transacciones a "Otros comercios"
+    // (una de las categorías base) — así no quedan huérfanas ni referenciando
+    // una categoría archivada. Aplica sin importar por dónde se elimine
+    // (dashboard u otro camino futuro), porque vive acá en la ruta/servicio,
+    // no en el frontend.
+    const fallbackCategory = await prisma.category.findFirst({
+      where: { userId: req.userId, name: "Otros comercios", isArchived: false },
+    });
+    if (!fallbackCategory) {
+      throw new AppError(
+        'No se encontró la categoría "Otros comercios" para reasignar sus movimientos. No se eliminó nada — contacta soporte.',
+        500
+      );
+    }
+
+    if (fallbackCategory.id !== category.id) {
+      await prisma.transaction.updateMany({
+        where: { userId: req.userId, categoryId: category.id },
+        data: { categoryId: fallbackCategory.id },
+      });
+    }
 
     await prisma.category.update({
       where: { id: category.id },
