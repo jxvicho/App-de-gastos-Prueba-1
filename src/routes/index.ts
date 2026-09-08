@@ -7,6 +7,7 @@ import { budgetsRouter } from "./budgets";
 import { emailAccountsRouter } from "./emailAccounts";
 import { banksRouter } from "./banks";
 import { whatsappRouter } from "./whatsapp";
+import { categoryRulesRouter } from "./categoryRules";
 
 export const apiRouter = Router();
 
@@ -18,3 +19,4 @@ apiRouter.use("/budgets", budgetsRouter);
 apiRouter.use("/email-accounts", emailAccountsRouter);
 apiRouter.use("/banks", banksRouter);
 apiRouter.use("/whatsapp", whatsappRouter);
+apiRouter.use("/category-rules", categoryRulesRouter);
