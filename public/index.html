@@ -2116,6 +2116,12 @@ async function api(path, options = {}) {
       ...options.headers,
     },
   });
+  // 204 No Content (DELETE, típicamente) no trae body — intentar res.json()
+  // igual lanza un error de parseo aunque la petición haya sido exitosa.
+  if (res.status === 204) {
+    if (!res.ok) throw new Error(`Error ${res.status}`);
+    return null;
+  }
   let data = {};
   try { data = await res.json(); }
   catch { throw new Error(`Respuesta inesperada del servidor (código ${res.status})`); }
