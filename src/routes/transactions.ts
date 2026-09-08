@@ -28,6 +28,7 @@ transactionsRouter.get(
         userId: req.userId,
         categoryId,
         status,
+        deletedAt: null,
         occurredAt: {
           gte: from ? new Date(from) : undefined,
           lte: to ? new Date(to) : undefined,
