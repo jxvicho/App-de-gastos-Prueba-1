@@ -8,7 +8,7 @@ export const emailSyncWorker = new Worker(
   async () => {
     const accounts = await prisma.emailAccount.findMany({
       where: { isActive: true, provider: "OUTLOOK" },
-      include: { bankSenders: true },
+      include: { bankSenders: true, user: true },
     });
 
     console.log(`📬 Sincronizando ${accounts.length} cuenta(s) de correo...`);

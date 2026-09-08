@@ -1,9 +1,10 @@
 import { Client } from "@microsoft/microsoft-graph-client";
-import { Prisma, type EmailAccount, type BankSender } from "@prisma/client";
+import { Prisma, type EmailAccount, type BankSender, type User } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { decrypt, encrypt } from "../utils/crypto";
 import { getMicrosoftAccessToken } from "./microsoftOAuth";
 import { extractTransactionFromEmail } from "./gemini";
+import { notifyPendingTransaction } from "./whatsappBot";
 
 const FIRST_SYNC_LOOKBACK_DAYS = 7;
 
@@ -15,7 +16,7 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-type EmailAccountWithSenders = EmailAccount & { bankSenders: BankSender[] };
+type EmailAccountWithSenders = EmailAccount & { bankSenders: BankSender[]; user: User };
 
 export async function syncOutlookAccount(account: EmailAccountWithSenders): Promise<void> {
   if (account.bankSenders.length === 0) return;
@@ -95,7 +96,7 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
     if (!extracted.isTransaction || !extracted.amount) continue;
 
     try {
-      await prisma.transaction.create({
+      const created = await prisma.transaction.create({
         data: {
           userId: account.userId,
           type: extracted.type ?? "EXPENSE",
@@ -114,6 +115,7 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
         },
       });
       createdCount++;
+      await notifyPendingTransaction(created, account.user.phoneNumber);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
         console.log("Transacción duplicada omitida (correo ya procesado)");
