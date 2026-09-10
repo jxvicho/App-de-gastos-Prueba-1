@@ -2,7 +2,7 @@ import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { sendInteractiveButtons, sendTextMessage } from "./whatsapp";
 import { downloadWhatsappMedia } from "./whatsappMedia";
-import { extractTransferFromImage } from "./gemini";
+import { extractTransferFromImage, extractManualTransactionFromText } from "./gemini";
 import { sendWeeklyReportToUser } from "./weeklyReportSender";
 import { currentWeekStart } from "./weeklyReportData";
 import { DEFAULT_CATEGORIES } from "../utils/defaultCategories";
@@ -760,6 +760,20 @@ const CREATE_RULE_TRIGGER_PHRASES = [
 
 function detectCreateRuleIntent(normalizedText: string): boolean {
   return CREATE_RULE_TRIGGER_PHRASES.some((phrase) => normalizedText.includes(phrase));
+}
+
+/**
+ * "anotar/anota/registra/registrar/agregar" AL INICIO del mensaje +
+ * "gasto(s)"/"ingreso(s)" -> crear una transacción manualmente. Se chequea
+ * DESPUÉS de detectCreateRuleIntent (esa es más específica y gana en caso
+ * de ambigüedad, ej. "todo gasto en X va a Y" no empieza con estos verbos
+ * de todos modos). Devuelve null si no matchea — nunca se adivina el tipo.
+ */
+function detectManualTransactionIntent(normalizedText: string): { type: "EXPENSE" | "INCOME" } | null {
+  if (!/^(anotar|anota|registra|registrar|agregar)\b/.test(normalizedText)) return null;
+  if (/\bgastos?\b/.test(normalizedText)) return { type: "EXPENSE" };
+  if (/\bingresos?\b/.test(normalizedText)) return { type: "INCOME" };
+  return null;
 }
 
 /** "...gasto hacia/en/a/de STARBUCKS, colócalo..." -> "starbucks". */
@@ -1786,6 +1800,81 @@ export async function handleIncomingMessage(
       });
     }
 
+    return;
+  }
+
+  // 0.05) Intención de CREAR UNA TRANSACCIÓN manualmente por texto libre
+  // ("anotar gasto de 10 dólares en pago a suscripción de github"). Ya pasó
+  // la detección de CREAR REGLA (0), así que un mensaje ambiguo entre las
+  // dos ya se resolvió a favor de la regla. IMPORTANTE: esto SIEMPRE pasa
+  // por el mismo flujo de PENDING_CONFIRMATION + notifyPendingTransaction
+  // que ya usa todo lo demás — nunca se anuncia "¡listo, registrado!" sin
+  // haber creado antes la fila en la base de datos.
+  const manualTxnIntent = detectManualTransactionIntent(normalized);
+  if (manualTxnIntent) {
+    console.log(`WhatsApp: intención de CREAR TRANSACCIÓN MANUAL (${manualTxnIntent.type}) detectada de ${from}.`);
+    const categoriesForManual = await getCategories(user.id);
+    const categoryNamesForManual = categoriesForManual.map((c) => c.name);
+
+    let extractedManual;
+    try {
+      extractedManual = await extractManualTransactionFromText(text, categoryNamesForManual);
+    } catch (err) {
+      console.error("Error extrayendo transacción manual con Gemini:", err);
+      await sendTextMessage(
+        from,
+        'No pude leer los datos de ese movimiento. ¿Puedes intentar de nuevo? Por ejemplo: "anotar gasto de 20 soles en almuerzo".'
+      );
+      return;
+    }
+
+    if (!extractedManual.isValidCommand || !extractedManual.amount) {
+      await sendTextMessage(
+        from,
+        'No encontré el monto del movimiento. Decime algo como "anotar gasto de 20 soles en almuerzo" o "anotar ingreso de 100 soles de mi papá".'
+      );
+      return;
+    }
+
+    // Reglas del usuario > sugerencia de Gemini > sin categoría.
+    const activeRulesForManual = await prisma.categoryRule.findMany({
+      where: { userId: user.id, isActive: true },
+      include: { category: { select: { id: true, name: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    let manualCategory: { id: string; name: string } | undefined;
+    for (const rule of activeRulesForManual) {
+      if (transactionMatchesRule(rule, { merchant: extractedManual.merchant ?? null, amount: extractedManual.amount })) {
+        manualCategory = rule.category;
+        break;
+      }
+    }
+    if (!manualCategory && extractedManual.suggestedCategory) {
+      manualCategory = categoriesForManual.find((c) => normalizeText(c.name) === normalizeText(extractedManual!.suggestedCategory!));
+    }
+
+    const createdManual = await prisma.transaction.create({
+      data: {
+        userId: user.id,
+        type: manualTxnIntent.type,
+        amount: extractedManual.amount,
+        currency: extractedManual.currency ?? "PEN",
+        merchant: extractedManual.merchant,
+        description: extractedManual.description,
+        categoryId: manualCategory?.id,
+        source: "WHATSAPP_MANUAL",
+        status: "PENDING_CONFIRMATION",
+        occurredAt: new Date(),
+      },
+    });
+
+    console.log(
+      `WhatsApp: transacción manual creada -> ${createdManual.id} (${manualTxnIntent.type}, ${createdManual.currency} ${extractedManual.amount}, categoría: ${manualCategory?.name ?? "ninguna"})`
+    );
+    await notifyPendingTransaction(
+      { ...createdManual, category: manualCategory ? { name: manualCategory.name } : null },
+      user.phoneNumber
+    );
     return;
   }
 

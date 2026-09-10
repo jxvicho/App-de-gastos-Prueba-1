@@ -173,3 +173,90 @@ Si la imagen NO es una captura de una operación bancaria (ej. es una foto de ot
     return { isTransferScreenshot: false };
   }
 }
+
+export interface ExtractedManualTransaction {
+  isValidCommand: boolean;
+  amount?: number;
+  currency?: string;
+  merchant?: string;
+  description?: string;
+  suggestedCategory?: string;
+}
+
+function buildManualTransactionSchema(categoryNames: string[]) {
+  const properties: Record<string, unknown> = {
+    isValidCommand: {
+      type: "boolean",
+      description: "true solo si el mensaje trae un monto numérico claro para registrar el movimiento",
+    },
+    amount: { type: "number" },
+    currency: {
+      type: "string",
+      description:
+        'Código de moneda: "USD" si el mensaje menciona dólares/USD/$, "PEN" si menciona soles/PEN/S/. Si no menciona ninguna, "PEN".',
+    },
+    merchant: { type: "string", description: "A quién o a qué comercio se refiere el movimiento (persona, servicio, comercio)" },
+    description: { type: "string", description: "Descripción corta y clara del movimiento" },
+  };
+
+  if (categoryNames.length > 0) {
+    properties.suggestedCategory = {
+      type: "string",
+      enum: categoryNames,
+      description: "La categoría más adecuada para este movimiento, elegida de la lista dada",
+    };
+  }
+
+  return {
+    type: "object",
+    properties,
+    required: ["isValidCommand"],
+  } as const;
+}
+
+/**
+ * Extrae los datos de un movimiento que el usuario pidió anotar manualmente
+ * por WhatsApp (ej. "anotar gasto de 10 dólares en pago a suscripción de
+ * github") — el tipo EXPENSE/INCOME ya se determinó por la frase disparadora
+ * antes de llamar a esto (ver detectManualTransactionIntent en
+ * whatsappBot.ts), así que acá solo se extrae monto/moneda/a quién/categoría.
+ * isValidCommand en false (o sin amount) significa que falta el dato
+ * esencial (el monto) — el caller debe pedirlo, nunca inventarlo.
+ */
+export async function extractManualTransactionFromText(
+  commandText: string,
+  categoryNames: string[] = []
+): Promise<ExtractedManualTransaction> {
+  const categoryInstructions =
+    categoryNames.length > 0
+      ? `\n\nAdemás, sugiere la categoría más adecuada en "suggestedCategory", eligiendo EXACTAMENTE una de estas opciones (tal como están escritas): ${categoryNames.join(", ")}.`
+      : "";
+
+  const prompt = `Eres un extractor de datos financieros. Un usuario le pidió a un bot de finanzas personales que anote manualmente un movimiento, con este mensaje:
+
+"""
+${commandText}
+"""
+
+Extrae el monto, la moneda, y a quién o a qué se refiere el movimiento. isValidCommand debe ser true SOLO si el mensaje trae un monto numérico claro; si el mensaje no menciona ningún monto, responde con isValidCommand: false y nada más.${categoryInstructions}`;
+
+  const response = await ai.models.generateContent({
+    model: env.GEMINI_MODEL_EXTRACTION,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: buildManualTransactionSchema(categoryNames),
+      temperature: 0,
+    },
+  });
+
+  const text = response.text;
+  if (!text) return { isValidCommand: false };
+
+  try {
+    return JSON.parse(text) as ExtractedManualTransaction;
+  } catch {
+    console.error("Gemini devolvió un JSON inválido (transacción manual):", text);
+    return { isValidCommand: false };
+  }
+}
