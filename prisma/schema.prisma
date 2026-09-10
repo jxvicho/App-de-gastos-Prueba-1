@@ -248,6 +248,11 @@ model Budget {
 
   categories BudgetCategory[]
 
+  // Antes no había ninguna restricción única real (la ruta la emulaba en
+  // código con un findFirst) — con presupuestos separados por moneda
+  // (Parte 3), un mismo usuario/periodo puede tener un Budget en PEN y otro
+  // en USD, pero no dos en la MISMA moneda para el mismo periodo.
+  @@unique([userId, scope, periodStart, periodEnd, currency])
   @@map("budgets")
 }
 
