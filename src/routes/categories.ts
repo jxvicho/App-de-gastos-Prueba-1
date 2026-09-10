@@ -20,6 +20,15 @@ categoriesRouter.get(
   })
 );
 
+// Rojo por defecto para categorías nuevas que no traigan color explícito —
+// las 9 categorías base (ver src/utils/defaultCategories.ts) no usan rojo
+// en ningún tono, así una personalizada se distingue de un vistazo. El
+// dashboard hoy siempre manda su propio colorHex (ver SWATCH_PALETTE en
+// public/index.html, también en tonos rojos), así que esto es la red de
+// seguridad para cualquier otro cliente que cree una categoría sin
+// especificar color (ej. un futuro flujo por WhatsApp).
+const DEFAULT_CUSTOM_CATEGORY_COLOR = "#E53935";
+
 const createCategorySchema = z.object({
   name: z.string().min(1).max(50),
   icon: z.string().optional(),
@@ -60,7 +69,7 @@ categoriesRouter.post(
     }
 
     const category = await prisma.category.create({
-      data: { ...parsed.data, userId: req.userId! },
+      data: { ...parsed.data, colorHex: parsed.data.colorHex ?? DEFAULT_CUSTOM_CATEGORY_COLOR, userId: req.userId! },
     });
     res.status(201).json(category);
   })

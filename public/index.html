@@ -753,12 +753,16 @@ const ICON_PALETTE = [
   "🛒","🍔","🍕","🎂","🐶","🐱","⚽","🎵","💊","🛠️","📦","🏥","🚌","🚕","🛫","👶","💼","🎨","📷","🧸","🚲","🎗️","🧻","🧼",
   "🖥️","🎧","📺","🛁","🧹","🚿","🪑","🧯","🔋","💳","🧧","🎯","📶","🛡️","⛽","🚦","🏦","🧵","🧦","🍷"
 ];
+// El rojo queda reservado para categorías personalizadas (las 9 por defecto
+// no usan rojo en ningún tono, ver src/utils/defaultCategories.ts) — así
+// una categoría nueva del usuario se distingue de un vistazo. Varios tonos
+// de rojo/coral para que categorías nuevas sucesivas no queden idénticas.
 function nextAutoColor(){
   const used = Object.values(CAT_META).length;
   return SWATCH_PALETTE[used % SWATCH_PALETTE.length];
 }
-const SWATCH_PALETTE = ["#1a5da8","#2472c8","#0e2f5a","#5b93d3","#8fb8e8","#123a6b",
-  "#0891b2","#0d9488","#7c3aed","#c026d3","#dc2626","#ea580c","#65a30d","#475569"];
+const SWATCH_PALETTE = ["#E57373","#EF5350","#E53935","#C62828","#D84315","#FF7043",
+  "#F4511E","#B71C1C","#EF9A9A","#FF8A65"];
 
 let CAT_META = {};
 let EMAIL_ACCOUNTS = [];

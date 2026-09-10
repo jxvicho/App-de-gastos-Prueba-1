@@ -4,13 +4,13 @@ export const DEFAULT_CATEGORIES: {
   colorHex: string;
   excludeFromTotals?: boolean;
 }[] = [
-  { name: "Yape / Plin", icon: "📱", colorHex: "#1a5da8" },
-  { name: "Alimentación", icon: "🍽️", colorHex: "#2472c8" },
-  { name: "Servicios y utilities", icon: "💡", colorHex: "#0e2f5a" },
-  { name: "Otros comercios", icon: "🛍️", colorHex: "#5b93d3" },
-  { name: "Transporte", icon: "🚗", colorHex: "#8fb8e8" },
-  { name: "Salud", icon: "🩺", colorHex: "#123a6b" },
-  { name: "Movimientos financieros", icon: "🏦", colorHex: "#a9bcd4" },
-  { name: "Ingresos", icon: "💰", colorHex: "#1a8a5e" },
-  { name: "No considerar", icon: "🚫", colorHex: "#c0392b", excludeFromTotals: true },
+  { name: "Yape / Plin", icon: "📱", colorHex: "#B7D4EF" },
+  { name: "Alimentación", icon: "🍽️", colorHex: "#F5CBA3" },
+  { name: "Servicios y utilities", icon: "💡", colorHex: "#D6C9EE" },
+  { name: "Otros comercios", icon: "🛍️", colorHex: "#D9D6CE" },
+  { name: "Transporte", icon: "🚗", colorHex: "#C7CBF0" },
+  { name: "Salud", icon: "🩺", colorHex: "#F3C6D9" },
+  { name: "Movimientos financieros", icon: "🏦", colorHex: "#DDD5CB" },
+  { name: "Ingresos", icon: "💰", colorHex: "#BFE3C9" },
+  { name: "No considerar", icon: "🚫", colorHex: "#C9D3E0", excludeFromTotals: true },
 ];
