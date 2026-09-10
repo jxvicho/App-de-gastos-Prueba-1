@@ -34,8 +34,12 @@ function roundedRect(ctx: SKRSContext2D, x: number, y: number, w: number, h: num
   ctx.closePath();
 }
 
-function money(amount: number): string {
-  return `S/ ${amount.toFixed(2)}`;
+function currencySymbol(currency: string): string {
+  return currency === "USD" ? "$" : "S/";
+}
+
+function money(amount: number, currency: string): string {
+  return `${currencySymbol(currency)} ${amount.toFixed(2)}`;
 }
 
 function drawText(
@@ -63,14 +67,15 @@ function drawSummaryCard(
   amount: number,
   changePct: number | null,
   changeIsGoodWhenNegative: boolean,
-  noDataLabel: string
+  noDataLabel: string,
+  currency: string
 ) {
   roundedRect(ctx, x, y, w, h, 24);
   ctx.fillStyle = COLOR_CARD_BG;
   ctx.fill();
 
   drawText(ctx, label, x + 28, y + 44, { size: 24, weight: "bold", color: COLOR_TEXT_SOFT });
-  drawText(ctx, money(amount), x + 28, y + 96, { size: 40, weight: "bold" });
+  drawText(ctx, money(amount, currency), x + 28, y + 96, { size: 40, weight: "bold" });
 
   if (amount === 0) {
     drawText(ctx, noDataLabel, x + 28, y + 136, { size: 20, color: COLOR_TEXT_SOFT });
@@ -104,23 +109,36 @@ function drawCategoryDonut(ctx: SKRSContext2D, x: number, y: number, w: number, 
     ctx.fill();
     drawText(ctx, "Sin gastos", cx, cy + 8, { size: 20, color: COLOR_TEXT_SOFT, align: "center" });
   } else {
-    let startAngle = -Math.PI / 2;
-    for (const c of data.categoryBreakdown) {
-      const slice = (c.amount / total) * Math.PI * 2;
+    if (data.categoryBreakdown.length === 1) {
+      // Con una sola categoría el "slice" ocupa el círculo completo (barrido
+      // de 2π). Skia (@napi-rs/canvas) no dibuja ese caso límite con el
+      // patrón moveTo(centro) + arc(inicio, inicio+2π) + closePath — normaliza
+      // los ángulos y el barrido efectivo queda en 0, así que el donut sale
+      // vacío. Con una sola categoría no hace falta "cuña": se rellena el
+      // círculo completo directamente con su color.
       ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, outerR, startAngle, startAngle + slice);
-      ctx.closePath();
-      ctx.fillStyle = c.colorHex;
+      ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+      ctx.fillStyle = data.categoryBreakdown[0].colorHex;
       ctx.fill();
-      startAngle += slice;
+    } else {
+      let startAngle = -Math.PI / 2;
+      for (const c of data.categoryBreakdown) {
+        const slice = (c.amount / total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, outerR, startAngle, startAngle + slice);
+        ctx.closePath();
+        ctx.fillStyle = c.colorHex;
+        ctx.fill();
+        startAngle += slice;
+      }
     }
     // Agujero del donut
     ctx.beginPath();
     ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
     ctx.fillStyle = COLOR_BG;
     ctx.fill();
-    drawText(ctx, money(total), cx, cy - 4, { size: 24, weight: "bold", align: "center" });
+    drawText(ctx, money(total, data.currency), cx, cy - 4, { size: 24, weight: "bold", align: "center" });
     drawText(ctx, "total", cx, cy + 22, { size: 16, color: COLOR_TEXT_SOFT, align: "center" });
   }
 
@@ -135,7 +153,7 @@ function drawCategoryDonut(ctx: SKRSContext2D, x: number, y: number, w: number, 
     ctx.fill();
     drawText(ctx, c.icon, listX + 34, rowY, { size: 24, font: EMOJI_FONT });
     drawText(ctx, c.name, listX + 76, rowY, { size: 22 });
-    drawText(ctx, money(c.amount), x + w, rowY, { size: 22, weight: "bold", align: "right" });
+    drawText(ctx, money(c.amount, data.currency), x + w, rowY, { size: 22, weight: "bold", align: "right" });
     rowY += rowH;
   });
 
@@ -159,7 +177,7 @@ function drawDayBars(ctx: SKRSContext2D, x: number, y: number, w: number, data: 
     const by = top + chartH - barH;
 
     if (isPeak) {
-      drawText(ctx, money(d.amount), bx + barW / 2, by - 14, { size: 18, weight: "bold", color: COLOR_ACCENT_PEAK, align: "center" });
+      drawText(ctx, money(d.amount, data.currency), bx + barW / 2, by - 14, { size: 18, weight: "bold", color: COLOR_ACCENT_PEAK, align: "center" });
     }
 
     roundedRect(ctx, bx, by, barW, barH, 10);
@@ -213,7 +231,7 @@ function drawBudgetGauge(ctx: SKRSContext2D, x: number, y: number, w: number, da
   drawText(ctx, "usado", cx, cy + 24, { size: 18, color: COLOR_TEXT_SOFT, align: "center" });
 
   const diff = Math.abs(weeklyBudget - data.totalExpense);
-  const diffLabel = overBudget ? `Te pasaste por ${money(diff)}` : `Te quedan ${money(diff)}`;
+  const diffLabel = overBudget ? `Te pasaste por ${money(diff, data.currency)}` : `Te quedan ${money(diff, data.currency)}`;
   drawText(ctx, diffLabel, cx, cy + 70, { size: 22, weight: "bold", align: "center", color });
 
   return cy + 110;
@@ -227,7 +245,7 @@ function drawFooter(ctx: SKRSContext2D, x: number, y: number, w: number, data: W
     parts.push(`${data.topCategory.name} fue tu categoría con más gasto esta semana — ${data.topCategory.pct}% del total.`);
   }
   if (data.peakDay) {
-    parts.push(`El ${data.peakDay.label.toLowerCase()} concentró tu mayor gasto diario, con ${money(data.peakDay.amount)}.`);
+    parts.push(`El ${data.peakDay.label.toLowerCase()} concentró tu mayor gasto diario, con ${money(data.peakDay.amount, data.currency)}.`);
   }
   if (parts.length === 0) {
     parts.push("No tuviste gastos confirmados esta semana.");
@@ -309,7 +327,7 @@ export function buildWeeklyReportImage(data: WeeklyReportData): Buffer {
   const cardGap = 24;
   const cardW = (CONTENT_W - cardGap) / 2;
   const cardH = 176;
-  drawSummaryCard(ctx, PADDING, cursorY, cardW, cardH, "Gastaste", data.totalExpense, data.expenseChangePct, true, "sin gastos");
+  drawSummaryCard(ctx, PADDING, cursorY, cardW, cardH, "Gastaste", data.totalExpense, data.expenseChangePct, true, "sin gastos", data.currency);
   drawSummaryCard(
     ctx,
     PADDING + cardW + cardGap,
@@ -320,7 +338,8 @@ export function buildWeeklyReportImage(data: WeeklyReportData): Buffer {
     data.totalIncome,
     data.totalIncome === 0 ? null : data.incomeChangePct,
     false,
-    "sin ingresos"
+    "sin ingresos",
+    data.currency
   );
   cursorY += cardH + 56;
 

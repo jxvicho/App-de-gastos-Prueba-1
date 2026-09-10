@@ -14,11 +14,12 @@ const WEEKDAY_LABELS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes",
 // sumConfirmedAllTimeByCurrency) — CONFIRMED + AUTO_CONFIRMED, sin eliminar.
 const CONFIRMED_STATUSES: TransactionStatus[] = ["CONFIRMED", "AUTO_CONFIRMED"];
 
-// El reporte es en soles — una transacción ocasional en otra moneda (ej. un
-// cargo en USD) no se puede sumar a un total "S/" sin falsear el número,
-// así que el reporte semanal se acota a PEN (la moneda por defecto y
-// abrumadoramente mayoritaria de la app).
-const REPORT_CURRENCY = "PEN";
+// Soles y dólares nunca se suman en un solo total, así que cada reporte
+// semanal se arma para UNA sola moneda (el caller decide cuál —
+// weeklyReportSender.ts revisa qué monedas tuvieron movimiento esa semana y
+// arma un reporte separado por cada una). PEN es el default histórico: se
+// usa para el fallback de "sin movimientos" y si el caller no especifica.
+const DEFAULT_REPORT_CURRENCY = "PEN";
 
 /** Fecha UTC que representa esa hora de pared en Lima (UTC-5 fijo). */
 function limaWallClockToUtc(year: number, month: number, day: number, hour = 0, minute = 0): Date {
@@ -66,13 +67,13 @@ interface RawTxn {
   occurredAt: Date;
 }
 
-async function fetchConfirmed(userId: string, start: Date, end: Date): Promise<RawTxn[]> {
+async function fetchConfirmed(userId: string, start: Date, end: Date, currency: string): Promise<RawTxn[]> {
   const rows = await prisma.transaction.findMany({
     where: {
       userId,
       status: { in: CONFIRMED_STATUSES },
       deletedAt: null,
-      currency: REPORT_CURRENCY,
+      currency,
       occurredAt: { gte: start, lt: end },
     },
     include: { category: true },
@@ -134,29 +135,51 @@ const OTHER_CATEGORY_ICON = "🔖";
 const FALLBACK_CATEGORY_ICON = "🏷️";
 
 /**
- * Arma todos los datos del reporte semanal para un usuario y rango
- * [weekStart, weekEnd) — el caller decide el rango exacto (el cron usa
- * lunes 00:00 a domingo 20:00 Lima; el comando manual usa lunes 00:00 a
- * "ahora", para poder probar cualquier día).
+ * Qué monedas tuvieron al menos un movimiento confirmado (EXPENSE o INCOME,
+ * sin eliminar) en [weekStart, weekEnd) para este usuario — decide cuántos
+ * reportes semanales se mandan y de cuáles monedas (weeklyReportSender.ts).
+ */
+export async function getCurrenciesWithMovement(userId: string, weekStart: Date, weekEnd: Date): Promise<string[]> {
+  const rows = await prisma.transaction.findMany({
+    where: {
+      userId,
+      status: { in: CONFIRMED_STATUSES },
+      deletedAt: null,
+      occurredAt: { gte: weekStart, lt: weekEnd },
+    },
+    distinct: ["currency"],
+    select: { currency: true },
+  });
+  return rows.map((r) => r.currency);
+}
+
+/**
+ * Arma todos los datos del reporte semanal para un usuario, un rango
+ * [weekStart, weekEnd) y UNA moneda — el caller decide el rango exacto (el
+ * cron usa lunes 00:00 a domingo 20:00 Lima; el comando manual usa lunes
+ * 00:00 a "ahora", para poder probar cualquier día) y la moneda (ver
+ * getCurrenciesWithMovement arriba).
  */
 export async function buildWeeklyReportData(
   userId: string,
   userName: string,
   weekStart: Date,
-  weekEnd: Date
+  weekEnd: Date,
+  currency: string = DEFAULT_REPORT_CURRENCY
 ): Promise<WeeklyReportData> {
   const prevWeekStart = new Date(weekStart.getTime() - 7 * DAY_MS);
   const prevWeekEnd = new Date(weekEnd.getTime() - 7 * DAY_MS);
 
   const [thisWeek, prevWeek, budget] = await Promise.all([
-    fetchConfirmed(userId, weekStart, weekEnd),
-    fetchConfirmed(userId, prevWeekStart, prevWeekEnd),
+    fetchConfirmed(userId, weekStart, weekEnd, currency),
+    fetchConfirmed(userId, prevWeekStart, prevWeekEnd, currency),
     prisma.budget.findFirst({
       where: {
         userId,
         scope: "PERSONAL",
         periodStart: { lte: weekStart },
         periodEnd: { gte: weekStart },
+        currency,
       },
     }),
   ]);
@@ -218,7 +241,7 @@ export async function buildWeeklyReportData(
     weekStart,
     weekEnd,
     weekLabel: formatWeekLabel(weekStart),
-    currency: REPORT_CURRENCY,
+    currency,
     totalExpense,
     totalIncome,
     expenseChangePct,
