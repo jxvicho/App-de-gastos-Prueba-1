@@ -1020,7 +1020,10 @@ function bucketKey(dateStr, gran){
 }
 
 function renderTrend(){
-  const rows = getFiltered(false, true); // ignore txType, always both
+  // ignora el filtro Egresos/Ingresos (siempre compara ambos), pero SÍ
+  // respeta la moneda elegida en el pill del Hero — soles y dólares nunca
+  // se suman en un mismo eje.
+  const rows = getFiltered(false, true, false, true);
   const svg = document.getElementById("trendChart");
   svg.innerHTML = "";
   if(!rows.length) return;
@@ -1039,8 +1042,11 @@ function renderTrend(){
 
   const egVals = allKeys.map(k=> bucketsEg[k] ? bucketsEg[k].sum : 0);
   const inVals = allKeys.map(k=> bucketsIn[k] ? bucketsIn[k].sum : 0);
-  const showBudgetLine = gran === "month" && state.budget > 0;
-  const maxVal = Math.max(...egVals, ...inVals, showBudgetLine ? state.budget : 0, 1);
+  // El presupuesto también es por moneda (Parte 3) — la línea punteada debe
+  // usar el presupuesto de la moneda que se está graficando, no siempre PEN.
+  const currentBudget = state.heroCurrency === "USD" ? state.budgetUSD : state.budget;
+  const showBudgetLine = gran === "month" && currentBudget > 0;
+  const maxVal = Math.max(...egVals, ...inVals, showBudgetLine ? currentBudget : 0, 1);
 
   const W = 1000, H = 220, padL = 66, padR = 20, padT = 16, padB = 34;
   const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -1063,7 +1069,7 @@ function renderTrend(){
     label.setAttribute("x", padL-8); label.setAttribute("y", y+4);
     label.setAttribute("text-anchor","end"); label.setAttribute("font-size","10.5");
     label.setAttribute("fill","#8b96a5");
-    label.textContent = fmtShort(value);
+    label.textContent = fmtShort(value, state.heroCurrency);
     svg.appendChild(label);
   }
 
@@ -1112,7 +1118,7 @@ function renderTrend(){
   drawSeries(inVals, "#1a8a5e", "gradIn");
 
   if(showBudgetLine){
-    const by = padT + plotH - (state.budget/maxVal)*plotH;
+    const by = padT + plotH - (currentBudget/maxVal)*plotH;
     const bLine = document.createElementNS(ns,"line");
     bLine.setAttribute("x1",padL); bLine.setAttribute("x2",W-padR);
     bLine.setAttribute("y1",by); bLine.setAttribute("y2",by);
@@ -1125,7 +1131,7 @@ function renderTrend(){
     bLabel.setAttribute("x", W-padR); bLabel.setAttribute("y", by-6);
     bLabel.setAttribute("text-anchor","end"); bLabel.setAttribute("font-size","10.5");
     bLabel.setAttribute("fill","#1a8a5e"); bLabel.setAttribute("font-weight","700");
-    bLabel.textContent = "Presupuesto " + fmtShort(state.budget);
+    bLabel.textContent = "Presupuesto " + fmtShort(currentBudget, state.heroCurrency);
     svg.appendChild(bLabel);
   }
 
