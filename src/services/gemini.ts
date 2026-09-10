@@ -85,3 +85,91 @@ ${emailBodyText.slice(0, 6000)}
     return { isTransaction: false };
   }
 }
+
+export interface ExtractedTransfer {
+  isTransferScreenshot: boolean;
+  amount?: number;
+  currency?: string;
+  recipient?: string;
+  bankOrWallet?: string;
+  fee?: number;
+  occurredAt?: string;
+  operationNumber?: string;
+  suggestedCategory?: string;
+}
+
+function buildTransferSchema(categoryNames: string[]) {
+  const properties: Record<string, unknown> = {
+    isTransferScreenshot: {
+      type: "boolean",
+      description:
+        "true solo si la imagen es una captura de pantalla de una transferencia, Yape, Plin u otra operación bancaria ya realizada",
+    },
+    amount: { type: "number" },
+    currency: { type: "string", description: "Código de moneda, ej. PEN, USD" },
+    recipient: { type: "string", description: "Nombre del destinatario o remitente que aparece en la captura" },
+    bankOrWallet: { type: "string", description: "Banco o billetera digital de la operación, ej. BCP, Yape, Plin, BBVA" },
+    fee: { type: "number", description: "Comisión cobrada, solo si la captura la muestra" },
+    occurredAt: { type: "string", description: "Fecha y hora de la operación en formato ISO 8601, si la captura la muestra" },
+    operationNumber: { type: "string", description: "Número o código de operación/referencia, si la captura lo muestra" },
+  };
+
+  // Igual que en buildTransactionSchema: el enum de Gemini no acepta una
+  // lista vacía de opciones.
+  if (categoryNames.length > 0) {
+    properties.suggestedCategory = {
+      type: "string",
+      enum: categoryNames,
+      description:
+        "La categoría más adecuada para este movimiento si resultara ser un gasto, elegida de la lista dada",
+    };
+  }
+
+  return {
+    type: "object",
+    properties,
+    required: ["isTransferScreenshot"],
+  } as const;
+}
+
+/**
+ * Lee una captura de pantalla de una transferencia/Yape/Plin con Gemini
+ * Vision. A diferencia de extractTransactionFromEmail, NO decide si es
+ * gasto/traspaso/ingreso — eso se le pregunta siempre al usuario (ver
+ * handleIncomingImage en whatsappBot.ts), porque una captura de
+ * transferencia es ambigua por naturaleza.
+ */
+export async function extractTransferFromImage(
+  base64: string,
+  mimeType: string,
+  categoryNames: string[] = []
+): Promise<ExtractedTransfer> {
+  const categoryInstructions =
+    categoryNames.length > 0
+      ? `\n\nSi la imagen sí es una transferencia, sugiere también la categoría más adecuada en "suggestedCategory" por si resulta ser un gasto, eligiendo EXACTAMENTE una de estas opciones (tal como están escritas, sin modificarlas): ${categoryNames.join(", ")}.`
+      : "";
+
+  const prompt = `Eres un extractor de datos financieros. Mira esta captura de pantalla de una app bancaria o billetera digital (Yape, Plin, BCP, BBVA, Interbank, etc.) y extrae los datos de la operación si efectivamente muestra una transferencia, envío o pago ya realizado.
+
+Si la imagen NO es una captura de una operación bancaria (ej. es una foto de otra cosa), responde con isTransferScreenshot: false y nada más.${categoryInstructions}`;
+
+  const response = await ai.models.generateContent({
+    model: env.GEMINI_MODEL_EXTRACTION,
+    contents: [{ text: prompt }, { inlineData: { data: base64, mimeType } }],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: buildTransferSchema(categoryNames),
+      temperature: 0,
+    },
+  });
+
+  const text = response.text;
+  if (!text) return { isTransferScreenshot: false };
+
+  try {
+    return JSON.parse(text) as ExtractedTransfer;
+  } catch {
+    console.error("Gemini Vision devolvió un JSON inválido:", text);
+    return { isTransferScreenshot: false };
+  }
+}

@@ -1,7 +1,7 @@
 import { Router, Request } from "express";
 import crypto from "crypto";
 import { env } from "../config/env";
-import { handleIncomingMessage, textForButtonReply } from "../services/whatsappBot";
+import { handleIncomingMessage, handleIncomingImage, textForButtonReply } from "../services/whatsappBot";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -111,6 +111,15 @@ whatsappRouter.post("/webhook", (req, res) => {
           const equivalentText = buttonId ? textForButtonReply(buttonId) : null;
           if (equivalentText) {
             await handleIncomingMessage(from, equivalentText, contextMessageId);
+          }
+          continue;
+        }
+
+        if (message.type === "image") {
+          const mediaId: string | undefined = message.image?.id;
+          console.log(`📩 WhatsApp de ${from}: imagen recibida (media id: ${mediaId ?? "desconocido"})`);
+          if (mediaId) {
+            await handleIncomingImage(from, mediaId);
           }
           continue;
         }

@@ -1,14 +1,47 @@
 import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { sendInteractiveButtons, sendTextMessage } from "./whatsapp";
+import { downloadWhatsappMedia } from "./whatsappMedia";
+import { extractTransferFromImage } from "./gemini";
+import { sendWeeklyReportToUser } from "./weeklyReportSender";
+import { currentWeekStart } from "./weeklyReportData";
 import { DEFAULT_CATEGORIES } from "../utils/defaultCategories";
 import { normalizeText } from "../utils/text";
 
 const CONFIRM_WORDS = new Set(["si", "s", "yes", "confirmar"]);
 const REJECT_WORDS = new Set(["no", "n"]);
 
+// Palabras/frases típicas de confirmación dentro de un mensaje más largo —
+// "anotar" es literalmente el texto del botón "✅ Anotar" (ver BUTTON_ID_CONFIRM
+// más abajo). A diferencia de CONFIRM_WORDS (que exige que el mensaje
+// completo sea exactamente una de esas palabras), esto reconoce frases
+// naturales como "sí anotar", "dale, anótalo", "confirmar por favor".
+const CONFIRM_INTENT_PATTERNS = [
+  /\bsi\b/, /\bs\b/, /\byes\b/, /\bconfirmar\b/, /\bconfirmalo\b/,
+  /\banotar\b/, /\banotalo\b/, /\banotarlo\b/, /\bdale\b/, /\bok\b/, /\bokay\b/,
+];
+
+/**
+ * ¿El mensaje CONTIENE una palabra/frase de confirmación típica? Excluye
+ * negaciones ("no anotar", "no confirmes", "no lo registres") para no
+ * confundirlas con una confirmación. NO usar esto donde haya que elegir
+ * ENTRE VARIAS transacciones candidatas sin otra señal — para eso sigue
+ * existiendo el chequeo estricto con CONFIRM_WORDS.has() a secas (ver el
+ * fallback de "varias pendientes" en handleIncomingMessage), porque ahí sí
+ * haría falta adivinar cuál de todas, y una detección más laxa reintroduciría
+ * los bugs de identificación de la Fase 3.
+ */
+function detectConfirmWordIntent(normalizedText: string): boolean {
+  const hasNegation = /\bno\s+(lo\s+)?(anot\w*|confirm\w*|regist\w*)\b/.test(normalizedText);
+  if (hasNegation) return false;
+  return CONFIRM_INTENT_PATTERNS.some((pattern) => pattern.test(normalizedText));
+}
+
 const BUTTON_ID_CONFIRM = "txn_confirm";
 const BUTTON_ID_REJECT = "txn_reject";
+const BUTTON_ID_IMAGE_EXPENSE = "img_expense";
+const BUTTON_ID_IMAGE_TRANSFER = "img_transfer";
+const BUTTON_ID_IMAGE_INCOME = "img_income";
 
 // Mapeamos por nombre de categoría para no reinventar íconos que ya
 // existen en el catálogo real de categorías (DEFAULT_CATEGORIES).
@@ -205,7 +238,7 @@ const REVERT_TO_CONFIRMED_PHRASES = [
 ];
 
 function detectConfirmIntent(normalizedText: string): boolean {
-  return CONFIRM_WORDS.has(normalizedText) || REVERT_TO_CONFIRMED_PHRASES.some((phrase) => normalizedText.includes(phrase));
+  return detectConfirmWordIntent(normalizedText) || REVERT_TO_CONFIRMED_PHRASES.some((phrase) => normalizedText.includes(phrase));
 }
 
 // Frases que piden ver TODAS las PENDING_CONFIRMATION del usuario, sin
@@ -226,17 +259,46 @@ function detectPendingSummaryIntent(normalizedText: string): boolean {
   return PENDING_SUMMARY_INTENT_PHRASES.some((phrase) => normalizedText.includes(phrase));
 }
 
-// Frases que piden un resumen/consulta de gastos, en vez de confirmar o
-// rechazar un movimiento puntual — es una intención completamente distinta,
-// se detecta antes que todo lo demás.
+// Frases que, dentro de un pedido de resumen, indican que es sobre INGRESOS
+// en vez de gastos (ver detectSummaryType) — se definen antes que
+// SUMMARY_INTENT_PHRASES porque también se suman ahí, para que
+// detectSummaryIntent las reconozca como intención de resumen.
+const INCOME_SUMMARY_PHRASES = [
+  "ingresos de", "cuanto ingrese", "cuanto he ingresado", "cuanto recibi",
+  "cuanto me deposito", "cuanto me depositaron", "total de ingresos", "total ingresado",
+];
+
+/** ¿El resumen pedido es sobre ingresos, o (por defecto, igual que antes) sobre gastos? */
+function detectSummaryType(normalizedText: string): "EXPENSE" | "INCOME" {
+  return INCOME_SUMMARY_PHRASES.some((phrase) => normalizedText.includes(phrase)) ? "INCOME" : "EXPENSE";
+}
+
+// Frases que piden un resumen/consulta de gastos (o ingresos, ver arriba),
+// en vez de confirmar o rechazar un movimiento puntual — es una intención
+// completamente distinta, se detecta antes que todo lo demás.
 const SUMMARY_INTENT_PHRASES = [
   "resumen", "cuanto gaste", "cuanto he gastado", "cuanto llevo", "cuanto gasto",
   "cuanto va", "como voy", "gastos de", "resumen de", "total gastado", "cuanto se gasto",
   "desglose",
+  ...INCOME_SUMMARY_PHRASES,
 ];
 
 function detectSummaryIntent(normalizedText: string): boolean {
   return SUMMARY_INTENT_PHRASES.some((phrase) => normalizedText.includes(phrase));
+}
+
+// Comando manual para pedir el reporte semanal (imagen) sin esperar al cron
+// del domingo 8pm — se chequea antes que el resumen general (ver más abajo
+// en handleIncomingMessage) porque comparte la palabra "resumen".
+// Deliberadamente NO incluye "resumen de la semana"/"resumen de esta
+// semana" — esas ya significan algo distinto y ya funcionan bien: el
+// resumen de TEXTO existente (buildSummaryReply) para el rango "esta
+// semana" (extractSummaryDateRange ya reconoce "semana" como palabra
+// suelta). Solo "semanal" como adjetivo pegado a "resumen"/"reporte" pide
+// específicamente la imagen nueva.
+const WEEKLY_REPORT_INTENT_PHRASES = ["resumen semanal", "reporte semanal"];
+function detectWeeklyReportIntent(normalizedText: string): boolean {
+  return WEEKLY_REPORT_INTENT_PHRASES.some((phrase) => normalizedText.includes(phrase));
 }
 
 /** "resumen de hoy por hora", "desglose por hora", "hora por hora" -> pedir el detalle cronológico en vez del desglose por categoría. */
@@ -298,28 +360,32 @@ function extractSummaryDateRange(
 }
 
 /**
- * Arma el resumen de gastos CONFIRMED de un usuario para el rango de fechas
- * que se detecte en el mensaje (por defecto, hoy). Para un solo día usa el
- * desglose simple por categoría; para 2+ días, el formato agrupado por día
- * (con total del período, el gasto más grande, y desglose por categoría
- * al cierre) — salvo que se haya pedido explícitamente el detalle por hora.
+ * Arma el resumen de movimientos CONFIRMED de un usuario para el rango de
+ * fechas que se detecte en el mensaje (por defecto, hoy) — de gastos, o de
+ * ingresos si el mensaje lo pide explícitamente (ver detectSummaryType).
+ * Para un solo día usa el desglose simple por categoría; para 2+ días, el
+ * formato agrupado por día (con total del período, el más grande, y
+ * desglose por categoría al cierre) — salvo que se haya pedido
+ * explícitamente el detalle por hora.
  */
 async function buildSummaryReply(userId: string, normalizedText: string, userName: string): Promise<string> {
   const { start, end, label, isMultiDay } = extractSummaryDateRange(normalizedText);
+  const summaryType = detectSummaryType(normalizedText);
+  const typeLabel = summaryType === "INCOME" ? "ingresos" : "gastos";
 
   const transactions = await prisma.transaction.findMany({
     where: {
       userId,
       status: "CONFIRMED",
       deletedAt: null,
-      type: "EXPENSE",
+      type: summaryType,
       occurredAt: { gte: start, lt: end },
     },
     include: { category: true },
   });
 
   if (transactions.length === 0) {
-    return `No tienes gastos confirmados registrados para ${label}.`;
+    return `No tienes ${typeLabel} confirmados registrados para ${label}.`;
   }
 
   if (wantsHourlyBreakdown(normalizedText)) {
@@ -524,11 +590,12 @@ function buildConfirmPrompt(t: PendingTransaction): string {
   return `Encontré esta transacción: ${formatAmount(t)} en ${who} (${formatShortDate(t.occurredAt)}). ¿La confirmamos? Responde *Sí* o *No*.`;
 }
 
-/** Eliminar un gasto ya CONFIRMED es irreversible: siempre se pide esta confirmación explícita antes de borrar. */
+/** Eliminar un movimiento ya CONFIRMED es irreversible: siempre se pide esta confirmación explícita antes de borrar. */
 function buildDeleteConfirmPrompt(t: PendingTransaction): string {
   const who = t.merchant || t.description || "el movimiento";
+  const kind = t.type === "INCOME" ? "ingreso" : "gasto";
   return (
-    `⚠️ ¿Confirmas que quieres *eliminar* este gasto ya registrado? ` +
+    `⚠️ ¿Confirmas que quieres *eliminar* este ${kind} ya registrado? ` +
     `${formatAmount(t)} en ${who} (${formatShortDate(t.occurredAt)}). Responde *Sí* para eliminarlo.`
   );
 }
@@ -583,6 +650,28 @@ interface DisambiguationState {
 }
 const DISAMBIGUATION_TTL_MS = 10 * 60 * 1000;
 const disambiguationByUserId = new Map<string, DisambiguationState>();
+
+/**
+ * Datos ya extraídos de una captura de transferencia (Fase 4), esperando
+ * que el usuario diga si es GASTO/TRASPASO/INGRESO — se pregunta siempre
+ * con botones porque una captura de transferencia es ambigua por
+ * naturaleza (puede ser a un tercero o entre cuentas propias). Mismo
+ * mecanismo de Map en memoria + TTL que disambiguationByUserId, en un Map
+ * aparte porque la forma de los datos no tiene nada que ver.
+ */
+interface PendingImageClassification {
+  amount: number;
+  currency: string;
+  recipient?: string;
+  bankOrWallet?: string;
+  fee?: number;
+  occurredAt: Date;
+  operationNumber?: string;
+  suggestedCategory?: string;
+  createdAt: number;
+}
+const PENDING_IMAGE_TTL_MS = 10 * 60 * 1000;
+const pendingImageByUserId = new Map<string, PendingImageClassification>();
 
 /**
  * Contexto de una conversación de seguimiento que NO es una desambiguación
@@ -969,7 +1058,7 @@ function buildCategoryQueryReply(
 ): string {
   const icon = CATEGORY_ICON_BY_NAME.get(category.name) ?? FALLBACK_CATEGORY_ICON;
   if (transactions.length === 0) {
-    return `${icon} *${category.name} — ${dateRange.label}*\n\nNo tienes gastos confirmados en esta categoría por ahora.`;
+    return `${icon} *${category.name} — ${dateRange.label}*\n\nNo tienes movimientos confirmados en esta categoría por ahora.`;
   }
   const totalLine = formatTotalsByCurrency(transactions.map((t) => ({ currency: t.currency, amount: Number(t.amount) })));
   return [
@@ -977,7 +1066,7 @@ function buildCategoryQueryReply(
     "",
     `Llevas ${totalLine} en ${transactions.length} movimiento${transactions.length === 1 ? "" : "s"} confirmado${transactions.length === 1 ? "" : "s"}.`,
     "",
-    "¿Te detallo cada gasto uno por uno?",
+    "¿Te detallo cada movimiento uno por uno?",
   ].join("\n");
 }
 
@@ -1116,7 +1205,7 @@ function buildCategoryGroupingReply(merchant: string, transactions: ConfirmedTxW
 
 const SHOW_ALL_FOLLOWUP_PHRASES = ["todos", "todas", "muestra", "muestralos", "ver todos", "verlos todos", "dale", "detall"];
 function wantsToSeeAllFollowUp(normalizedText: string): boolean {
-  return CONFIRM_WORDS.has(normalizedText) || SHOW_ALL_FOLLOWUP_PHRASES.some((phrase) => normalizedText.includes(phrase));
+  return detectConfirmWordIntent(normalizedText) || SHOW_ALL_FOLLOWUP_PHRASES.some((phrase) => normalizedText.includes(phrase));
 }
 
 function declinesFollowUp(normalizedText: string): boolean {
@@ -1206,6 +1295,107 @@ function transactionMatchesRule(
     default:
       return false;
   }
+}
+
+/** "gasto"/"traspaso"/"ingreso" (o botón equivalente) -> tipo de movimiento de la imagen. Sin match, null — nunca se adivina. */
+function detectImageTransactionKind(normalizedText: string): "EXPENSE" | "TRANSFER" | "INCOME" | null {
+  if (/\bgastos?\b/.test(normalizedText)) return "EXPENSE";
+  if (/\btraspasos?\b|\bpropi[ao]s?\b/.test(normalizedText)) return "TRANSFER";
+  if (/\bingresos?\b/.test(normalizedText)) return "INCOME";
+  return null;
+}
+
+/**
+ * Categoría para una captura clasificada como GASTO: reglas del usuario
+ * (CategoryRule, evaluadas con el mismo criterio que la aplicación
+ * retroactiva) primero, luego la sugerencia de Gemini, luego ninguna.
+ */
+async function resolveExpenseCategoryForImage(
+  userId: string,
+  recipient: string | undefined,
+  amount: number,
+  geminiSuggestedCategoryName: string | undefined,
+  categories: { id: string; name: string }[]
+): Promise<{ id: string; name: string } | undefined> {
+  const activeRules = await prisma.categoryRule.findMany({
+    where: { userId, isActive: true },
+    include: { category: { select: { id: true, name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  for (const rule of activeRules) {
+    if (transactionMatchesRule(rule, { merchant: recipient ?? null, amount })) return rule.category;
+  }
+
+  if (geminiSuggestedCategoryName) {
+    const match = categories.find((c) => normalizeText(c.name) === normalizeText(geminiSuggestedCategoryName));
+    if (match) return match;
+  }
+  return undefined;
+}
+
+/**
+ * Ya sabemos GASTO/TRASPASO/INGRESO — resuelve la categoría según lo
+ * descrito arriba y crea la Transaction, reusando notifyPendingTransaction
+ * para que entre al mismo flujo de confirmar/rechazar/corregir categoría
+ * ya debuggeado en la Fase 3, en vez de reinventarlo para imágenes.
+ */
+async function finalizeImageTransaction(
+  userId: string,
+  userPhoneNumber: string | null | undefined,
+  pending: PendingImageClassification,
+  kind: "EXPENSE" | "TRANSFER" | "INCOME"
+): Promise<void> {
+  const categories = await getCategories(userId);
+  let category: { id: string; name: string } | undefined;
+
+  if (kind === "EXPENSE") {
+    category = await resolveExpenseCategoryForImage(userId, pending.recipient, pending.amount, pending.suggestedCategory, categories);
+  } else if (kind === "INCOME") {
+    category = categories.find((c) => normalizeText(c.name) === normalizeText("Ingresos"));
+  } else {
+    // Un traspaso entre cuentas propias no es ni gasto ni ingreso real —
+    // "No considerar" tiene excludeFromTotals=true, así que no infla
+    // ninguno de los dos totales (matemáticamente correcto). "Movimientos
+    // financieros" queda solo como fallback si el usuario archivó "No
+    // considerar" (no debería pasar, es una de las 9 categorías base).
+    category =
+      categories.find((c) => normalizeText(c.name) === normalizeText("No considerar")) ??
+      categories.find((c) => normalizeText(c.name) === normalizeText("Movimientos financieros"));
+  }
+
+  const merchant = pending.recipient || pending.bankOrWallet || "Transferencia";
+  const descriptionParts: string[] = [];
+  if (pending.bankOrWallet) descriptionParts.push(pending.bankOrWallet);
+  if (pending.operationNumber) descriptionParts.push(`Op. ${pending.operationNumber}`);
+  if (pending.fee) descriptionParts.push(`Comisión ${pending.currency} ${pending.fee.toFixed(2)}`);
+
+  // TRASPASO no tiene su propio TransactionType en el schema (solo
+  // EXPENSE/INCOME) — se guarda como EXPENSE, igual que ya se hace con las
+  // "transferencias entre cuentas propias" existentes, para no inflar
+  // ingresos con dinero que en realidad solo cambió de cuenta.
+  const created = await prisma.transaction.create({
+    data: {
+      userId,
+      type: kind === "INCOME" ? "INCOME" : "EXPENSE",
+      amount: pending.amount,
+      currency: pending.currency,
+      merchant,
+      description: descriptionParts.length > 0 ? descriptionParts.join(" · ") : undefined,
+      categoryId: category?.id,
+      source: "WHATSAPP_MANUAL",
+      status: "PENDING_CONFIRMATION",
+      occurredAt: pending.occurredAt,
+    },
+  });
+
+  console.log(
+    `WhatsApp: transacción creada desde captura de imagen -> ${created.id} (${kind}, ${pending.currency} ${pending.amount}, categoría: ${category?.name ?? "ninguna"})`
+  );
+
+  await notifyPendingTransaction(
+    { ...created, category: category ? { name: category.name } : null },
+    userPhoneNumber
+  );
 }
 
 /** Total confirmado (todo el tiempo, no solo el mes) en una categoría, agrupado por moneda. */
@@ -1437,7 +1627,7 @@ async function handleFreeformDecision(
   from: string,
   normalized: string
 ): Promise<void> {
-  if (CONFIRM_WORDS.has(normalized)) {
+  if (detectConfirmWordIntent(normalized)) {
     const reply = await confirmTransaction(pending, userId);
     await sendTextMessage(from, reply);
     return;
@@ -1483,13 +1673,43 @@ export async function handleIncomingMessage(
 
   const normalized = normalizeText(text);
 
+  // -1) ¿Hay una clasificación de imagen pendiente (Fase 4: el usuario
+  // reenvió una captura de transferencia y le preguntamos GASTO/TRASPASO/
+  // INGRESO)? Va con la MÁXIMA prioridad de todo el archivo, antes incluso
+  // que crear regla — misma lección que costaron los bugs reales de la
+  // Fase 3: una pregunta pendiente del bot nunca debe caer en otra
+  // interpretación por accidente. Si la respuesta no es clara, se vuelve a
+  // preguntar (nunca se adivina), y el estado NO se borra para poder seguir
+  // esperando la respuesta correcta.
+  const pendingImage = pendingImageByUserId.get(user.id);
+  if (pendingImage) {
+    const imageExpired = Date.now() - pendingImage.createdAt > PENDING_IMAGE_TTL_MS;
+    if (imageExpired) {
+      pendingImageByUserId.delete(user.id);
+      console.log(`WhatsApp: había una clasificación de imagen pendiente para ${from} pero expiró (TTL), se descarta.`);
+    } else {
+      const kind = detectImageTransactionKind(normalized);
+      if (kind) {
+        pendingImageByUserId.delete(user.id);
+        console.log(`WhatsApp: clasificación de imagen resuelta -> ${kind}.`);
+        await finalizeImageTransaction(user.id, user.phoneNumber, pendingImage, kind);
+        return;
+      }
+      console.log(`WhatsApp: había una clasificación de imagen pendiente para ${from}, pero "${normalized}" no fue gasto/traspaso/ingreso claro; se vuelve a preguntar.`);
+      await sendTextMessage(from, "No entendí. ¿Ese movimiento es un *gasto*, un *traspaso* entre tus propias cuentas, o un *ingreso*?");
+      return;
+    }
+  }
+
   // 0) Intención de CREAR UNA REGLA de categorización automática — se
-  // chequea PRIMERO de todo: sus frases disparadoras ("todo gasto",
-  // "siempre que", "gastos mayores"...) no se cruzan con ninguna otra
-  // intención de este archivo, pero mensajes como "todo gasto en Taxi va a
-  // Movimientos financieros" SÍ calzan con los patrones de la consulta por
-  // categoría/comercio de más abajo (mencionan una categoría o un
-  // comercio) — así que crear regla tiene que ganar primero.
+  // chequea primero entre las detecciones de intención "normales" (después
+  // de la clasificación de imagen pendiente, que tiene prioridad absoluta):
+  // sus frases disparadoras ("todo gasto", "siempre que", "gastos
+  // mayores"...) no se cruzan con ninguna otra intención de este archivo,
+  // pero mensajes como "todo gasto en Taxi va a Movimientos financieros"
+  // SÍ calzan con los patrones de la consulta por categoría/comercio de
+  // más abajo (mencionan una categoría o un comercio) — así que crear
+  // regla tiene que ganar primero entre esas.
   if (detectCreateRuleIntent(normalized)) {
     console.log(`WhatsApp: intención de CREAR REGLA detectada de ${from}.`);
 
@@ -1615,6 +1835,18 @@ export async function handleIncomingMessage(
     return;
   }
 
+  // 0.17) Comando manual de prueba del REPORTE SEMANAL (imagen) — se chequea
+  // ANTES que el resumen general (0.2) por el mismo motivo que la consulta
+  // por categoría: "resumen semanal" también contiene "resumen", una de las
+  // SUMMARY_INTENT_PHRASES. Deliberadamente no espera al cron del domingo
+  // 8pm para poder probarlo en cualquier momento.
+  if (detectWeeklyReportIntent(normalized)) {
+    console.log(`WhatsApp: pedido manual de REPORTE SEMANAL de ${from}.`);
+    const weekStart = currentWeekStart();
+    await sendWeeklyReportToUser(user, weekStart, new Date());
+    return;
+  }
+
   // 0.2) Intención de RESUMEN/CONSULTA general — es una intención completamente
   // distinta (de solo lectura) a confirmar/rechazar/identificar un
   // movimiento puntual, así que se resuelve antes que cualquier otra cosa
@@ -1690,7 +1922,7 @@ export async function handleIncomingMessage(
 
     if (!followUpExpired && followUp.context.type === "retroactive_rule") {
       const ctx = followUp.context;
-      if (CONFIRM_WORDS.has(normalized) || detectConfirmIntent(normalized)) {
+      if (detectConfirmIntent(normalized)) {
         const result = await prisma.transaction.updateMany({
           where: { id: { in: ctx.transactionIds } },
           data: { categoryId: ctx.categoryId },
@@ -1846,7 +2078,7 @@ export async function handleIncomingMessage(
             await sendTextMessage(from, "Ese movimiento ya cambió de estado, no hay nada que eliminar.");
             return;
           }
-          if (CONFIRM_WORDS.has(normalized)) {
+          if (detectConfirmWordIntent(normalized)) {
             console.log(`WhatsApp: confirmación de ELIMINACIÓN recibida -> borrando transacción ${pending.id}`);
             await deleteConfirmedTransaction(pending, from);
           } else {
@@ -1861,7 +2093,7 @@ export async function handleIncomingMessage(
             await sendTextMessage(from, "Ese movimiento ya está activo, no hay nada que restaurar.");
             return;
           }
-          if (CONFIRM_WORDS.has(normalized)) {
+          if (detectConfirmWordIntent(normalized)) {
             // La categoría puede haberse mencionado en el mensaje original que
             // disparó la restauración (state.intent.category) o recién ahora,
             // en esta confirmación (ej. "sí, pero en transporte") — esta última gana.
@@ -2254,6 +2486,70 @@ export async function handleIncomingMessage(
 }
 
 /**
+ * Fase 4: el usuario reenvió por WhatsApp una captura de pantalla de una
+ * transferencia/Yape/Plin. La lee con Gemini Vision y, si es una captura
+ * válida, guarda lo extraído en pendingImageByUserId y pregunta siempre con
+ * botones si es GASTO/TRASPASO/INGRESO — nunca se lo pedimos adivinar a
+ * Gemini, porque una captura de transferencia es ambigua por naturaleza
+ * (puede ser a un tercero o entre cuentas propias del mismo usuario). Se
+ * llama desde POST /webhook cuando message.type === "image".
+ */
+export async function handleIncomingImage(from: string, mediaId: string): Promise<void> {
+  const user = await findUserByWhatsappNumber(from);
+  if (!user) {
+    console.log(`WhatsApp: imagen de un número no registrado (${from}), se ignora.`);
+    return;
+  }
+
+  const media = await downloadWhatsappMedia(mediaId);
+  if (!media) {
+    await sendTextMessage(from, "No pude descargar la imagen que enviaste. ¿Puedes intentar reenviarla?");
+    return;
+  }
+
+  const categories = await getCategories(user.id);
+  const categoryNames = categories.map((c) => c.name);
+
+  let extracted;
+  try {
+    extracted = await extractTransferFromImage(media.base64, media.mimeType, categoryNames);
+  } catch (err) {
+    console.error("Error leyendo la captura con Gemini Vision:", err);
+    await sendTextMessage(from, "No pude leer los datos de esa imagen. ¿Puedes intentar con otra captura, o contarme el movimiento por texto?");
+    return;
+  }
+
+  if (!extracted.isTransferScreenshot || !extracted.amount) {
+    await sendTextMessage(from, "No reconocí esa imagen como una captura de transferencia — si me equivoco, cuéntame el movimiento por texto.");
+    return;
+  }
+
+  pendingImageByUserId.set(user.id, {
+    amount: extracted.amount,
+    currency: extracted.currency ?? "PEN",
+    recipient: extracted.recipient,
+    bankOrWallet: extracted.bankOrWallet,
+    fee: extracted.fee,
+    occurredAt: extracted.occurredAt ? new Date(extracted.occurredAt) : new Date(),
+    operationNumber: extracted.operationNumber,
+    suggestedCategory: extracted.suggestedCategory,
+    createdAt: Date.now(),
+  });
+
+  const who = extracted.recipient ? ` a ${extracted.recipient}` : "";
+  const bank = extracted.bankOrWallet ? ` (${extracted.bankOrWallet})` : "";
+  const amountLine = `${extracted.currency ?? "PEN"} ${extracted.amount.toFixed(2)}`;
+
+  console.log(`WhatsApp: captura leída de ${from} -> ${amountLine}${who}${bank}, preguntando tipo de movimiento.`);
+
+  await sendInteractiveButtons(from, `📸 Leí la captura: ${amountLine}${who}${bank}. ¿Qué tipo de movimiento es?`, [
+    { id: BUTTON_ID_IMAGE_EXPENSE, title: "💸 Gasto" },
+    { id: BUTTON_ID_IMAGE_TRANSFER, title: "🔄 Traspaso propio" },
+    { id: BUTTON_ID_IMAGE_INCOME, title: "💰 Ingreso" },
+  ]);
+}
+
+/**
  * Se llama justo después de crear una transacción PENDING_CONFIRMATION
  * (ver src/services/outlookSync.ts), para preguntarle al usuario si la
  * anotamos, con dos botones para responder en un toque. Si el usuario no
@@ -2286,5 +2582,8 @@ export async function notifyPendingTransaction(
 export function textForButtonReply(buttonId: string): string | null {
   if (buttonId === BUTTON_ID_CONFIRM) return "confirmar";
   if (buttonId === BUTTON_ID_REJECT) return "no";
+  if (buttonId === BUTTON_ID_IMAGE_EXPENSE) return "gasto";
+  if (buttonId === BUTTON_ID_IMAGE_TRANSFER) return "traspaso";
+  if (buttonId === BUTTON_ID_IMAGE_INCOME) return "ingreso";
   return null;
 }
