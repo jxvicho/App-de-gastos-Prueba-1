@@ -20,6 +20,10 @@ const listQuerySchema = z.object({
   // PENDING_CONFIRMATION/REJECTED, que antes se colaban en la tabla y en
   // los totales/gráficos por no filtrarse en absoluto.
   status: z.string().optional(),
+  // Uno o varios separados por coma, ej. "PEN,USD" — soles y dólares nunca
+  // se suman en un total, pero listarlos juntos en la tabla es correcto
+  // porque cada fila muestra su propio monto con su propio símbolo.
+  currency: z.string().optional(),
 });
 
 transactionsRouter.get(
@@ -27,7 +31,7 @@ transactionsRouter.get(
   asyncHandler(async (req, res) => {
     const parsed = listQuerySchema.safeParse(req.query);
     if (!parsed.success) throw new AppError("Parámetros de filtro inválidos", 422);
-    const { from, to, categoryId, status } = parsed.data;
+    const { from, to, categoryId, status, currency } = parsed.data;
 
     let statusFilter: (typeof STATUS_VALUES)[number][] | undefined;
     if (status) {
@@ -37,11 +41,14 @@ transactionsRouter.get(
       statusFilter = values as (typeof STATUS_VALUES)[number][];
     }
 
+    const currencyFilter = currency ? currency.split(",").map((c) => c.trim()) : undefined;
+
     const transactions = await prisma.transaction.findMany({
       where: {
         userId: req.userId,
         categoryId,
         status: statusFilter ? { in: statusFilter } : undefined,
+        currency: currencyFilter ? { in: currencyFilter } : undefined,
         deletedAt: null,
         occurredAt: {
           gte: from ? new Date(from) : undefined,

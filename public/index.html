@@ -82,6 +82,7 @@
   .type-seg button.active.eg{background:var(--blue-700);color:#fff;}
   .type-seg button.active.in{background:var(--green-600);color:#fff;}
   .type-seg button.active.all{background:var(--ink);color:#fff;}
+  .hero-currency-row{display:flex;justify-content:flex-end;padding:0 22px 10px 22px;}
 
   /* ---- Calendar dropdown ---- */
   .cal-wrap{position:relative;}
@@ -517,6 +518,13 @@
     </div>
   </div>
 
+  <div class="hero-currency-row">
+    <div class="type-seg" id="heroCurrencySeg">
+      <button data-currency="PEN" class="active all">S/ Soles</button>
+      <button data-currency="USD" class="all">$ Dólares</button>
+    </div>
+  </div>
+
   <div class="hero" id="heroBox">
     <div class="cell main">
       <div class="lbl" id="heroTotalLbl">Total gastado en el periodo filtrado</div>
@@ -579,6 +587,11 @@
       <div class="table-tools">
         <input class="search" id="searchInput" placeholder="Buscar por nombre o comercio…">
         <button class="manage-cat-btn" id="openCatModalBtn">⚙ Categorías</button>
+        <select class="manage-cat-btn" id="currencyFilterSelect" title="Filtrar la tabla por moneda">
+          <option value="all">💱 Todas las monedas</option>
+          <option value="PEN">S/ Soles</option>
+          <option value="USD">$ Dólares</option>
+        </select>
         <button class="manage-cat-btn" id="openConfigModalBtn">🔗 Configuración</button>
         <button class="manage-cat-btn" id="openRulesModalBtn">📏 Reglas</button>
       </div>
@@ -727,10 +740,14 @@
 <div class="modal-overlay" id="budgetModalOverlay">
   <div class="modal-box budget-modal-box">
     <h4>Presupuesto mensual</h4>
-    <div class="modal-sub" id="budgetModalSub">Se compara contra tus egresos del mes actual.</div>
+    <div class="modal-sub" id="budgetModalSub">Se compara contra tus egresos del mes actual — soles y dólares por separado, nunca se mezclan.</div>
     <div class="modal-field">
-      <label>Monto del presupuesto (S/)</label>
+      <label>Presupuesto en soles (S/)</label>
       <input type="number" id="budgetInput" min="0" step="10">
+    </div>
+    <div class="modal-field">
+      <label>Presupuesto en dólares ($)</label>
+      <input type="number" id="budgetInputUSD" min="0" step="10">
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" id="budgetCancelBtn">Cancelar</button>
@@ -807,18 +824,24 @@ let state = {
   dateFilter: {type:"all"},
   trendGran: "week",
   budget: 0,
-  budgetMonth: String(new Date().getMonth()+1).padStart(2,"0")
+  budgetUSD: 0,
+  budgetMonth: String(new Date().getMonth()+1).padStart(2,"0"),
+  heroCurrency: "PEN", // moneda mostrada en el Hero/donut de categorías (nunca se suman soles y dólares)
+  currencyFilter: "all" // filtro de moneda para la tabla "Todos los movimientos": "all"|"PEN"|"USD"
 };
 
 let calView = { year:new Date().getFullYear(), month:new Date().getMonth() };
 let pendingRange = { start:null, end:null };
 
-function fmt(n){
-  const sign = n < 0 ? "-" : "";
-  return sign + "S/ " + Math.abs(n).toLocaleString("es-PE", {minimumFractionDigits:2, maximumFractionDigits:2});
+function currencySymbol(currency){
+  return currency === "USD" ? "$" : "S/";
 }
-function fmtShort(n){
-  return "S/ " + Math.round(n).toLocaleString("es-PE");
+function fmt(n, currency){
+  const sign = n < 0 ? "-" : "";
+  return sign + currencySymbol(currency) + " " + Math.abs(n).toLocaleString("es-PE", {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtShort(n, currency){
+  return currencySymbol(currency) + " " + Math.round(n).toLocaleString("es-PE");
 }
 function fmtDateShort(d){
   const dt = new Date(d+"T00:00:00");
@@ -832,7 +855,12 @@ function inDateFilter(dateStr, df){
   return true;
 }
 
-function getFiltered(forTable, ignoreType, skipNarrow){
+// `filterByHeroCurrency` acota a UNA sola moneda (state.heroCurrency) — lo
+// usa el Hero y el donut de categorías, que nunca mezclan soles y dólares
+// en un total. La tabla usa su propio filtro aparte (state.currencyFilter,
+// 3 opciones incl. "todas"), porque ahí cada fila ya muestra su propio
+// símbolo y sí es correcto listarlas juntas.
+function getFiltered(forTable, ignoreType, skipNarrow, filterByHeroCurrency){
   return TXNS.filter(t=>{
     const meta = CAT_META[t.category];
     if(!forTable && meta && meta.excluded) return false;
@@ -840,9 +868,13 @@ function getFiltered(forTable, ignoreType, skipNarrow){
     if(state.account !== "all" && t.account !== state.account) return false;
     if(!state.includeFinancial && t.category === "Financiero") return false;
     if(!ignoreType && state.txType !== "todos" && t.type !== state.txType) return false;
-    if(forTable && !skipNarrow){
-      if(state.category !== "all" && t.category !== state.category) return false;
-      if(state.search && !t.desc.toLowerCase().includes(state.search.toLowerCase())) return false;
+    if(filterByHeroCurrency && t.currency !== state.heroCurrency) return false;
+    if(forTable){
+      if(state.currencyFilter !== "all" && t.currency !== state.currencyFilter) return false;
+      if(!skipNarrow){
+        if(state.category !== "all" && t.category !== state.category) return false;
+        if(state.search && !t.desc.toLowerCase().includes(state.search.toLowerCase())) return false;
+      }
     }
     return true;
   });
@@ -857,7 +889,8 @@ function renderHero(){
   if(state.txType === "ingreso") heroBox.classList.add("type-in");
   if(state.txType === "todos") heroBox.classList.add("type-all");
 
-  const rows = getFiltered(false);
+  const rows = getFiltered(false, false, false, true);
+  const sym = currencySymbol(state.heroCurrency);
   let total;
   if(state.txType === "todos"){
     const ing = rows.filter(t=>t.type==="ingreso").reduce((s,t)=>s+t.amount,0);
@@ -871,7 +904,7 @@ function renderHero(){
     total = rows.reduce((s,t)=>s+t.amount,0);
     document.getElementById("heroTotalLbl").textContent = "Total gastado en el periodo filtrado";
   }
-  document.getElementById("heroTotal").textContent = fmt(total);
+  document.getElementById("heroTotal").textContent = fmt(total, state.heroCurrency);
   document.getElementById("heroSub").textContent = rows.length + " transacciones";
 
   if(rows.length){
@@ -879,16 +912,16 @@ function renderHero(){
     const first = new Date(dates[0]), last = new Date(dates[dates.length-1]);
     const days = Math.max(1, Math.round((last-first)/86400000)+1);
     const avg = total/days;
-    document.getElementById("heroAvgDay").innerHTML = "<small>S/</small> " + avg.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2});
+    document.getElementById("heroAvgDay").innerHTML = "<small>"+sym+"</small> " + avg.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2});
     document.getElementById("heroDaysSpan").textContent = "sobre " + days + " días";
 
     const maxTxn = rows.reduce((a,b)=> b.amount>a.amount?b:a, rows[0]);
-    document.getElementById("heroMax").innerHTML = "<small>S/</small> " + maxTxn.amount.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2});
+    document.getElementById("heroMax").innerHTML = "<small>"+sym+"</small> " + maxTxn.amount.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2});
     document.getElementById("heroMaxDesc").textContent = maxTxn.desc;
   } else {
-    document.getElementById("heroAvgDay").innerHTML = "<small>S/</small> 0";
+    document.getElementById("heroAvgDay").innerHTML = "<small>"+sym+"</small> 0";
     document.getElementById("heroDaysSpan").textContent = "sin datos";
-    document.getElementById("heroMax").innerHTML = "<small>S/</small> 0";
+    document.getElementById("heroMax").innerHTML = "<small>"+sym+"</small> 0";
     document.getElementById("heroMaxDesc").textContent = "—";
   }
 
@@ -932,7 +965,7 @@ function renderCategoryChart(byCat, sumAbs){
     row.innerHTML = `
       <div class="cat-name"><span>${meta.icon}</span><span>${meta.label}</span></div>
       <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${w}%;background:${meta.color}"></div></div>
-      <div class="cat-amt">${fmt(amt)}</div>
+      <div class="cat-amt">${fmt(amt, state.heroCurrency)}</div>
       <div class="cat-pct">${pct}%</div>
     `;
     wrap.appendChild(row);
@@ -967,7 +1000,7 @@ function renderRanking(rows){
           <div class="rank-meta">${info.count} movimiento${info.count>1?"s":""}</div>
         </div>
       </div>
-      <div class="rank-amt">${fmt(info.amount)}</div>
+      <div class="rank-amt">${fmt(info.amount, state.heroCurrency)}</div>
     `;
     wrap.appendChild(row);
   });
@@ -1229,6 +1262,7 @@ function buildBudgetCard(){
 
 function openBudgetModal(){
   document.getElementById("budgetInput").value = state.budget;
+  document.getElementById("budgetInputUSD").value = state.budgetUSD;
   document.getElementById("budgetModalOverlay").classList.add("open");
 }
 function closeBudgetModal(){
@@ -1240,15 +1274,24 @@ document.getElementById("budgetModalOverlay").addEventListener("click", e=>{
 });
 document.getElementById("budgetSaveBtn").addEventListener("click", async ()=>{
   const val = parseFloat(document.getElementById("budgetInput").value);
-  if(isNaN(val) || val < 0) return;
-  const prev = state.budget;
-  state.budget = val;
+  const valUSD = parseFloat(document.getElementById("budgetInputUSD").value);
+  if((document.getElementById("budgetInput").value && (isNaN(val) || val < 0)) ||
+     (document.getElementById("budgetInputUSD").value && (isNaN(valUSD) || valUSD < 0))) return;
+  const prev = state.budget, prevUSD = state.budgetUSD;
+  state.budget = isNaN(val) ? 0 : val;
+  state.budgetUSD = isNaN(valUSD) ? 0 : valUSD;
   closeBudgetModal();
   renderAll();
   try {
-    await api("/budgets/current", { method:"PUT", body: JSON.stringify({ totalAmount: val }) });
+    // Soles y dólares son presupuestos independientes (Budget.currency) —
+    // se guardan con 2 llamadas separadas, nunca un solo total mezclado.
+    await Promise.all([
+      api("/budgets/current", { method:"PUT", body: JSON.stringify({ totalAmount: state.budget, currency: "PEN" }) }),
+      api("/budgets/current", { method:"PUT", body: JSON.stringify({ totalAmount: state.budgetUSD, currency: "USD" }) }),
+    ]);
   } catch(err) {
     state.budget = prev;
+    state.budgetUSD = prevUSD;
     renderAll();
     alert("No se pudo guardar el presupuesto: " + err.message);
   }
@@ -1289,12 +1332,19 @@ function renderTable(){
     return 0;
   });
 
-  const total = rows.reduce((s,t)=>{
+  // Los totales se acumulan por moneda por separado — soles y dólares nunca
+  // se suman en un solo número, ni siquiera en este pie de tabla.
+  const totalsByCurrency = {};
+  rows.forEach(t=>{
     const meta = CAT_META[t.category];
-    if(meta && meta.excluded) return s;
-    return s + t.amount;
-  }, 0);
-  document.getElementById("tblTotal").textContent = fmt(total);
+    if(meta && meta.excluded) return;
+    const cur = t.currency || "PEN";
+    totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + t.amount;
+  });
+  const currenciesPresent = Object.keys(totalsByCurrency);
+  document.getElementById("tblTotal").textContent = currenciesPresent.length === 0
+    ? fmt(0, state.currencyFilter !== "all" ? state.currencyFilter : "PEN")
+    : currenciesPresent.map(cur=>fmt(totalsByCurrency[cur], cur)).join(" · ");
 
   const tbody = document.getElementById("tblBody");
   tbody.innerHTML = "";
@@ -1319,7 +1369,7 @@ function renderTable(){
       <td>${t.desc}</td>
       <td>${selectHtml}</td>
       <td>${t.account}</td>
-      <td class="num ${t.type==='ingreso'?'ingreso':''}">${t.type==='ingreso' ? '+ ' : ''}${fmt(t.amount)}</td>
+      <td class="num ${t.type==='ingreso'?'ingreso':''}">${t.type==='ingreso' ? '+ ' : ''}${fmt(t.amount, t.currency)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -1377,6 +1427,15 @@ document.getElementById("typeSeg").addEventListener("click", e=>{
   state.txType = btn.dataset.type;
   state.category = "all";
   state.visibleRows = 15;
+  renderAll();
+});
+
+document.getElementById("heroCurrencySeg").addEventListener("click", e=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  document.querySelectorAll("#heroCurrencySeg button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  state.heroCurrency = btn.dataset.currency;
   renderAll();
 });
 
@@ -1829,6 +1888,11 @@ function openConfigModal(){
 function closeConfigModal(){
   document.getElementById("configModalOverlay").classList.remove("open");
 }
+document.getElementById("currencyFilterSelect").addEventListener("change", e=>{
+  state.currencyFilter = e.target.value;
+  state.visibleRows = 15;
+  renderAll();
+});
 document.getElementById("openConfigModalBtn").addEventListener("click", openConfigModal);
 document.getElementById("closeConfigModalBtn").addEventListener("click", closeConfigModal);
 document.getElementById("configModalOverlay").addEventListener("click", e=>{
@@ -2204,10 +2268,11 @@ async function loadData(){
   // Solo movimientos confirmados (reales) — sin esto, PENDING_CONFIRMATION y
   // REJECTED se colaban en la tabla y en todos los totales/gráficos, que
   // usan este mismo TXNS sin volver a filtrar por status.
-  const [categories, transactions, budget] = await Promise.all([
+  const [categories, transactions, budget, budgetUSD] = await Promise.all([
     api("/categories"),
     api("/transactions?status=CONFIRMED,AUTO_CONFIRMED"),
     api("/budgets/current"),
+    api("/budgets/current?currency=USD"),
   ]);
 
   CAT_META = {};
@@ -2231,12 +2296,14 @@ async function loadData(){
     category: t.categoryId || fallbackCategoryId,
     account: t.accountCard?.displayName || t.bankKey || "Correo",
     type: t.type === "INCOME" ? "ingreso" : "egreso",
+    currency: t.currency || "PEN",
   }));
   TXNS.forEach((t,i)=>{ t.__idx = i; });
 
   recomputeDateBounds();
   calView = { year: new Date().getFullYear(), month: new Date().getMonth() };
   state.budget = Number(budget.totalAmount || 0);
+  state.budgetUSD = Number(budgetUSD.totalAmount || 0);
   state.budgetMonth = String(new Date().getMonth()+1).padStart(2,"0");
 
   // Repoblamos el filtro de cuentas con las cuentas reales presentes en los datos
