@@ -9,11 +9,17 @@ export const transactionsRouter = Router();
 
 transactionsRouter.use(requireAuth);
 
+const STATUS_VALUES = ["PENDING_CONFIRMATION", "CONFIRMED", "REJECTED", "AUTO_CONFIRMED"] as const;
+
 const listQuerySchema = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
   categoryId: z.string().uuid().optional(),
-  status: z.enum(["PENDING_CONFIRMATION", "CONFIRMED", "REJECTED", "AUTO_CONFIRMED"]).optional(),
+  // Uno o varios separados por coma, ej. "CONFIRMED,AUTO_CONFIRMED" — el
+  // dashboard los pide así para no mezclar movimientos reales con
+  // PENDING_CONFIRMATION/REJECTED, que antes se colaban en la tabla y en
+  // los totales/gráficos por no filtrarse en absoluto.
+  status: z.string().optional(),
 });
 
 transactionsRouter.get(
@@ -23,11 +29,19 @@ transactionsRouter.get(
     if (!parsed.success) throw new AppError("Parámetros de filtro inválidos", 422);
     const { from, to, categoryId, status } = parsed.data;
 
+    let statusFilter: (typeof STATUS_VALUES)[number][] | undefined;
+    if (status) {
+      const values = status.split(",").map((s) => s.trim());
+      const invalid = values.find((v) => !STATUS_VALUES.includes(v as (typeof STATUS_VALUES)[number]));
+      if (invalid) throw new AppError(`status inválido: "${invalid}"`, 422);
+      statusFilter = values as (typeof STATUS_VALUES)[number][];
+    }
+
     const transactions = await prisma.transaction.findMany({
       where: {
         userId: req.userId,
         categoryId,
-        status,
+        status: statusFilter ? { in: statusFilter } : undefined,
         deletedAt: null,
         occurredAt: {
           gte: from ? new Date(from) : undefined,

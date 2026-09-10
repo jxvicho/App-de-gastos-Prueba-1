@@ -2201,9 +2201,12 @@ async function enterApp(){
  * cambio que afecte la lista de categorías (crear/eliminar).
  */
 async function loadData(){
+  // Solo movimientos confirmados (reales) — sin esto, PENDING_CONFIRMATION y
+  // REJECTED se colaban en la tabla y en todos los totales/gráficos, que
+  // usan este mismo TXNS sin volver a filtrar por status.
   const [categories, transactions, budget] = await Promise.all([
     api("/categories"),
-    api("/transactions"),
+    api("/transactions?status=CONFIRMED,AUTO_CONFIRMED"),
     api("/budgets/current"),
   ]);
 
