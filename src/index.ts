@@ -7,6 +7,8 @@ import { apiRouter } from "./routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { emailSyncWorker } from "./queues/emailSyncWorker";
 import { scheduleEmailSyncRepeatable } from "./queues/emailSyncQueue";
+import { weeklyReportWorker } from "./queues/weeklyReportWorker";
+import { scheduleWeeklyReportRepeatable } from "./queues/weeklyReportQueue";
 import { keepDatabaseAwake } from "./config/keepAlive";
 
 const app = express();
@@ -65,3 +67,9 @@ scheduleEmailSyncRepeatable().catch((err) => {
 });
 console.log("📬 Worker de sincronización de correo activo");
 void emailSyncWorker;
+
+scheduleWeeklyReportRepeatable().catch((err) => {
+  console.error("❌ No se pudo programar el reporte semanal:", err);
+});
+console.log("📊 Worker de reporte semanal activo");
+void weeklyReportWorker;

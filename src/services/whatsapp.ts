@@ -10,6 +10,10 @@ function messagesUrl(): string {
   return `${GRAPH_BASE_URL}/${env.WHATSAPP_API_VERSION}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 }
 
+function mediaUploadUrl(): string {
+  return `${GRAPH_BASE_URL}/${env.WHATSAPP_API_VERSION}/${env.WHATSAPP_PHONE_NUMBER_ID}/media`;
+}
+
 async function postToGraph(payload: Record<string, unknown>): Promise<GraphSendResponse> {
   const res = await fetch(messagesUrl(), {
     method: "POST",
@@ -81,6 +85,61 @@ export async function sendInteractiveButtons(
     return data.messages?.[0]?.id;
   } catch (err) {
     console.error(`No se pudieron enviar los botones a ${to}:`, err);
+    return undefined;
+  }
+}
+
+/**
+ * Sube un binario a la Graph API (POST .../media, multipart/form-data) y
+ * devuelve el media id que después se usa para mandarlo — subir y mandar
+ * son dos pasos separados en la Cloud API, igual que descargar un media
+ * entrante (ver whatsappMedia.ts) también son 2 pasos.
+ */
+async function uploadMedia(buffer: Buffer, mimeType: string): Promise<string | undefined> {
+  const form = new FormData();
+  form.append("messaging_product", "whatsapp");
+  form.append("type", mimeType);
+  form.append("file", new Blob([buffer], { type: mimeType }), "reporte.png");
+
+  const res = await fetch(mediaUploadUrl(), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}` },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    console.error(`Error subiendo media a la API de WhatsApp (${res.status}):`, errorBody);
+    return undefined;
+  }
+
+  const data = (await res.json()) as { id?: string };
+  return data.id;
+}
+
+/**
+ * Manda una imagen (ej. el reporte semanal). Sube el buffer como media
+ * primero, y con el id que devuelve manda el mensaje tipo "image". Devuelve
+ * el wamid del mensaje enviado (o undefined si falló en cualquiera de los
+ * 2 pasos).
+ */
+export async function sendImageMessage(to: string, imageBuffer: Buffer, caption?: string): Promise<string | undefined> {
+  try {
+    const mediaId = await uploadMedia(imageBuffer, "image/png");
+    if (!mediaId) {
+      console.error(`No se pudo subir la imagen a WhatsApp para ${to} (sin media id).`);
+      return undefined;
+    }
+
+    const data = await postToGraph({
+      messaging_product: "whatsapp",
+      to,
+      type: "image",
+      image: { id: mediaId, ...(caption ? { caption } : {}) },
+    });
+    return data.messages?.[0]?.id;
+  } catch (err) {
+    console.error(`No se pudo enviar la imagen a ${to}:`, err);
     return undefined;
   }
 }

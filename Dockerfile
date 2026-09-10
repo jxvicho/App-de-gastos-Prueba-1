@@ -1,5 +1,12 @@
 FROM node:20-alpine
 
+# Fuentes para el reporte semanal (src/services/weeklyReportImage.ts, con
+# @napi-rs/canvas): ttf-dejavu para el texto, font-noto-emoji para los
+# íconos de categoría (son emoji reales guardados en Category.icon, no
+# íconos vectoriales). fontconfig hace que @napi-rs/canvas las encuentre
+# por nombre de familia sin tener que registrar rutas a mano.
+RUN apk add --no-cache fontconfig ttf-dejavu font-noto-emoji
+
 WORKDIR /app
 
 # Copiamos primero solo los manifiestos para aprovechar la caché de Docker:
