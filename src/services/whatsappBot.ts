@@ -1241,7 +1241,10 @@ function buildCategoryGroupingReply(merchant: string, transactions: ConfirmedTxW
   return lines.join("\n");
 }
 
-const SHOW_ALL_FOLLOWUP_PHRASES = ["todos", "todas", "muestra", "muestralos", "ver todos", "verlos todos", "dale", "detall"];
+const SHOW_ALL_FOLLOWUP_PHRASES = [
+  "todos", "todas", "muestra", "muestralos", "muestralas",
+  "ver todos", "ver todas", "verlos todos", "verlas todas", "dale", "detall",
+];
 function wantsToSeeAllFollowUp(normalizedText: string): boolean {
   return detectConfirmWordIntent(normalizedText) || SHOW_ALL_FOLLOWUP_PHRASES.some((phrase) => normalizedText.includes(phrase));
 }
@@ -1326,17 +1329,45 @@ function buildPendingSummaryContinuationReply(allPendingNow: ConfirmedTxWithCate
   return lines.join("\n");
 }
 
-const APPROVE_ALL_PENDING_VERBS = ["aprueba", "apruebalas", "aprobarlas", "confirmalas", "confirmarlas", "aceptalas"];
+const APPROVE_ALL_PENDING_VERBS = [
+  "aprueba", "aprobar", "apruebalas", "aprobarlas",
+  "confirma", "confirmar", "confirmalas", "confirmarlas",
+  "acepta", "aceptar", "aceptalas",
+];
 function wantsApproveAllPending(normalizedText: string): boolean {
-  return /\btodas?\b/.test(normalizedText) || APPROVE_ALL_PENDING_VERBS.some((verb) => normalizedText.includes(verb));
+  return /\btod[oa]s?\b/.test(normalizedText) || APPROVE_ALL_PENDING_VERBS.some((verb) => normalizedText.includes(verb));
 }
 
 const REVIEW_ONE_BY_ONE_PHRASES = [
   "una por una", "uno por uno", "de una en una", "de uno en uno",
-  "una a una", "uno a uno", "revisemoslas", "revisarlas de a una",
+  "una a una", "uno a uno", "de a una", "de a uno",
+  "revisemoslas", "revisemoslos", "revisarlas de a una", "revisarlos de a uno",
 ];
 function wantsReviewOneByOne(normalizedText: string): boolean {
   return REVIEW_ONE_BY_ONE_PHRASES.some((phrase) => normalizedText.includes(phrase));
+}
+
+/**
+ * Tercera opción del menú de 3 vías de buildPendingSummaryReply ("¿Los
+ * apruebo todos de una vez, los revisamos uno por uno, o los dejamos
+ * pendientes por ahora?") — "dejar pendiente(s)", "déjalas/déjalos
+ * pendientes", "por ahora no", "después las/los reviso". A diferencia de
+ * las otras dos opciones, esta NO hacía ninguna acción reconocible: antes
+ * dependía por completo de declinesFollowUp (genérico, compartido con
+ * merchant_query/category_query, pensado para "no"/"así está bien"), que no
+ * cubre ninguna de estas frases — por eso "dejar pendiente por ahora", casi
+ * literal al texto que el propio bot sugiere, caía al fallback genérico de
+ * identificación de transacción en vez de simplemente confirmar la
+ * decisión. Se usa \b (no substring plano) para no matchear de casualidad
+ * dentro de otra palabra, mismo criterio que las otras dos opciones del menú.
+ */
+function wantsLeavePending(normalizedText: string): boolean {
+  return (
+    /\bdeja(r|mos)?\b[\s\S]*\bpendient/.test(normalizedText) ||
+    /\bdejal[ao]s\b/.test(normalizedText) ||
+    /\bpor ahora no\b/.test(normalizedText) ||
+    /\bdespues\b[\s\S]*\brevis/.test(normalizedText)
+  );
 }
 
 /**
@@ -2248,7 +2279,8 @@ export async function handleIncomingMessage(
         return;
       }
 
-      if (declinesFollowUp(normalized)) {
+      if (wantsLeavePending(normalized) || declinesFollowUp(normalized)) {
+        console.log(`WhatsApp: seguimiento "dejar pendientes" -> no se toca ninguno de los ${ctx.transactionIds.length}.`);
         await sendTextMessage(from, "Sin problema, ahí quedan cuando quieras revisarlos.");
         return;
       }
