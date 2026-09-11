@@ -253,6 +253,10 @@ const PENDING_SUMMARY_INTENT_PHRASES = [
   "que tengo pendiente", "que tengo pendientes", "cuantos pendientes", "cuantas pendientes",
   "gastos que no he confirmado", "gastos sin confirmar", "movimientos sin confirmar",
   "resumen de pendientes", "que falta confirmar", "que me falta confirmar", "movimientos pendientes",
+  // Variantes con "confirmaciones" en vez de (o además de) "pendiente(s)" —
+  // ej. "qué confirmaciones tengo pendientes" no calzaba con ninguna frase
+  // de arriba y caía al fallback genérico de identificación de transacción.
+  "confirmaciones pendientes", "que confirmaciones tengo", "cuantas confirmaciones tengo",
 ];
 
 function detectPendingSummaryIntent(normalizedText: string): boolean {
