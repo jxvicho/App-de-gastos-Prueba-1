@@ -65,6 +65,22 @@ function formatTotalsByCurrency(items: { currency: string; amount: number }[]): 
   return [...totals.entries()].map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`).join(" + ");
 }
 
+/**
+ * Igual que formatTotalsByCurrency, pero separa primero por tipo (gasto vs.
+ * ingreso) antes de sumar por moneda — sumarlos juntos falsea el total (ej.
+ * un ingreso pendiente de S/2200 tapando S/297 de gastos pendientes, ambos
+ * en soles, en una sola cifra "S/ 2497.30" que no dice nada útil). Se omite
+ * la línea de un tipo si no hay ningún movimiento de ese tipo.
+ */
+function formatPendingTotalsByType(items: { type: string; currency: string; amount: number }[]): string {
+  const expenses = items.filter((it) => it.type === "EXPENSE");
+  const incomes = items.filter((it) => it.type === "INCOME");
+  const lines: string[] = [];
+  if (expenses.length > 0) lines.push(`Gastos: ${formatTotalsByCurrency(expenses)}`);
+  if (incomes.length > 0) lines.push(`Ingresos: ${formatTotalsByCurrency(incomes)}`);
+  return lines.join("\n");
+}
+
 // Alias/sinónimos en español (sin tildes, minúsculas) para reconocer una
 // corrección de categoría escrita en texto libre, ej. "anótalo en comidas".
 const CATEGORY_ALIASES: Record<string, string[]> = {
@@ -702,6 +718,7 @@ interface RetroactiveRuleFollowUp {
 interface PendingReviewFollowUp {
   type: "pending_review";
   transactionIds: string[]; // TODAS las PENDING_CONFIRMATION al momento de la consulta, orden desc por fecha
+  shownCount: number; // cuántas de transactionIds ya se mostraron (paginación de a PENDING_SUMMARY_DISPLAY_LIMIT)
 }
 interface CategoryQueryFollowUp {
   type: "category_query";
@@ -1175,10 +1192,13 @@ function buildMerchantQueryReply(
   }
 
   if (pending.length > 0) {
-    const pendingTotalLine = formatTotalsByCurrency(pending.map((t) => ({ currency: t.currency, amount: Number(t.amount) })));
+    const pendingTotalsByType = formatPendingTotalsByType(
+      pending.map((t) => ({ type: t.type, currency: t.currency, amount: Number(t.amount) }))
+    );
     lines.push(
       "",
-      `⏳ *Aún sin confirmar* (${pending.length}, no suman al total de arriba — suman ${pendingTotalLine}):`
+      `⏳ *Aún sin confirmar* (${pending.length}, no suman al total de arriba):`,
+      pendingTotalsByType
     );
     pending.forEach((t) => {
       const detail = t.description ? ` — ${t.description}` : "";
@@ -1244,6 +1264,15 @@ async function findAllPendingConfirmation(userId: string): Promise<ConfirmedTxWi
   });
 }
 
+/** Una línea de la lista de pendientes: fecha, monto, comercio y categoría sugerida (o "sin categoría"). */
+function formatPendingLine(t: ConfirmedTxWithCategory, index: number): string {
+  const who = t.merchant || t.description || "Movimiento";
+  const catLine = t.category
+    ? ` · ${CATEGORY_ICON_BY_NAME.get(t.category.name) ?? FALLBACK_CATEGORY_ICON} ${t.category.name}`
+    : " · sin categoría sugerida";
+  return `${index}. ${formatShortDate(t.occurredAt)} · ${formatAmount(t)} · ${who}${catLine}`;
+}
+
 /**
  * Lista numerada de pendientes (monto, comercio, categoría sugerida si la
  * tiene) con el total bien visible ANTES de preguntar si se aprueban en
@@ -1253,23 +1282,44 @@ async function findAllPendingConfirmation(userId: string): Promise<ConfirmedTxWi
  */
 function buildPendingSummaryReply(pending: ConfirmedTxWithCategory[]): string {
   const shown = pending.slice(0, PENDING_SUMMARY_DISPLAY_LIMIT);
-  const totalLine = formatTotalsByCurrency(pending.map((t) => ({ currency: t.currency, amount: Number(t.amount) })));
+  const totalsByType = formatPendingTotalsByType(pending.map((t) => ({ type: t.type, currency: t.currency, amount: Number(t.amount) })));
 
   const lines = [`📋 *Tienes ${pending.length} movimiento${pending.length === 1 ? "" : "s"} sin confirmar*`, ""];
-  shown.forEach((t, i) => {
-    const who = t.merchant || t.description || "Movimiento";
-    const catLine = t.category
-      ? ` · ${CATEGORY_ICON_BY_NAME.get(t.category.name) ?? FALLBACK_CATEGORY_ICON} ${t.category.name}`
-      : " · sin categoría sugerida";
-    lines.push(`${i + 1}. ${formatShortDate(t.occurredAt)} · ${formatAmount(t)} · ${who}${catLine}`);
-  });
+  shown.forEach((t, i) => lines.push(formatPendingLine(t, i + 1)));
   if (pending.length > shown.length) {
     lines.push("", `...y ${pending.length - shown.length} más.`);
   }
 
   lines.push(
     "",
-    `💰 *Suman en total:* ${totalLine}`,
+    "💰 *Suman en total:*",
+    totalsByType,
+    "",
+    "¿Los apruebo todos de una vez, los revisamos uno por uno, o los dejamos pendientes por ahora?"
+  );
+  return lines.join("\n");
+}
+
+/**
+ * Siguiente tanda de pendientes que no aparecieron en un
+ * buildPendingSummaryReply anterior (paginación de "mostrar más" — ver
+ * PendingReviewFollowUp.shownCount). Mismo formato que la lista original
+ * (fecha, monto, comercio, categoría) y misma pregunta al final, pero el
+ * total es siempre el de TODAS las pendientes actuales, no solo las de
+ * esta tanda — el usuario sigue decidiendo sobre el conjunto completo.
+ */
+function buildPendingSummaryContinuationReply(allPendingNow: ConfirmedTxWithCategory[], batch: ConfirmedTxWithCategory[]): string {
+  const totalsByType = formatPendingTotalsByType(
+    allPendingNow.map((t) => ({ type: t.type, currency: t.currency, amount: Number(t.amount) }))
+  );
+
+  const lines = [`📋 *Los siguientes ${batch.length} pendiente${batch.length === 1 ? "" : "s"}:*`, ""];
+  batch.forEach((t, i) => lines.push(formatPendingLine(t, i + 1)));
+
+  lines.push(
+    "",
+    "💰 *Suman en total (todos los pendientes):*",
+    totalsByType,
     "",
     "¿Los apruebo todos de una vez, los revisamos uno por uno, o los dejamos pendientes por ahora?"
   );
@@ -1287,6 +1337,40 @@ const REVIEW_ONE_BY_ONE_PHRASES = [
 ];
 function wantsReviewOneByOne(normalizedText: string): boolean {
   return REVIEW_ONE_BY_ONE_PHRASES.some((phrase) => normalizedText.includes(phrase));
+}
+
+/**
+ * Pide ver la siguiente tanda de pendientes que no aparecieron en la lista
+ * anterior ("muéstrame los demás", "los 16 que faltan", "el resto",
+ * "mostrar más"). Se usa DENTRO de la ventana de seguimiento de
+ * PendingReviewFollowUp (bloque 0.35/0.36 más abajo), donde ser permisivo
+ * (ej. "resto"/"demás" sueltos) no arrastra falsos positivos porque el
+ * contexto ya está acotado: el usuario está reaccionando a una lista de
+ * pendientes que le acabamos de mandar. Para el caso SIN ventana activa
+ * (mensaje "en frío") se usa la versión más estricta de abajo.
+ */
+function wantsMorePendingFollowUp(normalizedText: string): boolean {
+  return (
+    /\b(mostrar|muestrame|muestra|ensename)\b.*\b(mas|demas|resto|faltan)\b/.test(normalizedText) ||
+    /\b(demas|resto)\b/.test(normalizedText) ||
+    /\bque faltan\b/.test(normalizedText)
+  );
+}
+
+/**
+ * Misma intención que wantsMorePendingFollowUp, pero para cuando NO hay una
+ * ventana de PendingReviewFollowUp activa (nunca vio una lista, o expiró el
+ * TTL) — acá "resto"/"demás" sueltos SÍ son demasiado genéricos (ej. "el
+ * resto de la comida estaba rico" no tiene nada que ver), así que se exige
+ * un verbo explícito de "mostrar" dirigido al bot, la frase completa "que
+ * faltan", o un número seguido de "más"/"que faltan" (estilo "esos 16 más").
+ */
+function wantsMorePendingColdStart(normalizedText: string): boolean {
+  return (
+    /\b(mostrar|muestrame|muestra|ensename)\b.*\b(mas|demas|resto|faltan)\b/.test(normalizedText) ||
+    /\bque faltan\b/.test(normalizedText) ||
+    /\b\d+\s+(mas|que faltan)\b/.test(normalizedText)
+  );
 }
 
 /**
@@ -1887,7 +1971,19 @@ export async function handleIncomingMessage(
   // resumen normal y que la consulta por categoría porque una frase como
   // "resumen de pendientes" también calza con ambos ("resumen de", o
   // "pendientes" mal interpretado como categoría), y esta es más específica.
-  if (detectPendingSummaryIntent(normalized)) {
+  //
+  // También arranca desde cero (página 1) si el mensaje pide "ver los
+  // demás"/"el resto" pero NO hay una ventana de PendingReviewFollowUp
+  // activa (nunca vio una lista, o ya expiró el TTL) — sin esto, ese
+  // mensaje caía al fallback genérico de identificación de transacción. Si
+  // SÍ hay una ventana activa, esta condición es false a propósito (el
+  // peek no la consume) para que la maneje la paginación real más abajo
+  // (0.35/0.36, bloque "pending_review").
+  const peekedFollowUp = followUpByUserId.get(user.id);
+  const hasActivePendingReviewFollowUp =
+    !!peekedFollowUp && peekedFollowUp.context.type === "pending_review" && Date.now() - peekedFollowUp.createdAt <= FOLLOWUP_TTL_MS;
+
+  if (detectPendingSummaryIntent(normalized) || (wantsMorePendingColdStart(normalized) && !hasActivePendingReviewFollowUp)) {
     console.log(`WhatsApp: intención de RESUMEN DE PENDIENTES detectada de ${from}.`);
     const allPending = await findAllPendingConfirmation(user.id);
 
@@ -1899,7 +1995,11 @@ export async function handleIncomingMessage(
     await sendTextMessage(from, buildPendingSummaryReply(allPending));
     followUpByUserId.set(user.id, {
       createdAt: Date.now(),
-      context: { type: "pending_review", transactionIds: allPending.map((p) => p.id) },
+      context: {
+        type: "pending_review",
+        transactionIds: allPending.map((p) => p.id),
+        shownCount: Math.min(allPending.length, PENDING_SUMMARY_DISPLAY_LIMIT),
+      },
     });
     return;
   }
@@ -2091,11 +2191,13 @@ export async function handleIncomingMessage(
           where: { id: { in: stillPending.map((p) => p.id) } },
           data: { status: "CONFIRMED", confirmedAt: new Date() },
         });
-        const totalLine = formatTotalsByCurrency(stillPending.map((t) => ({ currency: t.currency, amount: Number(t.amount) })));
+        const totalsByType = formatPendingTotalsByType(
+          stillPending.map((t) => ({ type: t.type, currency: t.currency, amount: Number(t.amount) }))
+        );
         console.log(`WhatsApp: aprobación EN BLOQUE de ${stillPending.length} pendiente(s) -> CONFIRMED.`);
         await sendTextMessage(
           from,
-          `✅ Listo, confirmé ${stillPending.length} movimiento${stillPending.length === 1 ? "" : "s"} por un total de ${totalLine}.`
+          `✅ Listo, confirmé ${stillPending.length} movimiento${stillPending.length === 1 ? "" : "s"}:\n${totalsByType}`
         );
         return;
       }
@@ -2112,6 +2214,37 @@ export async function handleIncomingMessage(
         }
         console.log(`WhatsApp: revisión UNO POR UNO iniciada -> ${firstPending.id}`);
         await notifyPendingTransaction(firstPending, from);
+        return;
+      }
+
+      if (wantsMorePendingFollowUp(normalized)) {
+        if (ctx.transactionIds.length <= ctx.shownCount) {
+          await sendTextMessage(from, "Ya te había mostrado todos los pendientes, no hay más por ver.");
+          return;
+        }
+        const nextIds = ctx.transactionIds.slice(ctx.shownCount, ctx.shownCount + PENDING_SUMMARY_DISPLAY_LIMIT);
+        const [nextBatchUnordered, allPendingNow] = await Promise.all([
+          prisma.transaction.findMany({
+            where: { id: { in: nextIds }, status: "PENDING_CONFIRMATION" },
+            include: { category: true },
+          }),
+          findAllPendingConfirmation(user.id),
+        ]);
+        // findMany no respeta el orden del IN — se reordena según nextIds
+        // (mismo orden desc por fecha que ya vio el usuario en la lista anterior).
+        const orderIndex = new Map(nextIds.map((id, i) => [id, i]));
+        const nextBatch = nextBatchUnordered.sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0));
+
+        if (nextBatch.length === 0) {
+          await sendTextMessage(from, "Esos movimientos ya no están pendientes, no hay nada más que mostrar.");
+          return;
+        }
+        console.log(`WhatsApp: seguimiento "mostrar más pendientes" -> ${nextBatch.length} movimiento(s) adicionales.`);
+        await sendTextMessage(from, buildPendingSummaryContinuationReply(allPendingNow, nextBatch));
+        followUpByUserId.set(user.id, {
+          createdAt: Date.now(),
+          context: { type: "pending_review", transactionIds: ctx.transactionIds, shownCount: ctx.shownCount + nextIds.length },
+        });
         return;
       }
 
