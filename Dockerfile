@@ -4,8 +4,10 @@ FROM node:20-alpine
 # @napi-rs/canvas): ttf-dejavu para el texto, font-noto-emoji para los
 # íconos de categoría (son emoji reales guardados en Category.icon, no
 # íconos vectoriales). fontconfig hace que @napi-rs/canvas las encuentre
-# por nombre de familia sin tener que registrar rutas a mano.
-RUN apk add --no-cache fontconfig ttf-dejavu font-noto-emoji
+# por nombre de familia sin tener que registrar rutas a mano. openssl lo
+# necesita el motor de Prisma para conectarse a Postgres (sin esto falla
+# con "Could not parse schema engine response" en node:20-alpine).
+RUN apk add --no-cache fontconfig ttf-dejavu font-noto-emoji openssl
 
 WORKDIR /app
 
