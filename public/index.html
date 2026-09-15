@@ -435,10 +435,56 @@
   .auth-form[hidden]{display:none;}
   .auth-form label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink-soft);}
   .auth-form input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;}
+  .auth-pw-field{position:relative;display:flex;}
+  .auth-pw-field input{flex:1;padding-right:38px;}
+  .auth-pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;padding:6px;font-size:16px;line-height:1;color:var(--ink-soft);user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+  .auth-pw-toggle:hover{color:var(--ink);}
   .auth-btn{border:none;background:var(--blue-700);color:#fff;padding:11px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:2px;}
   .auth-btn:hover{background:var(--blue-600);}
   .auth-error{color:#c0392b;font-size:12.5px;margin:12px 0 0;}
   [hidden]{display:none !important;}
+</style>
+<style>
+  /* ---- Sidebar de navegación ---- */
+  .app-shell{display:flex;align-items:stretch;min-height:100vh;}
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;width:220px;
+    background:#1A1D24;display:flex;flex-direction:column;
+    z-index:30;
+  }
+  .sidebar-brand{
+    padding:22px 20px;font-size:17px;font-weight:700;color:#FFFFFF;letter-spacing:.2px;
+  }
+  .sidebar-nav{display:flex;flex-direction:column;gap:2px;padding:8px 10px;}
+  .sidebar-item{
+    display:flex;align-items:center;gap:12px;
+    border:none;border-left:2px solid transparent;background:transparent;
+    color:#A8ADB8;font-size:13.5px;font-weight:600;font-family:inherit;
+    padding:10px 12px;border-radius:8px;cursor:pointer;text-align:left;width:100%;
+  }
+  .sidebar-item svg{flex:none;width:18px;height:18px;}
+  .sidebar-item:hover{background:rgba(255,255,255,.05);}
+  .sidebar-item.active{
+    color:#FFFFFF;background:rgba(255,255,255,.05);
+    border-left-color:#5B8DEF;
+  }
+  .sidebar-footer{margin-top:auto;padding:10px;border-top:1px solid rgba(255,255,255,.08);}
+  .sidebar-logout{color:#6B7080;}
+  .sidebar-logout:hover{background:rgba(255,255,255,.05);color:#A8ADB8;}
+  .sidebar-label{white-space:nowrap;}
+  .app-main{flex:1;margin-left:220px;min-width:0;}
+
+  @media (max-width:900px){
+    .sidebar{width:64px;}
+    .sidebar-brand{padding:22px 0;text-align:center;font-size:0;}
+    .sidebar-brand::after{content:"G";font-size:17px;}
+    .sidebar-item{justify-content:center;padding:12px 0;}
+    .sidebar-label{display:none;}
+    .app-main{margin-left:64px;}
+  }
+  @media (max-width:640px){
+    .app-main{margin-left:64px;}
+  }
 </style>
 </head>
 <body>
@@ -455,13 +501,23 @@
     </div>
     <form id="formLogin" class="auth-form">
       <label>Correo<input type="email" name="email" required placeholder="tu@correo.com"></label>
-      <label>Contraseña<input type="password" name="password" required placeholder="••••••••"></label>
+      <label>Contraseña
+        <div class="auth-pw-field">
+          <input type="password" name="password" required placeholder="••••••••">
+          <button type="button" class="auth-pw-toggle" aria-label="Mantén presionado para mostrar la contraseña">👁</button>
+        </div>
+      </label>
       <button type="submit" class="auth-btn">Entrar</button>
     </form>
     <form id="formRegister" class="auth-form" hidden>
       <label>Nombre<input type="text" name="name" required placeholder="Javier"></label>
       <label>Correo<input type="email" name="email" required placeholder="tu@correo.com"></label>
-      <label>Contraseña<input type="password" name="password" required minlength="8" placeholder="Mínimo 8 caracteres"></label>
+      <label>Contraseña
+        <div class="auth-pw-field">
+          <input type="password" name="password" required minlength="8" placeholder="Mínimo 8 caracteres">
+          <button type="button" class="auth-pw-toggle" aria-label="Mantén presionado para mostrar la contraseña">👁</button>
+        </div>
+      </label>
       <button type="submit" class="auth-btn">Crear cuenta</button>
     </form>
     <p id="authError" class="auth-error" hidden></p>
@@ -469,7 +525,30 @@
 </section>
 
 <div id="appRoot" hidden>
-<div class="wrap">
+<div class="app-shell">
+  <nav class="sidebar">
+    <div class="sidebar-brand">Gastia</div>
+    <div class="sidebar-nav">
+      <button class="sidebar-item active" data-view="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
+        <span class="sidebar-label">Inicio</span>
+      </button>
+      <button class="sidebar-item" data-view="config">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.96 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.96a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+        <span class="sidebar-label">Configuración</span>
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <button class="sidebar-item sidebar-logout" id="sidebarLogoutBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        <span class="sidebar-label">Salir</span>
+      </button>
+    </div>
+  </nav>
+
+  <div class="app-main">
+  <div id="viewHome">
+  <div class="wrap">
 
   <div class="topbar">
     <div class="brand">
@@ -592,7 +671,6 @@
           <option value="PEN">S/ Soles</option>
           <option value="USD">$ Dólares</option>
         </select>
-        <button class="manage-cat-btn" id="openConfigModalBtn">🔗 Configuración</button>
         <button class="manage-cat-btn" id="openRulesModalBtn">📏 Reglas</button>
       </div>
     </div>
@@ -635,7 +713,35 @@
   </div>
 
   <footer>Gastia · tus finanzas, claras y sin contraseñas de banco. Los datos se leen únicamente de tu cuenta y nunca se comparten con terceros salvo la exportación local a Excel (SheetJS, cargado desde cdnjs.cloudflare.com).</footer>
-</div>
+  </div>
+  </div><!-- /#viewHome -->
+
+  <div id="viewConfig" hidden>
+  <div class="wrap">
+    <div class="card">
+      <h3>Correos conectados</h3>
+      <div class="card-sub">Conecta tus correos para detectar tus movimientos automáticamente.</div>
+      <div class="modal-list" id="connected-accounts-list"></div>
+      <div class="modal-actions">
+        <button class="btn-save" id="connect-outlook-btn" style="flex:none;">📧 Conectar Outlook</button>
+        <button class="btn-cancel" disabled style="flex:none;opacity:.5;cursor:not-allowed;">✉️ Conectar Gmail (próximamente)</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h3>Tus bancos</h3>
+      <div class="card-sub">Elige qué bancos leer para detectar tus movimientos.</div>
+      <input type="text" id="bank-search" placeholder="Busca tu banco..." style="width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13.5px;">
+      <div class="modal-list" id="bank-list" style="margin-top:10px;"></div>
+      <div class="modal-actions">
+        <button class="btn-save" id="save-banks-btn" style="flex:none;">Guardar bancos</button>
+        <span id="save-banks-status" style="align-self:center;font-size:12.5px;color:var(--green-600);font-weight:700;"></span>
+      </div>
+    </div>
+  </div>
+  </div><!-- /#viewConfig -->
+  </div><!-- /.app-main -->
+</div><!-- /.app-shell -->
 
 <div class="modal-overlay" id="catModalOverlay">
   <div class="modal-box">
@@ -662,38 +768,6 @@
 
     <div class="modal-actions" style="margin-top:16px;">
       <button class="btn-cancel" id="closeCatModalBtn" style="width:100%;">Cerrar</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="configModalOverlay">
-  <div class="modal-box">
-    <h4>Configuración</h4>
-    <div class="modal-sub">Conecta tus correos y elige qué bancos leer para detectar tus movimientos automáticamente.</div>
-
-    <div class="modal-field">
-      <label>Correos conectados</label>
-      <div class="modal-list" id="connected-accounts-list"></div>
-      <div class="modal-actions">
-        <button class="btn-save" id="connect-outlook-btn" style="flex:none;">📧 Conectar Outlook</button>
-        <button class="btn-cancel" disabled style="flex:none;opacity:.5;cursor:not-allowed;">✉️ Conectar Gmail (próximamente)</button>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="modal-field">
-      <label>Tus bancos</label>
-      <input type="text" id="bank-search" placeholder="Busca tu banco...">
-      <div class="modal-list" id="bank-list" style="margin-top:10px;"></div>
-      <div class="modal-actions">
-        <button class="btn-save" id="save-banks-btn" style="flex:none;">Guardar bancos</button>
-        <span id="save-banks-status" style="align-self:center;font-size:12.5px;color:var(--green-600);font-weight:700;"></span>
-      </div>
-    </div>
-
-    <div class="modal-actions" style="margin-top:6px;">
-      <button class="btn-cancel" id="closeConfigModalBtn" style="width:100%;">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1209,10 +1283,10 @@ function renderInsights(rows, byCat, sumAbs){
 
 function buildTodaySpendCard(){
   const today = todayStr();
-  const todaysExpenses = TXNS.filter(t => t.type === "egreso" && t.date === today && !(CAT_META[t.category] && CAT_META[t.category].excluded));
+  const todaysExpenses = TXNS.filter(t => t.type === "egreso" && t.date === today && t.currency === state.heroCurrency && !(CAT_META[t.category] && CAT_META[t.category].excluded));
   const total = todaysExpenses.reduce((s,t)=>s+t.amount,0);
 
-  const filteredExpenses = getFiltered(false, true).filter(t=>t.type==="egreso" && !(CAT_META[t.category] && CAT_META[t.category].excluded));
+  const filteredExpenses = getFiltered(false, true, false, true).filter(t=>t.type==="egreso" && !(CAT_META[t.category] && CAT_META[t.category].excluded));
   let avgPerDay = 0;
   if (filteredExpenses.length) {
     const dates = filteredExpenses.map(t=>t.date).sort();
@@ -1227,18 +1301,18 @@ function buildTodaySpendCard(){
   div.className = "insight";
   div.innerHTML = `
     <div class="itag">Gasté hoy</div>
-    <p style="font-size:22px;font-weight:700;margin:2px 0 6px;">${fmt(total)}</p>
-    <p style="margin:0 0 8px;color:var(--ink-soft);font-size:12.5px;">Promedio ${fmtShort(avgPerDay)} al día</p>
+    <p style="font-size:22px;font-weight:700;margin:2px 0 6px;">${fmt(total, state.heroCurrency)}</p>
+    <p style="margin:0 0 8px;color:var(--ink-soft);font-size:12.5px;">Promedio ${fmtShort(avgPerDay, state.heroCurrency)} al día</p>
     <p style="margin:0;font-size:12.5px;color:var(--ink-soft);">Mayor gasto</p>
-    <p style="margin:0;font-weight:600;">${maxTxn ? maxTxn.desc + " · " + fmt(maxTxn.amount) : "Sin movimientos hoy"}</p>
+    <p style="margin:0;font-weight:600;">${maxTxn ? maxTxn.desc + " · " + fmt(maxTxn.amount, state.heroCurrency) : "Sin movimientos hoy"}</p>
   `;
   return div;
 }
 
 function buildBudgetCard(){
-  const spent = TXNS.filter(t=> t.type==="egreso" && t.date.slice(5,7)===state.budgetMonth && !(CAT_META[t.category] && CAT_META[t.category].excluded))
+  const spent = TXNS.filter(t=> t.type==="egreso" && t.date.slice(5,7)===state.budgetMonth && t.currency===state.heroCurrency && !(CAT_META[t.category] && CAT_META[t.category].excluded))
     .reduce((s,t)=>s+t.amount,0);
-  const budget = state.budget || 0;
+  const budget = (state.heroCurrency === "USD" ? state.budgetUSD : state.budget) || 0;
   const pct = budget>0 ? Math.round(spent/budget*100) : 0;
   const remaining = budget - spent;
   const over = remaining < 0;
@@ -1255,10 +1329,10 @@ function buildBudgetCard(){
       <div class="budget-lbl">Presupuesto mensual</div>
       <div class="budget-pct ${over?'over':''}">${pct}%</div>
     </div>
-    <div class="budget-amt">S/ ${budget.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+    <div class="budget-amt">${fmt(budget, state.heroCurrency)}</div>
     <div class="budget-track"><div class="budget-fill ${fillClass}" style="width:${fillWidth}%"></div></div>
     <div class="budget-bottom">
-      <div class="budget-remain ${over?'over':''}">${over ? 'Te excediste en' : 'Te quedan'} <b>S/ ${Math.abs(remaining).toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2})}</b></div>
+      <div class="budget-remain ${over?'over':''}">${over ? 'Te excediste en' : 'Te quedan'} <b>${fmt(Math.abs(remaining), state.heroCurrency)}</b></div>
       <button class="budget-adjust" id="budgetAdjustBtn">Ajustar</button>
     </div>
   `;
@@ -1887,22 +1961,23 @@ async function loadBankCatalog(){
   });
 }
 
-function openConfigModal(){
-  document.getElementById("configModalOverlay").classList.add("open");
-  loadEmailAccounts().then(loadBankCatalog);
+// Sidebar: alterna entre la vista Inicio (dashboard) y Configuración
+// (correos conectados + bancos), sin recargar la página.
+function showView(view){
+  document.getElementById("viewHome").hidden = view !== "home";
+  document.getElementById("viewConfig").hidden = view !== "config";
+  document.querySelectorAll(".sidebar-item[data-view]").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.view === view);
+  });
+  if(view === "config") loadEmailAccounts().then(loadBankCatalog);
 }
-function closeConfigModal(){
-  document.getElementById("configModalOverlay").classList.remove("open");
-}
+document.querySelectorAll(".sidebar-item[data-view]").forEach(btn=>{
+  btn.addEventListener("click", ()=> showView(btn.dataset.view));
+});
 document.getElementById("currencyFilterSelect").addEventListener("change", e=>{
   state.currencyFilter = e.target.value;
   state.visibleRows = 15;
   renderAll();
-});
-document.getElementById("openConfigModalBtn").addEventListener("click", openConfigModal);
-document.getElementById("closeConfigModalBtn").addEventListener("click", closeConfigModal);
-document.getElementById("configModalOverlay").addEventListener("click", e=>{
-  if(e.target.id === "configModalOverlay") closeConfigModal();
 });
 
 document.getElementById("connect-outlook-btn").addEventListener("click", async ()=>{
@@ -1962,7 +2037,7 @@ function checkEmailConnectedRedirect(){
     const rest = params.toString();
     const newUrl = window.location.pathname + (rest ? "?"+rest : "") + window.location.hash;
     history.replaceState({}, "", newUrl);
-    openConfigModal();
+    showView("config");
   }
 }
 
@@ -2209,6 +2284,22 @@ function showAuthError(msg){
   el.hidden = false;
 }
 
+// Ojo de contraseña "press and hold": muestra el texto solo mientras el
+// botón sigue presionado, nunca queda como toggle fijo tras un click.
+document.querySelectorAll(".auth-pw-toggle").forEach(btn=>{
+  const input = btn.previousElementSibling;
+  const reveal = ()=>{ input.type = "text"; };
+  const hide = ()=>{ input.type = "password"; };
+  btn.addEventListener("mousedown", reveal);
+  btn.addEventListener("touchstart", (e)=>{ e.preventDefault(); reveal(); }, { passive:false });
+  btn.addEventListener("mouseup", hide);
+  btn.addEventListener("mouseleave", hide);
+  btn.addEventListener("touchend", hide);
+  btn.addEventListener("touchcancel", hide);
+  // Evita que el botón robe el foco del input o dispare un submit.
+  btn.addEventListener("click", (e)=> e.preventDefault());
+});
+
 document.querySelectorAll(".auth-tab").forEach(tab=>{
   tab.addEventListener("click", ()=>{
     document.querySelectorAll(".auth-tab").forEach(t=>t.classList.remove("is-active"));
@@ -2251,6 +2342,12 @@ function onAuthSuccess(data){
   enterApp();
 }
 
+function logout(){
+  localStorage.clear();
+  location.reload();
+}
+document.getElementById("sidebarLogoutBtn").addEventListener("click", logout);
+
 async function enterApp(){
   document.getElementById("viewAuth").hidden = true;
   document.getElementById("appRoot").hidden = false;
@@ -2259,8 +2356,7 @@ async function enterApp(){
     checkEmailConnectedRedirect();
   } catch(err) {
     // Token inválido o vencido: regresamos al login
-    localStorage.clear();
-    location.reload();
+    logout();
   }
 }
 
