@@ -3,6 +3,45 @@ import { env } from "../config/env";
 
 const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Reintenta hasta 2 veces (3 intentos en total) contra GEMINI_MODEL_EXTRACTION
+// SOLO cuando Gemini devuelve 503/UNAVAILABLE ("modelo saturado, reintenta
+// más tarde") — cualquier otro código (404 modelo inexistente, 429 cuota
+// agotada, etc.) es un error real que un reintento no arregla, así que se
+// propaga de inmediato sin esperar. Si los 3 intentos contra el modelo
+// principal agotan igual con 503, se hace un último intento contra un
+// modelo de respaldo más liviano (menos carga típicamente, algo menos
+// capaz) antes de rendirse.
+const RETRY_DELAYS_MS = [2000, 5000];
+const FALLBACK_MODEL = "gemini-flash-lite-latest";
+
+async function callGeminiWithRetry<T>(fn: (model: string) => Promise<T>): Promise<T> {
+  const primaryModel = env.GEMINI_MODEL_EXTRACTION;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await fn(primaryModel);
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      if (status !== 503) throw err;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        const delay = RETRY_DELAYS_MS[attempt];
+        console.warn(`Gemini (${primaryModel}) devolvió 503 (modelo saturado), reintentando en ${delay}ms...`);
+        await sleep(delay);
+      }
+    }
+  }
+
+  console.warn(
+    `Gemini (${primaryModel}) agotó los ${RETRY_DELAYS_MS.length + 1} intentos con 503 — ` +
+      `probando el modelo de respaldo ${FALLBACK_MODEL}...`
+  );
+  return fn(FALLBACK_MODEL);
+}
+
 export interface ExtractedTransaction {
   isTransaction: boolean;
   type?: "EXPENSE" | "INCOME";
@@ -65,15 +104,17 @@ Correo:
 ${emailBodyText.slice(0, 6000)}
 """`;
 
-  const response = await ai.models.generateContent({
-    model: env.GEMINI_MODEL_EXTRACTION,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: buildTransactionSchema(categoryNames),
-      temperature: 0,
-    },
-  });
+  const response = await callGeminiWithRetry((model) =>
+    ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: buildTransactionSchema(categoryNames),
+        temperature: 0,
+      },
+    })
+  );
 
   const text = response.text;
   if (!text) return { isTransaction: false };
@@ -153,15 +194,17 @@ export async function extractTransferFromImage(
 
 Si la imagen NO es una captura de una operación bancaria (ej. es una foto de otra cosa), responde con isTransferScreenshot: false y nada más.${categoryInstructions}`;
 
-  const response = await ai.models.generateContent({
-    model: env.GEMINI_MODEL_EXTRACTION,
-    contents: [{ text: prompt }, { inlineData: { data: base64, mimeType } }],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: buildTransferSchema(categoryNames),
-      temperature: 0,
-    },
-  });
+  const response = await callGeminiWithRetry((model) =>
+    ai.models.generateContent({
+      model,
+      contents: [{ text: prompt }, { inlineData: { data: base64, mimeType } }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: buildTransferSchema(categoryNames),
+        temperature: 0,
+      },
+    })
+  );
 
   const text = response.text;
   if (!text) return { isTransferScreenshot: false };
