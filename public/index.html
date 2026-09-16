@@ -455,6 +455,18 @@
   .sidebar-brand{
     padding:22px 20px;font-size:17px;font-weight:700;color:#FFFFFF;letter-spacing:.2px;
   }
+  .sidebar-pet{padding:0 10px 10px 10px;}
+  .sidebar-pet-row{
+    display:flex;align-items:center;gap:10px;width:100%;
+    border:none;background:transparent;border-radius:8px;cursor:pointer;
+    padding:8px 12px;font-family:inherit;text-align:left;
+  }
+  .sidebar-pet-row:hover{background:rgba(255,255,255,.05);}
+  .sidebar-pet-row.empty{color:#6B7080;font-size:12.5px;font-weight:600;}
+  .sidebar-pet-row.empty svg{flex:none;width:14px;height:14px;}
+  .sidebar-pet-row.filled{color:#A8ADB8;}
+  .sidebar-pet-row.filled img{width:22px;height:22px;flex:none;}
+  .sidebar-pet-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .sidebar-nav{display:flex;flex-direction:column;gap:2px;padding:8px 10px;}
   .sidebar-item{
     display:flex;align-items:center;gap:12px;
@@ -474,6 +486,17 @@
   .sidebar-label{white-space:nowrap;}
   .app-main{flex:1;margin-left:220px;min-width:0;}
 
+  /* ---- Selector de mascota (dentro del modal) ---- */
+  .pet-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .pet-card{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    border:2px solid var(--line);border-radius:14px;padding:10px 8px;cursor:pointer;background:#fff;
+  }
+  .pet-card:hover{border-color:var(--blue-400);}
+  .pet-card.selected{border-color:var(--blue-700);background:var(--blue-100);}
+  .pet-card svg{width:56px;height:56px;}
+  .pet-card span{font-size:12px;font-weight:700;color:var(--ink-soft);}
+
   @media (max-width:900px){
     .sidebar{width:64px;}
     .sidebar-brand{padding:22px 0;text-align:center;font-size:0;}
@@ -481,6 +504,9 @@
     .sidebar-item{justify-content:center;padding:12px 0;}
     .sidebar-label{display:none;}
     .app-main{margin-left:64px;}
+    .sidebar-pet{padding:0 10px 10px 10px;}
+    .sidebar-pet-row{justify-content:center;padding:8px 0;}
+    .sidebar-pet-row.empty span, .sidebar-pet-name{display:none;}
   }
   @media (max-width:640px){
     .app-main{margin-left:64px;}
@@ -528,6 +554,7 @@
 <div class="app-shell">
   <nav class="sidebar">
     <div class="sidebar-brand">Gastia</div>
+    <div class="sidebar-pet" id="sidebarPet"></div>
     <div class="sidebar-nav">
       <button class="sidebar-item active" data-view="home">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
@@ -830,6 +857,104 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="petModalOverlay">
+  <div class="modal-box">
+    <h4>Tu mascota</h4>
+    <div class="modal-sub">Elige quién te va a acompañar en el dashboard y en tus reportes de WhatsApp.</div>
+
+    <div class="pet-card-grid" id="petCardGrid">
+      <div class="pet-card" data-pet="dog">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="100" cy="176" rx="46" ry="8" fill="#000000" opacity="0.08"/>
+          <rect x="72" y="128" width="14" height="42" rx="7" fill="#FFFFFF" stroke="#DADADA"/>
+          <rect x="114" y="128" width="14" height="42" rx="7" fill="#FFFFFF" stroke="#DADADA"/>
+          <ellipse cx="100" cy="120" rx="42" ry="36" fill="#FFFFFF" stroke="#DADADA"/>
+          <path d="M65 128 Q100 145 135 128 L135 112 Q100 96 65 112 Z" fill="#C1793D" opacity="0.85"/>
+          <path d="M55 78 Q42 48 62 42 Q76 40 73 58 Q70 76 63 90 Z" fill="#C1793D"/>
+          <path d="M145 78 Q158 48 138 42 Q124 40 127 58 Q130 76 137 90 Z" fill="#C1793D"/>
+          <circle cx="100" cy="72" r="30" fill="#FFFFFF" stroke="#DADADA"/>
+          <path d="M74 72 Q70 44 92 38 Q104 37 104 58 Q102 76 92 84 Z" fill="#C1793D"/>
+          <path d="M126 72 Q130 44 108 38 Q96 37 96 58 Q98 76 108 84 Z" fill="#C1793D"/>
+          <circle cx="90" cy="66" r="3" fill="#1A1A1A"/>
+          <circle cx="110" cy="66" r="3" fill="#1A1A1A"/>
+          <ellipse cx="100" cy="82" rx="6" ry="5" fill="#1A1A1A"/>
+          <path d="M96 100 Q100 118 104 100 Q102 110 100 113 Q98 110 96 100 Z" fill="#F2909F"/>
+        </svg>
+        <span>Perro</span>
+      </div>
+      <div class="pet-card" data-pet="cat">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="100" cy="176" rx="44" ry="8" fill="#000000" opacity="0.08"/>
+          <rect x="74" y="132" width="13" height="38" rx="6.5" fill="#EDA857"/>
+          <rect x="113" y="132" width="13" height="38" rx="6.5" fill="#EDA857"/>
+          <path d="M155 150 Q175 130 168 112 Q163 100 155 112 Q158 132 148 148 Z" fill="#EDA857"/>
+          <ellipse cx="100" cy="122" rx="40" ry="34" fill="#F4B96B"/>
+          <circle cx="100" cy="68" r="29" fill="#F4B96B"/>
+          <path d="M72 52 L58 26 L82 44 Z" fill="#F4B96B"/>
+          <path d="M128 52 L142 26 L118 44 Z" fill="#F4B96B"/>
+          <path d="M75 54 L64 34 L80 46 Z" fill="#E88C8C"/>
+          <path d="M125 54 L136 34 L120 46 Z" fill="#E88C8C"/>
+          <circle cx="90" cy="66" r="3" fill="#1A1A1A"/>
+          <circle cx="110" cy="66" r="3" fill="#1A1A1A"/>
+          <path d="M97 76 L103 76 L100 80 Z" fill="#1A1A1A"/>
+          <path d="M82 68 L70 65 M82 72 L69 72" stroke="#1A1A1A" stroke-width="1.2"/>
+          <path d="M118 68 L130 65 M118 72 L131 72" stroke="#1A1A1A" stroke-width="1.2"/>
+        </svg>
+        <span>Gato</span>
+      </div>
+      <div class="pet-card" data-pet="capybara">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="100" cy="176" rx="52" ry="8" fill="#000000" opacity="0.08"/>
+          <rect x="68" y="140" width="15" height="34" rx="7" fill="#8A6642"/>
+          <rect x="117" y="140" width="15" height="34" rx="7" fill="#8A6642"/>
+          <ellipse cx="100" cy="128" rx="56" ry="38" fill="#A97C50"/>
+          <ellipse cx="100" cy="82" rx="40" ry="32" fill="#A97C50"/>
+          <ellipse cx="76" cy="60" rx="9" ry="8" fill="#8A6642"/>
+          <ellipse cx="124" cy="60" rx="9" ry="8" fill="#8A6642"/>
+          <path d="M80 90 Q100 100 120 90 Q118 104 100 106 Q82 104 80 90 Z" fill="#C79A6B"/>
+          <path d="M90 78 L86 76 M110 78 L114 76" stroke="#1A1A1A" stroke-width="2.4" stroke-linecap="round"/>
+          <ellipse cx="94" cy="98" rx="3" ry="3.4" fill="#1A1A1A"/>
+          <ellipse cx="106" cy="98" rx="3" ry="3.4" fill="#1A1A1A"/>
+        </svg>
+        <span>Capibara</span>
+      </div>
+      <div class="pet-card" data-pet="pig">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="100" cy="176" rx="44" ry="8" fill="#000000" opacity="0.08"/>
+          <rect x="76" y="130" width="14" height="40" rx="7" fill="#F3B6C4"/>
+          <rect x="110" y="130" width="14" height="40" rx="7" fill="#F3B6C4"/>
+          <path d="M148 118 Q166 112 162 100 Q158 92 150 98 Q156 106 146 114 Z" fill="none" stroke="#E98FA6" stroke-width="4" stroke-linecap="round"/>
+          <ellipse cx="100" cy="118" rx="46" ry="38" fill="#F7C6D3"/>
+          <circle cx="100" cy="68" r="32" fill="#F7C6D3"/>
+          <ellipse cx="76" cy="42" rx="10" ry="9" fill="#F7C6D3"/>
+          <ellipse cx="124" cy="42" rx="10" ry="9" fill="#F7C6D3"/>
+          <ellipse cx="76" cy="43" rx="5" ry="4.5" fill="#E98FA6"/>
+          <ellipse cx="124" cy="43" rx="5" ry="4.5" fill="#E98FA6"/>
+          <ellipse cx="100" cy="76" rx="16" ry="11" fill="#E98FA6"/>
+          <ellipse cx="94" cy="76" rx="2.5" ry="3" fill="#B0607A"/>
+          <ellipse cx="106" cy="76" rx="2.5" ry="3" fill="#B0607A"/>
+          <circle cx="88" cy="64" r="3" fill="#1A1A1A"/>
+          <circle cx="112" cy="64" r="3" fill="#1A1A1A"/>
+        </svg>
+        <span>Chancho</span>
+      </div>
+    </div>
+
+    <div class="modal-field">
+      <label>Nombre de tu mascota</label>
+      <input type="text" id="petNameInput" maxlength="11" placeholder="Ej. Gastón">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" id="petNoneBtn">Sin mascota</button>
+      <button class="btn-save" id="petSaveBtn">Guardar</button>
+    </div>
+    <div class="modal-actions" style="margin-top:6px;">
+      <button class="btn-cancel" id="closePetModalBtn" style="width:100%;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="icon-pop" id="iconPop">
   <div class="icon-grid" id="iconPopGrid"></div>
 </div>
@@ -901,7 +1026,9 @@ let state = {
   budgetUSD: 0,
   budgetMonth: String(new Date().getMonth()+1).padStart(2,"0"),
   heroCurrency: "PEN", // moneda mostrada en el Hero/donut de categorías (nunca se suman soles y dólares)
-  currencyFilter: "all" // filtro de moneda para la tabla "Todos los movimientos": "all"|"PEN"|"USD"
+  currencyFilter: "all", // filtro de moneda para la tabla "Todos los movimientos": "all"|"PEN"|"USD"
+  petType: "none",
+  petName: null
 };
 
 let calView = { year:new Date().getFullYear(), month:new Date().getMonth() };
@@ -1974,6 +2101,89 @@ function showView(view){
 document.querySelectorAll(".sidebar-item[data-view]").forEach(btn=>{
   btn.addEventListener("click", ()=> showView(btn.dataset.view));
 });
+
+/* =========================================================
+   MASCOTA (sidebar + selector)
+   ========================================================= */
+const PET_LABELS = { dog: "Perro", cat: "Gato", capybara: "Capibara", pig: "Chancho" };
+let petModalSelection = "dog";
+
+function renderSidebarPet(){
+  const wrap = document.getElementById("sidebarPet");
+  if(state.petType && state.petType !== "none"){
+    wrap.innerHTML = `
+      <button class="sidebar-pet-row filled" id="sidebarPetBtn">
+        <img src="/assets/mascots/${state.petType}.svg" alt="${PET_LABELS[state.petType] || "Mascota"}">
+        <span class="sidebar-pet-name sidebar-label">${state.petName || "Mascota"}</span>
+      </button>
+    `;
+  } else {
+    wrap.innerHTML = `
+      <button class="sidebar-pet-row empty" id="sidebarPetBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        <span class="sidebar-label">Mascota</span>
+      </button>
+    `;
+  }
+  document.getElementById("sidebarPetBtn").addEventListener("click", openPetModal);
+}
+
+function openPetModal(){
+  petModalSelection = state.petType && state.petType !== "none" ? state.petType : "dog";
+  document.querySelectorAll("#petCardGrid .pet-card").forEach(card=>{
+    card.classList.toggle("selected", card.dataset.pet === petModalSelection);
+  });
+  document.getElementById("petNameInput").value = state.petName || "";
+  document.getElementById("petModalOverlay").classList.add("open");
+}
+function closePetModal(){
+  document.getElementById("petModalOverlay").classList.remove("open");
+}
+document.querySelectorAll("#petCardGrid .pet-card").forEach(card=>{
+  card.addEventListener("click", ()=>{
+    petModalSelection = card.dataset.pet;
+    document.querySelectorAll("#petCardGrid .pet-card").forEach(c=>c.classList.toggle("selected", c === card));
+  });
+});
+document.getElementById("closePetModalBtn").addEventListener("click", closePetModal);
+document.getElementById("petModalOverlay").addEventListener("click", e=>{
+  if(e.target.id === "petModalOverlay") closePetModal();
+});
+document.getElementById("petSaveBtn").addEventListener("click", async ()=>{
+  const name = document.getElementById("petNameInput").value.trim();
+  const btn = document.getElementById("petSaveBtn");
+  btn.disabled = true;
+  try {
+    const updated = await api("/profile/pet", {
+      method: "PATCH",
+      body: JSON.stringify({ petType: petModalSelection, petName: name || undefined }),
+    });
+    state.petType = updated.petType;
+    state.petName = updated.petName;
+    renderSidebarPet();
+    closePetModal();
+  } catch(err) {
+    alert("No se pudo guardar tu mascota: " + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+document.getElementById("petNoneBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("petNoneBtn");
+  btn.disabled = true;
+  try {
+    const updated = await api("/profile/pet", { method:"PATCH", body: JSON.stringify({ petType: "none" }) });
+    state.petType = updated.petType;
+    state.petName = updated.petName;
+    renderSidebarPet();
+    closePetModal();
+  } catch(err) {
+    alert("No se pudo actualizar: " + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 document.getElementById("currencyFilterSelect").addEventListener("change", e=>{
   state.currencyFilter = e.target.value;
   state.visibleRows = 15;
@@ -2370,11 +2580,12 @@ async function loadData(){
   // Solo movimientos confirmados (reales) — sin esto, PENDING_CONFIRMATION y
   // REJECTED se colaban en la tabla y en todos los totales/gráficos, que
   // usan este mismo TXNS sin volver a filtrar por status.
-  const [categories, transactions, budget, budgetUSD] = await Promise.all([
+  const [categories, transactions, budget, budgetUSD, profile] = await Promise.all([
     api("/categories"),
     api("/transactions?status=CONFIRMED,AUTO_CONFIRMED"),
     api("/budgets/current"),
     api("/budgets/current?currency=USD"),
+    api("/profile/me"),
   ]);
 
   CAT_META = {};
@@ -2407,6 +2618,9 @@ async function loadData(){
   state.budget = Number(budget.totalAmount || 0);
   state.budgetUSD = Number(budgetUSD.totalAmount || 0);
   state.budgetMonth = String(new Date().getMonth()+1).padStart(2,"0");
+  state.petType = profile.petType;
+  state.petName = profile.petName;
+  renderSidebarPet();
 
   // Repoblamos el filtro de cuentas con las cuentas reales presentes en los datos
   const accountSelect = document.getElementById("accountSelect");

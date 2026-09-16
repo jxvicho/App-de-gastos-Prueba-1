@@ -1,3 +1,6 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+import { PetType } from "@prisma/client";
 import { sendImageMessage, sendTextMessage } from "./whatsapp";
 import { buildWeeklyReportData, getCurrenciesWithMovement } from "./weeklyReportData";
 import { buildWeeklyReportImage } from "./weeklyReportImage";
@@ -8,6 +11,24 @@ const CURRENCY_ORDER = ["PEN", "USD"];
 
 function currencyLabel(currency: string): string {
   return currency === "USD" ? "$ Dólares" : "S/ Soles";
+}
+
+// Cacheados en memoria: el PNG de cada mascota no cambia en caliente, no
+// tiene sentido releerlo del disco en cada reporte mandado.
+const mascotPngCache = new Map<string, Buffer>();
+function loadMascotPng(petType: string): Buffer {
+  let buf = mascotPngCache.get(petType);
+  if (!buf) {
+    // __dirname es dist/services (o src/services corriendo con tsx) — subimos
+    // 3 niveles hasta la raíz del proyecto, donde vive public/.
+    buf = readFileSync(join(__dirname, "..", "..", "public", "assets", "mascots", `${petType}.png`));
+    mascotPngCache.set(petType, buf);
+  }
+  return buf;
+}
+
+function petGreeting(petName: string | null): string {
+  return `¡Hola! Soy ${petName || "tu mascota"} 🐾, tu mascota de Gastia.`;
 }
 
 /**
@@ -23,29 +44,48 @@ function currencyLabel(currency: string): string {
  * fallback histórico) en vez de generar una imagen vacía.
  */
 export async function sendWeeklyReportToUser(
-  user: { id: string; name: string; phoneNumber: string | null },
+  user: { id: string; name: string; phoneNumber: string | null; petType: PetType; petName: string | null },
   weekStart: Date,
   weekEnd: Date
 ): Promise<void> {
   if (!user.phoneNumber) return;
 
+  const hasPet = user.petType !== "none";
+
+  // Mascota: se manda ANTES que el resto del reporte, como una imagen aparte
+  // sin caption propio — el saludo va en el caption del reporte (o del texto
+  // "sin movimientos"), no acá, para no repetirlo en 2 mensajes. Nunca toca
+  // las notificaciones de gasto individuales, solo estos 2 mensajes
+  // programados.
+  if (hasPet) {
+    await sendImageMessage(user.phoneNumber, loadMascotPng(user.petType));
+  }
+  const greetingPrefix = hasPet ? `${petGreeting(user.petName)}\n` : "";
+
   const currenciesPresent = await getCurrenciesWithMovement(user.id, weekStart, weekEnd);
 
   if (currenciesPresent.length === 0) {
     const data = await buildWeeklyReportData(user.id, user.name, weekStart, weekEnd, "PEN");
-    await sendTextMessage(user.phoneNumber, `Hola ${user.name}, sin movimientos esta semana (${data.weekLabel}). 👍`);
+    await sendTextMessage(
+      user.phoneNumber,
+      `${greetingPrefix}Hola ${user.name}, sin movimientos esta semana (${data.weekLabel}). 👍`
+    );
     return;
   }
 
   const currencies = CURRENCY_ORDER.filter((c) => currenciesPresent.includes(c));
   const sendSeparateLabel = currencies.length > 1;
 
-  for (const currency of currencies) {
+  for (let i = 0; i < currencies.length; i++) {
+    const currency = currencies[i];
     const data = await buildWeeklyReportData(user.id, user.name, weekStart, weekEnd, currency);
     const image = buildWeeklyReportImage(data);
+    // El saludo solo va una vez (primer mensaje) aunque se manden 2 reportes
+    // separados por moneda — repetirlo en ambos sería ruido.
+    const prefix = i === 0 ? greetingPrefix : "";
     const caption = sendSeparateLabel
-      ? `📊 Tu resumen semanal — ${currencyLabel(currency)} — ${data.weekLabel}`
-      : `📊 Tu resumen semanal — ${data.weekLabel}`;
+      ? `${prefix}📊 Tu resumen semanal — ${currencyLabel(currency)} — ${data.weekLabel}`
+      : `${prefix}📊 Tu resumen semanal — ${data.weekLabel}`;
     await sendImageMessage(user.phoneNumber, image, caption);
   }
 }

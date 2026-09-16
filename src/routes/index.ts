@@ -8,6 +8,7 @@ import { emailAccountsRouter } from "./emailAccounts";
 import { banksRouter } from "./banks";
 import { whatsappRouter } from "./whatsapp";
 import { categoryRulesRouter } from "./categoryRules";
+import { profileRouter } from "./profile";
 
 export const apiRouter = Router();
 
@@ -20,3 +21,4 @@ apiRouter.use("/email-accounts", emailAccountsRouter);
 apiRouter.use("/banks", banksRouter);
 apiRouter.use("/whatsapp", whatsappRouter);
 apiRouter.use("/category-rules", categoryRulesRouter);
+apiRouter.use("/profile", profileRouter);

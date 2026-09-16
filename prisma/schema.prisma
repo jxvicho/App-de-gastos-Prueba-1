@@ -15,6 +15,14 @@ datasource db {
 // USUARIOS
 // ------------------------------------------------------------
 
+enum PetType {
+  dog
+  cat
+  capybara
+  pig
+  none
+}
+
 model User {
   id           String   @id @default(uuid())
   name         String
@@ -23,6 +31,8 @@ model User {
   phoneNumber  String?  @unique // número de WhatsApp en formato E.164, ej. +51987654321
   timezone     String   @default("America/Lima")
   currency     String   @default("PEN")
+  petType      PetType  @default(dog)
+  petName      String?  @default("Gastón") @db.VarChar(11)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
