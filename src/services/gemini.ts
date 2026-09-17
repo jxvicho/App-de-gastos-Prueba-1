@@ -7,16 +7,25 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Reintenta hasta 2 veces (3 intentos en total) contra GEMINI_MODEL_EXTRACTION
-// SOLO cuando Gemini devuelve 503/UNAVAILABLE ("modelo saturado, reintenta
-// más tarde") — cualquier otro código (404 modelo inexistente, 429 cuota
-// agotada, etc.) es un error real que un reintento no arregla, así que se
-// propaga de inmediato sin esperar. Si los 3 intentos contra el modelo
-// principal agotan igual con 503, se hace un último intento contra un
-// modelo de respaldo más liviano (menos carga típicamente, algo menos
-// capaz) antes de rendirse.
+// GEMINI_MODEL_EXTRACTION es el modelo liviano/barato (gemini-flash-lite-latest):
+// para extraer monto/comercio/fecha de texto o imágenes simples no hace
+// falta la capacidad extra del modelo grande, y así la mayoría del tráfico
+// real corre contra el más barato. FALLBACK_MODEL es el modelo grande
+// (gemini-flash-latest), con su propio límite diario independiente
+// (confirmado en Google AI Studio: no comparten cuota) — se usa solo
+// cuando el liviano falla.
+//
+// Reintenta hasta 2 veces (3 intentos en total) contra el modelo principal
+// SOLO cuando Gemini devuelve 503/UNAVAILABLE (saturado, reintenta más
+// tarde); si los 3 intentos agotan igual, un último intento contra el
+// modelo de respaldo antes de rendirse. Ante 429 (RESOURCE_EXHAUSTED,
+// cuota diaria agotada) reintentar contra el MISMO modelo no sirve de
+// nada, así que se salta directo al modelo de respaldo, sin backoff. Un
+// 404 (modelo inexistente) es un error de configuración real que ningún
+// reintento ni modelo de respaldo debe enmascarar, así que se propaga de
+// inmediato.
 const RETRY_DELAYS_MS = [2000, 5000];
-const FALLBACK_MODEL = "gemini-flash-lite-latest";
+const FALLBACK_MODEL = "gemini-flash-latest";
 
 async function callGeminiWithRetry<T>(fn: (model: string) => Promise<T>): Promise<T> {
   const primaryModel = env.GEMINI_MODEL_EXTRACTION;
@@ -26,6 +35,14 @@ async function callGeminiWithRetry<T>(fn: (model: string) => Promise<T>): Promis
       return await fn(primaryModel);
     } catch (err) {
       const status = (err as { status?: number })?.status;
+
+      if (status === 429) {
+        console.warn(
+          `Gemini (${primaryModel}) devolvió 429 (cuota agotada) — probando el modelo de respaldo ${FALLBACK_MODEL}...`
+        );
+        return fn(FALLBACK_MODEL);
+      }
+
       if (status !== 503) throw err;
       if (attempt < RETRY_DELAYS_MS.length) {
         const delay = RETRY_DELAYS_MS[attempt];
@@ -283,15 +300,17 @@ ${commandText}
 
 Extrae el monto, la moneda, y a quién o a qué se refiere el movimiento. isValidCommand debe ser true SOLO si el mensaje trae un monto numérico claro; si el mensaje no menciona ningún monto, responde con isValidCommand: false y nada más.${categoryInstructions}`;
 
-  const response = await ai.models.generateContent({
-    model: env.GEMINI_MODEL_EXTRACTION,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: buildManualTransactionSchema(categoryNames),
-      temperature: 0,
-    },
-  });
+  const response = await callGeminiWithRetry((model) =>
+    ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: buildManualTransactionSchema(categoryNames),
+        temperature: 0,
+      },
+    })
+  );
 
   const text = response.text;
   if (!text) return { isValidCommand: false };
