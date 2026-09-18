@@ -40,6 +40,16 @@ app.use(
 
 app.use("/api", apiRouter);
 
+// Páginas de autenticación — rutas propias, con URL real y compartible
+// (necesario para cuando la landing pública de Gastia tenga botones
+// "Ingresar" / "Registrarse" apuntando directo a estas URLs).
+app.get("/login", (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "login.html"));
+});
+app.get("/registro", (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "registro.html"));
+});
+
 // Dashboard estático (Fase "visual" — habla con la misma API de arriba)
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.get(/^(?!\/api).*/, (_req, res) => {

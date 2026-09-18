@@ -17,6 +17,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./prisma:/app/prisma
+      - ./public:/app/public
     depends_on:
       - postgres
       - redis

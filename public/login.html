@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gastia · Iniciar sesión</title>
+<style>
+  :root{
+    --navy:#0b2545;
+    --blue-900:#0e2f5a;
+    --blue-800:#123a6b;
+    --blue-700:#164b8a;
+    --blue-600:#1a5da8;
+    --blue-500:#2472c8;
+    --blue-400:#5b93d3;
+    --blue-200:#c3daf3;
+    --blue-100:#eaf2fb;
+    --ink:#101828;
+    --ink-soft:#5b6675;
+    --ink-faint:#8b96a5;
+    --line:#e3e9f1;
+    --bg:#f4f7fb;
+    --card:#ffffff;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Inter","Segoe UI",Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  [hidden]{display:none !important;}
+
+  /* ---- Auth gate (login) ---- */
+  .auth-view{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);}
+  .auth-card{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:36px 32px;}
+  .auth-card h1{font-size:22px;margin:0 0 8px 0;}
+  .auth-sub{color:var(--ink-soft);font-size:13.5px;line-height:1.5;margin:0 0 22px;}
+  .auth-form{display:flex;flex-direction:column;gap:13px;}
+  .auth-form label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink-soft);}
+  .auth-form input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;}
+  .auth-pw-field{position:relative;display:flex;}
+  .auth-pw-field input{flex:1;padding-right:38px;}
+  .auth-pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;padding:6px;font-size:16px;line-height:1;color:var(--ink-soft);user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+  .auth-pw-toggle:hover{color:var(--ink);}
+  .auth-btn{border:none;background:var(--blue-700);color:#fff;padding:11px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:2px;}
+  .auth-btn:hover{background:var(--blue-600);}
+  .auth-error{color:#c0392b;font-size:12.5px;margin:12px 0 0;}
+  .auth-switch{text-align:center;font-size:13px;color:var(--ink-soft);margin:18px 0 0;}
+  .auth-switch a{color:var(--blue-700);font-weight:700;text-decoration:none;}
+  .auth-switch a:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<section id="viewAuth" class="auth-view">
+  <div class="auth-card">
+    <div style="font-size:26px;margin-bottom:10px;">📊</div>
+    <h1>Gastia</h1>
+    <p class="auth-sub">Tus finanzas, claras y sin contraseñas de banco. Inicia sesión para ver tu resumen real.</p>
+    <form id="formLogin" class="auth-form">
+      <label>Correo<input type="email" name="email" required placeholder="tu@correo.com"></label>
+      <label>Contraseña
+        <div class="auth-pw-field">
+          <input type="password" name="password" required placeholder="••••••••">
+          <button type="button" class="auth-pw-toggle" aria-label="Mantén presionado para mostrar la contraseña">👁</button>
+        </div>
+      </label>
+      <button type="submit" class="auth-btn">Entrar</button>
+    </form>
+    <p id="authError" class="auth-error" hidden></p>
+    <p class="auth-switch">¿No tienes cuenta? <a href="/registro">Regístrate</a></p>
+  </div>
+</section>
+
+<script>
+const API_BASE = "/api";
+
+// Si ya hay sesión activa, no tiene sentido mostrar el login de nuevo.
+if (localStorage.getItem("token")) {
+  location.href = "/";
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(API_BASE + path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...options.headers },
+  });
+  let data = {};
+  try { data = await res.json(); }
+  catch { throw new Error(`Respuesta inesperada del servidor (código ${res.status})`); }
+  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+  return data;
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById("authError");
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+// Ojo de contraseña "press and hold": muestra el texto solo mientras el
+// botón sigue presionado, nunca queda como toggle fijo tras un click.
+document.querySelectorAll(".auth-pw-toggle").forEach(btn=>{
+  const input = btn.previousElementSibling;
+  const reveal = ()=>{ input.type = "text"; };
+  const hide = ()=>{ input.type = "password"; };
+  btn.addEventListener("mousedown", reveal);
+  btn.addEventListener("touchstart", (e)=>{ e.preventDefault(); reveal(); }, { passive:false });
+  btn.addEventListener("mouseup", hide);
+  btn.addEventListener("mouseleave", hide);
+  btn.addEventListener("touchend", hide);
+  btn.addEventListener("touchcancel", hide);
+  btn.addEventListener("click", (e)=> e.preventDefault());
+});
+
+document.getElementById("formLogin").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const form = new FormData(e.target);
+  try {
+    const data = await api("/auth/login", {
+      method:"POST",
+      body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
+    });
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    location.href = "/";
+  } catch(err) { showAuthError(err.message); }
+});
+</script>
+</body>
+</html>

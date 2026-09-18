@@ -423,25 +423,6 @@
   }
 </style>
 <style>
-  /* ---- Auth gate (login/registro) — se agrega para conectar el dashboard a datos reales ---- */
-  .auth-view{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);}
-  .auth-card{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:36px 32px;}
-  .auth-card h1{font-size:22px;margin:0 0 8px 0;}
-  .auth-sub{color:var(--ink-soft);font-size:13.5px;line-height:1.5;margin:0 0 22px;}
-  .auth-tabs{display:flex;background:var(--blue-100);border-radius:10px;padding:4px;margin-bottom:18px;}
-  .auth-tab{flex:1;border:none;background:transparent;padding:8px 0;border-radius:7px;font-size:13px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
-  .auth-tab.is-active{background:var(--card);color:var(--blue-700);}
-  .auth-form{display:flex;flex-direction:column;gap:13px;}
-  .auth-form[hidden]{display:none;}
-  .auth-form label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink-soft);}
-  .auth-form input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;}
-  .auth-pw-field{position:relative;display:flex;}
-  .auth-pw-field input{flex:1;padding-right:38px;}
-  .auth-pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;padding:6px;font-size:16px;line-height:1;color:var(--ink-soft);user-select:none;-webkit-user-select:none;touch-action:manipulation;}
-  .auth-pw-toggle:hover{color:var(--ink);}
-  .auth-btn{border:none;background:var(--blue-700);color:#fff;padding:11px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:2px;}
-  .auth-btn:hover{background:var(--blue-600);}
-  .auth-error{color:#c0392b;font-size:12.5px;margin:12px 0 0;}
   [hidden]{display:none !important;}
 </style>
 <style>
@@ -514,41 +495,6 @@
 </style>
 </head>
 <body>
-
-<!-- ============ AUTENTICACIÓN ============ -->
-<section id="viewAuth" class="auth-view">
-  <div class="auth-card">
-    <div style="font-size:26px;margin-bottom:10px;">📊</div>
-    <h1>Gastia</h1>
-    <p class="auth-sub">Tus finanzas, claras y sin contraseñas de banco. Inicia sesión para ver tu resumen real.</p>
-    <div class="auth-tabs">
-      <button class="auth-tab is-active" data-tab="login">Iniciar sesión</button>
-      <button class="auth-tab" data-tab="register">Crear cuenta</button>
-    </div>
-    <form id="formLogin" class="auth-form">
-      <label>Correo<input type="email" name="email" required placeholder="tu@correo.com"></label>
-      <label>Contraseña
-        <div class="auth-pw-field">
-          <input type="password" name="password" required placeholder="••••••••">
-          <button type="button" class="auth-pw-toggle" aria-label="Mantén presionado para mostrar la contraseña">👁</button>
-        </div>
-      </label>
-      <button type="submit" class="auth-btn">Entrar</button>
-    </form>
-    <form id="formRegister" class="auth-form" hidden>
-      <label>Nombre<input type="text" name="name" required placeholder="Javier"></label>
-      <label>Correo<input type="email" name="email" required placeholder="tu@correo.com"></label>
-      <label>Contraseña
-        <div class="auth-pw-field">
-          <input type="password" name="password" required minlength="8" placeholder="Mínimo 8 caracteres">
-          <button type="button" class="auth-pw-toggle" aria-label="Mantén presionado para mostrar la contraseña">👁</button>
-        </div>
-      </label>
-      <button type="submit" class="auth-btn">Crear cuenta</button>
-    </form>
-    <p id="authError" class="auth-error" hidden></p>
-  </div>
-</section>
 
 <div id="appRoot" hidden>
 <div class="app-shell">
@@ -2488,78 +2434,13 @@ async function api(path, options = {}) {
   return data;
 }
 
-function showAuthError(msg){
-  const el = document.getElementById("authError");
-  el.textContent = msg;
-  el.hidden = false;
-}
-
-// Ojo de contraseña "press and hold": muestra el texto solo mientras el
-// botón sigue presionado, nunca queda como toggle fijo tras un click.
-document.querySelectorAll(".auth-pw-toggle").forEach(btn=>{
-  const input = btn.previousElementSibling;
-  const reveal = ()=>{ input.type = "text"; };
-  const hide = ()=>{ input.type = "password"; };
-  btn.addEventListener("mousedown", reveal);
-  btn.addEventListener("touchstart", (e)=>{ e.preventDefault(); reveal(); }, { passive:false });
-  btn.addEventListener("mouseup", hide);
-  btn.addEventListener("mouseleave", hide);
-  btn.addEventListener("touchend", hide);
-  btn.addEventListener("touchcancel", hide);
-  // Evita que el botón robe el foco del input o dispare un submit.
-  btn.addEventListener("click", (e)=> e.preventDefault());
-});
-
-document.querySelectorAll(".auth-tab").forEach(tab=>{
-  tab.addEventListener("click", ()=>{
-    document.querySelectorAll(".auth-tab").forEach(t=>t.classList.remove("is-active"));
-    tab.classList.add("is-active");
-    const isLogin = tab.dataset.tab === "login";
-    document.getElementById("formLogin").hidden = !isLogin;
-    document.getElementById("formRegister").hidden = isLogin;
-    document.getElementById("authError").hidden = true;
-  });
-});
-
-document.getElementById("formLogin").addEventListener("submit", async (e)=>{
-  e.preventDefault();
-  const form = new FormData(e.target);
-  try {
-    const data = await api("/auth/login", {
-      method:"POST",
-      body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
-    });
-    onAuthSuccess(data);
-  } catch(err) { showAuthError(err.message); }
-});
-
-document.getElementById("formRegister").addEventListener("submit", async (e)=>{
-  e.preventDefault();
-  const form = new FormData(e.target);
-  try {
-    const data = await api("/auth/register", {
-      method:"POST",
-      body: JSON.stringify({ name: form.get("name"), email: form.get("email"), password: form.get("password") }),
-    });
-    onAuthSuccess(data);
-  } catch(err) { showAuthError(err.message); }
-});
-
-function onAuthSuccess(data){
-  authToken = data.token;
-  localStorage.setItem("token", authToken);
-  localStorage.setItem("user", JSON.stringify(data.user));
-  enterApp();
-}
-
 function logout(){
   localStorage.clear();
-  location.reload();
+  location.href = "/login";
 }
 document.getElementById("sidebarLogoutBtn").addEventListener("click", logout);
 
 async function enterApp(){
-  document.getElementById("viewAuth").hidden = true;
   document.getElementById("appRoot").hidden = false;
   try {
     await loadData();
@@ -2638,7 +2519,8 @@ async function loadData(){
 if (authToken) {
   enterApp();
 } else {
-  document.getElementById("viewAuth").hidden = false;
+  // Sin sesión: esta página es solo el dashboard, el login vive en /login
+  location.href = "/login";
 }
 </script>
 </body>
