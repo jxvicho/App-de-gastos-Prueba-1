@@ -7,6 +7,7 @@ import { sendWeeklyReportToUser } from "./weeklyReportSender";
 import { currentWeekStart } from "./weeklyReportData";
 import { DEFAULT_CATEGORIES } from "../utils/defaultCategories";
 import { normalizeText } from "../utils/text";
+import { getPetLabel } from "../utils/pet";
 
 const CONFIRM_WORDS = new Set(["si", "s", "yes", "confirmar"]);
 const REJECT_WORDS = new Set(["no", "n"]);
@@ -1475,6 +1476,7 @@ async function resolveExpenseCategoryForImage(
 async function finalizeImageTransaction(
   userId: string,
   userPhoneNumber: string | null | undefined,
+  petLabel: string | null,
   pending: PendingImageClassification,
   kind: "EXPENSE" | "TRANSFER" | "INCOME"
 ): Promise<void> {
@@ -1527,7 +1529,8 @@ async function finalizeImageTransaction(
 
   await notifyPendingTransaction(
     { ...created, category: category ? { name: category.name } : null },
-    userPhoneNumber
+    userPhoneNumber,
+    petLabel
   );
 }
 
@@ -1558,9 +1561,12 @@ function formatBankLabel(bankKey: string): string {
  * y si la transacción ya tiene categoría asignada, usa el ícono real de
  * esa categoría en vez de uno genérico.
  */
-function buildNotificationBody(t: Transaction & { category?: { name: string } | null }): string {
+function buildNotificationBody(
+  t: Transaction & { category?: { name: string } | null },
+  petLabel?: string | null
+): string {
   const lines = [
-    "🧾 *Nuevo movimiento detectado*",
+    petLabel ? `🐾 *${petLabel} encontró un movimiento nuevo*` : "🧾 *Nuevo movimiento detectado*",
     "",
     `🏪 *Comercio:* ${t.merchant || t.description || "Sin nombre"}`,
     `💵 *Monto:* ${formatAmount(t)}`,
@@ -1608,6 +1614,7 @@ async function sumConfirmedThisMonth(userId: string, categoryId: string): Promis
 async function confirmTransaction(
   pending: PendingTransaction,
   userId: string,
+  petLabel: string | null,
   categoryOverride?: { id: string; name: string }
 ): Promise<string> {
   await prisma.transaction.update({
@@ -1620,7 +1627,9 @@ async function confirmTransaction(
   });
 
   const who = pending.merchant || pending.description || "el movimiento";
-  let reply = `✅ *Anotado:* ${formatAmount(pending)} en ${who}.`;
+  let reply = petLabel
+    ? `🐾 *${petLabel} ya lo guardó:* ${formatAmount(pending)} en ${who}.`
+    : `✅ *Anotado:* ${formatAmount(pending)} en ${who}.`;
 
   const categoryId = categoryOverride?.id ?? pending.categoryId;
   const categoryName = categoryOverride?.name ?? pending.category?.name;
@@ -1663,12 +1672,15 @@ async function recategorizeConfirmedTransaction(
   await sendTextMessage(from, reply);
 }
 
-async function rejectTransaction(pending: PendingTransaction, from: string): Promise<void> {
+async function rejectTransaction(pending: PendingTransaction, from: string, petLabel: string | null): Promise<void> {
   await prisma.transaction.update({
     where: { id: pending.id },
     data: { status: "REJECTED" },
   });
-  await sendTextMessage(from, "Entendido, no lo anotamos. 👍");
+  await sendTextMessage(
+    from,
+    petLabel ? `${petLabel} lo dejó pasar esta vez 👍 no quedó registrado.` : "Entendido, no lo anotamos. 👍"
+  );
 }
 
 /**
@@ -1724,10 +1736,11 @@ async function applyResolvedIntent(
   pending: PendingTransaction,
   userId: string,
   from: string,
-  intent: ResolvedIntent
+  intent: ResolvedIntent,
+  petLabel: string | null
 ): Promise<void> {
   if (intent.action === "reject") {
-    await rejectTransaction(pending, from);
+    await rejectTransaction(pending, from, petLabel);
     return;
   }
   if (intent.action === "delete") {
@@ -1744,7 +1757,7 @@ async function applyResolvedIntent(
     }
     return;
   }
-  const reply = await confirmTransaction(pending, userId, intent.category);
+  const reply = await confirmTransaction(pending, userId, petLabel, intent.category);
   await sendTextMessage(from, reply);
 }
 
@@ -1758,16 +1771,17 @@ async function handleFreeformDecision(
   pending: PendingTransaction,
   userId: string,
   from: string,
-  normalized: string
+  normalized: string,
+  petLabel: string | null
 ): Promise<void> {
   if (detectConfirmWordIntent(normalized)) {
-    const reply = await confirmTransaction(pending, userId);
+    const reply = await confirmTransaction(pending, userId, petLabel);
     await sendTextMessage(from, reply);
     return;
   }
 
   if (REJECT_WORDS.has(normalized) || detectRejectIntent(normalized)) {
-    await rejectTransaction(pending, from);
+    await rejectTransaction(pending, from, petLabel);
     return;
   }
 
@@ -1775,7 +1789,7 @@ async function handleFreeformDecision(
   const matchedCategory = resolveCategoryFromText(normalized, categories);
 
   if (matchedCategory) {
-    const reply = await confirmTransaction(pending, userId, matchedCategory);
+    const reply = await confirmTransaction(pending, userId, petLabel, matchedCategory);
     await sendTextMessage(from, reply);
     return;
   }
@@ -1803,6 +1817,7 @@ export async function handleIncomingMessage(
     console.log(`WhatsApp: mensaje de un número no registrado (${from}), se ignora.`);
     return;
   }
+  const petLabel = getPetLabel(user.petType, user.petName);
 
   const normalized = normalizeText(text);
 
@@ -1825,7 +1840,7 @@ export async function handleIncomingMessage(
       if (kind) {
         pendingImageByUserId.delete(user.id);
         console.log(`WhatsApp: clasificación de imagen resuelta -> ${kind}.`);
-        await finalizeImageTransaction(user.id, user.phoneNumber, pendingImage, kind);
+        await finalizeImageTransaction(user.id, user.phoneNumber, petLabel, pendingImage, kind);
         return;
       }
       console.log(`WhatsApp: había una clasificación de imagen pendiente para ${from}, pero "${normalized}" no fue gasto/traspaso/ingreso claro; se vuelve a preguntar.`);
@@ -1992,7 +2007,8 @@ export async function handleIncomingMessage(
     );
     await notifyPendingTransaction(
       { ...createdManual, category: manualCategory ? { name: manualCategory.name } : null },
-      user.phoneNumber
+      user.phoneNumber,
+      petLabel
     );
     return;
   }
@@ -2244,7 +2260,7 @@ export async function handleIncomingMessage(
           return;
         }
         console.log(`WhatsApp: revisión UNO POR UNO iniciada -> ${firstPending.id}`);
-        await notifyPendingTransaction(firstPending, from);
+        await notifyPendingTransaction(firstPending, from, petLabel);
         return;
       }
 
@@ -2366,7 +2382,7 @@ export async function handleIncomingMessage(
           return;
         }
         console.log(`WhatsApp: resolviendo confirmación explícita pendiente -> transacción ${pending.id}`);
-        await handleFreeformDecision(pending, user.id, from, normalized);
+        await handleFreeformDecision(pending, user.id, from, normalized, petLabel);
         return;
       }
       console.log(`WhatsApp: la transacción del estado pendiente ya no existe.`);
@@ -2384,7 +2400,7 @@ export async function handleIncomingMessage(
               `WhatsApp: desambiguación resuelta -> opción ${choice} -> transacción ${pending.id}, ` +
                 `aplicando intención guardada (${state.intent.action}).`
             );
-            await applyResolvedIntent(pending, user.id, from, state.intent);
+            await applyResolvedIntent(pending, user.id, from, state.intent, petLabel);
           } else {
             console.log(
               `WhatsApp: desambiguación resuelta -> opción ${choice} -> transacción ${pending.id}, ` +
@@ -2434,7 +2450,7 @@ export async function handleIncomingMessage(
       );
 
       if (byContext.status === "PENDING_CONFIRMATION") {
-        await handleFreeformDecision(byContext, user.id, from, normalized);
+        await handleFreeformDecision(byContext, user.id, from, normalized, petLabel);
         return;
       }
 
@@ -2500,7 +2516,7 @@ export async function handleIncomingMessage(
           const categories = await getCategories(user.id);
           const matchedCategory = resolveCategoryFromText(normalized, categories);
           console.log(`WhatsApp: swipe-reply a REJECTED + intención CONFIRMAR -> revirtiendo ${byContext.id} a CONFIRMED.`);
-          const reply = await confirmTransaction(byContext, user.id, matchedCategory ?? undefined);
+          const reply = await confirmTransaction(byContext, user.id, petLabel, matchedCategory ?? undefined);
           await sendTextMessage(from, reply);
           return;
         }
@@ -2610,7 +2626,7 @@ export async function handleIncomingMessage(
 
     if (detectRejectIntent(normalized)) {
       console.log(`WhatsApp: match por DETALLES + intención RECHAZAR -> transacción ${pending.id}`);
-      await applyResolvedIntent(pending, user.id, from, { action: "reject" });
+      await applyResolvedIntent(pending, user.id, from, { action: "reject" }, petLabel);
       return;
     }
 
@@ -2620,7 +2636,7 @@ export async function handleIncomingMessage(
       console.log(
         `WhatsApp: match por DETALLES + intención CONFIRMAR (monto/fecha específicos, por defecto) -> transacción ${pending.id}`
       );
-      await applyResolvedIntent(pending, user.id, from, { action: "confirm", category: matchedCategory ?? undefined });
+      await applyResolvedIntent(pending, user.id, from, { action: "confirm", category: matchedCategory ?? undefined }, petLabel);
       return;
     }
 
@@ -2662,7 +2678,7 @@ export async function handleIncomingMessage(
       const categories = await getCategories(user.id);
       const matchedCategory = resolveCategoryFromText(normalized, categories);
       console.log(`WhatsApp: match por DETALLES entre eliminados + intención RESTAURAR -> ${deletedMatches[0].id}`);
-      await applyResolvedIntent(deletedMatches[0], user.id, from, { action: "restore", category: matchedCategory ?? undefined });
+      await applyResolvedIntent(deletedMatches[0], user.id, from, { action: "restore", category: matchedCategory ?? undefined }, petLabel);
       return;
     }
     if (deletedMatches.length > 1) {
@@ -2714,7 +2730,7 @@ export async function handleIncomingMessage(
     // Con una sola pendiente no hay nada que adivinar: cualquier señal en
     // el texto (sí/no/categoría mencionada) solo puede referirse a ESA.
     console.log(`WhatsApp: FALLBACK (sin context.id ni detalles útiles) -> única pendiente ${allPendingForFallback[0].id}`);
-    await handleFreeformDecision(allPendingForFallback[0], user.id, from, normalized);
+    await handleFreeformDecision(allPendingForFallback[0], user.id, from, normalized, petLabel);
     return;
   }
 
@@ -2740,7 +2756,7 @@ export async function handleIncomingMessage(
 
   const mostRecentPending = allPendingForFallback[0];
   console.log(`WhatsApp: FALLBACK (confirmación simple, varias pendientes) -> se usa la más reciente ${mostRecentPending.id}`);
-  await handleFreeformDecision(mostRecentPending, user.id, from, normalized);
+  await handleFreeformDecision(mostRecentPending, user.id, from, normalized, petLabel);
 }
 
 /**
@@ -2815,11 +2831,12 @@ export async function handleIncomingImage(from: string, mediaId: string): Promis
  */
 export async function notifyPendingTransaction(
   transaction: Transaction & { category?: { name: string } | null },
-  phoneNumber: string | null | undefined
+  phoneNumber: string | null | undefined,
+  petLabel?: string | null
 ): Promise<void> {
   if (!phoneNumber) return;
 
-  const messageId = await sendInteractiveButtons(phoneNumber, buildNotificationBody(transaction), [
+  const messageId = await sendInteractiveButtons(phoneNumber, buildNotificationBody(transaction, petLabel), [
     { id: BUTTON_ID_CONFIRM, title: "✅ Anotar" },
     { id: BUTTON_ID_REJECT, title: "🗑️ Descartar" },
   ]);

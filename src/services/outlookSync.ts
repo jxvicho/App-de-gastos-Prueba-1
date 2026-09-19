@@ -6,6 +6,7 @@ import { getMicrosoftAccessToken } from "./microsoftOAuth";
 import { extractTransactionFromEmail } from "./gemini";
 import { notifyPendingTransaction } from "./whatsappBot";
 import { normalizeText } from "../utils/text";
+import { getPetLabel } from "../utils/pet";
 
 type RuleWithCategory = CategoryRule & { category: { id: string; name: string } };
 
@@ -185,7 +186,8 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
       createdCount++;
       await notifyPendingTransaction(
         { ...created, category: matchedCategory ? { name: matchedCategory.name } : null },
-        account.user.phoneNumber
+        account.user.phoneNumber,
+        getPetLabel(account.user.petType, account.user.petName)
       );
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {

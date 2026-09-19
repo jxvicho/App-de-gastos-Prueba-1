@@ -4,6 +4,7 @@ import { PetType } from "@prisma/client";
 import { sendImageMessage, sendTextMessage } from "./whatsapp";
 import { buildWeeklyReportData, getCurrenciesWithMovement } from "./weeklyReportData";
 import { buildWeeklyReportImage } from "./weeklyReportImage";
+import { getPetLabel } from "../utils/pet";
 
 // Orden fijo de envío cuando hay movimiento en ambas monedas — PEN primero
 // por ser la moneda por defecto de la app.
@@ -27,8 +28,8 @@ function loadMascotPng(petType: string): Buffer {
   return buf;
 }
 
-function petGreeting(petName: string | null): string {
-  return `¡Hola! Soy ${petName || "tu mascota"} 🐾, tu mascota de Gastia.`;
+function petGreeting(petLabel: string): string {
+  return `¡Hola! Soy ${petLabel} 🐾, tu mascota de Gastia.`;
 }
 
 /**
@@ -50,17 +51,17 @@ export async function sendWeeklyReportToUser(
 ): Promise<void> {
   if (!user.phoneNumber) return;
 
-  const hasPet = user.petType !== "none";
+  const petLabel = getPetLabel(user.petType, user.petName);
 
   // Mascota: se manda ANTES que el resto del reporte, como una imagen aparte
   // sin caption propio — el saludo va en el caption del reporte (o del texto
   // "sin movimientos"), no acá, para no repetirlo en 2 mensajes. Nunca toca
   // las notificaciones de gasto individuales, solo estos 2 mensajes
   // programados.
-  if (hasPet) {
+  if (petLabel) {
     await sendImageMessage(user.phoneNumber, loadMascotPng(user.petType));
   }
-  const greetingPrefix = hasPet ? `${petGreeting(user.petName)}\n` : "";
+  const greetingPrefix = petLabel ? `${petGreeting(petLabel)}\n` : "";
 
   const currenciesPresent = await getCurrenciesWithMovement(user.id, weekStart, weekEnd);
 
