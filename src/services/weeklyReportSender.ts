@@ -1,5 +1,3 @@
-import { readFileSync } from "fs";
-import { join } from "path";
 import { PetType } from "@prisma/client";
 import { sendImageMessage, sendTextMessage } from "./whatsapp";
 import { buildWeeklyReportData, getCurrenciesWithMovement } from "./weeklyReportData";
@@ -12,20 +10,6 @@ const CURRENCY_ORDER = ["PEN", "USD"];
 
 function currencyLabel(currency: string): string {
   return currency === "USD" ? "$ Dólares" : "S/ Soles";
-}
-
-// Cacheados en memoria: el PNG de cada mascota no cambia en caliente, no
-// tiene sentido releerlo del disco en cada reporte mandado.
-const mascotPngCache = new Map<string, Buffer>();
-function loadMascotPng(petType: string): Buffer {
-  let buf = mascotPngCache.get(petType);
-  if (!buf) {
-    // __dirname es dist/services (o src/services corriendo con tsx) — subimos
-    // 3 niveles hasta la raíz del proyecto, donde vive public/.
-    buf = readFileSync(join(__dirname, "..", "..", "public", "assets", "mascots", `${petType}.png`));
-    mascotPngCache.set(petType, buf);
-  }
-  return buf;
 }
 
 function petGreeting(petLabel: string): string {
@@ -53,14 +37,10 @@ export async function sendWeeklyReportToUser(
 
   const petLabel = getPetLabel(user.petType, user.petName);
 
-  // Mascota: se manda ANTES que el resto del reporte, como una imagen aparte
-  // sin caption propio — el saludo va en el caption del reporte (o del texto
-  // "sin movimientos"), no acá, para no repetirlo en 2 mensajes. Nunca toca
-  // las notificaciones de gasto individuales, solo estos 2 mensajes
-  // programados.
-  if (petLabel) {
-    await sendImageMessage(user.phoneNumber, loadMascotPng(user.petType));
-  }
+  // El saludo de la mascota va como texto al inicio del caption del reporte
+  // (o del mensaje "sin movimientos") — ya no se manda la imagen de la
+  // mascota por separado. Nunca toca las notificaciones de gasto
+  // individuales, solo estos 2 mensajes programados.
   const greetingPrefix = petLabel ? `${petGreeting(petLabel)}\n` : "";
 
   const currenciesPresent = await getCurrenciesWithMovement(user.id, weekStart, weekEnd);
