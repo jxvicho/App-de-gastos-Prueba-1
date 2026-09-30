@@ -39,6 +39,10 @@ const envSchema = z.object({
 
   GEMINI_API_KEY: z.string().optional().default(""),
   GEMINI_MODEL_EXTRACTION: z.string().default("gemini-2.5-flash"),
+
+  // Envío de correos transaccionales (recuperación de contraseña, etc.)
+  RESEND_API_KEY: z.string().optional().default(""),
+  EMAIL_FROM: z.string().default("Gastia <onboarding@resend.dev>"),
 });
 
 const parsed = envSchema.safeParse(process.env);

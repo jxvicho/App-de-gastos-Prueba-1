@@ -49,6 +49,12 @@ app.get("/login", (_req, res) => {
 app.get("/registro", (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "registro.html"));
 });
+app.get("/recuperar", (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "forgot-password.html"));
+});
+app.get("/restablecer", (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "reset-password.html"));
+});
 
 // Dashboard estático (Fase "visual" — habla con la misma API de arriba)
 app.use(express.static(path.join(__dirname, "..", "public")));

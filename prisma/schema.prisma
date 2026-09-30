@@ -36,6 +36,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Recuperación de contraseña: se guarda el HASH del token (nunca el token
+  // en claro) y su vencimiento. Un solo token activo a la vez — pedir uno
+  // nuevo invalida el anterior.
+  resetPasswordTokenHash String?
+  resetPasswordExpiresAt DateTime?
+
   // Relaciones
   emailAccounts     EmailAccount[]
   categories        Category[]
