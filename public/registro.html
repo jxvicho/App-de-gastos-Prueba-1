@@ -33,43 +33,156 @@
   }
   [hidden]{display:none !important;}
 
-  /* ---- Auth gate (registro) ---- */
-  .auth-view{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);}
-  .auth-card{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:36px 32px;}
-  .auth-card h1{font-size:22px;margin:0 0 8px 0;}
-  .auth-sub{color:var(--ink-soft);font-size:13.5px;line-height:1.5;margin:0 0 22px;}
+  /* ---- Fondo con leve movimiento, igual que en /login ---- */
+  .auth-view{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:48px;
+    flex-wrap:wrap;
+    padding:24px;
+    background:
+      radial-gradient(circle at 15% 20%, var(--blue-100) 0%, transparent 45%),
+      radial-gradient(circle at 85% 80%, var(--blue-100) 0%, transparent 45%),
+      var(--bg);
+    background-size:200% 200%;
+    animation:bgDrift 18s ease-in-out infinite;
+  }
+  @keyframes bgDrift{
+    0%{background-position:0% 0%, 100% 100%, 0 0;}
+    50%{background-position:15% 10%, 85% 90%, 0 0;}
+    100%{background-position:0% 0%, 100% 100%, 0 0;}
+  }
+
+  /* ---- Gastón, al lado de la tarjeta ---- */
+  .auth-mascot{
+    flex:0 1 170px;
+    max-width:170px;
+    display:flex;
+    justify-content:center;
+    opacity:0;
+    order:1;
+    animation:cardIn .6s cubic-bezier(.16,1,.3,1) forwards,
+              mascotFloat 4.5s ease-in-out .7s infinite;
+  }
+  .auth-mascot img{
+    width:100%;
+    height:auto;
+    filter:drop-shadow(0 18px 30px rgba(11,37,69,.18));
+  }
+  @keyframes mascotFloat{
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-10px);}
+  }
+
+  /* ---- Tarjeta ---- */
+  .auth-card{
+    width:100%;max-width:400px;background:var(--card);
+    border:1px solid var(--line);border-radius:20px;padding:36px 32px;
+    box-shadow:0 20px 50px -25px rgba(11,37,69,.25);
+    opacity:0;transform:translateY(14px);
+    animation:cardIn .6s cubic-bezier(.16,1,.3,1) .1s forwards;
+  }
+  @keyframes cardIn{
+    to{opacity:1;transform:translateY(0);}
+  }
+
+  .auth-card h1{
+    font-size:24px;margin:0 0 8px 0;
+    color:var(--blue-700);
+    letter-spacing:.2px;
+  }
+  .auth-sub{color:var(--ink-soft);font-size:13.5px;line-height:1.55;margin:0 0 22px;}
   .auth-form{display:flex;flex-direction:column;gap:13px;}
   .auth-form label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink-soft);}
-  .auth-form input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;}
+  .auth-form input{
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+    font-size:14px;font-family:inherit;transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .auth-form input:focus{
+    outline:none;border-color:var(--blue-500);
+    box-shadow:0 0 0 3px rgba(36,114,200,.15);
+  }
+  .auth-hint{font-size:11.5px;font-weight:400;color:var(--ink-faint);margin-top:-1px;}
   .auth-pw-field{position:relative;display:flex;}
   .auth-pw-field input{flex:1;padding-right:38px;}
   .auth-pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;padding:6px;font-size:16px;line-height:1;color:var(--ink-soft);user-select:none;-webkit-user-select:none;touch-action:manipulation;}
   .auth-pw-toggle:hover{color:var(--ink);}
-  .auth-btn{border:none;background:var(--blue-700);color:#fff;padding:11px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:2px;}
-  .auth-btn:hover{background:var(--blue-600);}
+
+  /* ---- "Verifica que eres humano" ---- */
+  .auth-verify{
+    display:flex;align-items:center;gap:10px;
+    border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;margin-top:2px;
+    background:#fbfcfe;
+  }
+  .auth-verify input[type="checkbox"]{
+    width:19px;height:19px;margin:0;cursor:pointer;accent-color:var(--blue-700);flex-shrink:0;
+  }
+  .auth-verify label{
+    font-size:13px;color:var(--ink-soft);cursor:pointer;user-select:none;
+  }
+
+  .auth-btn{
+    border:none;background:var(--blue-700);color:#fff;padding:11px;border-radius:10px;
+    font-size:14px;font-weight:700;cursor:pointer;margin-top:2px;
+    transition:background .15s ease, transform .1s ease;
+  }
+  .auth-btn:hover:not(:disabled){background:var(--blue-600);}
+  .auth-btn:active:not(:disabled){transform:scale(.98);}
+  .auth-btn:disabled{background:var(--ink-faint);cursor:not-allowed;}
+
   .auth-error{color:#c0392b;font-size:12.5px;margin:12px 0 0;}
   .auth-switch{text-align:center;font-size:13px;color:var(--ink-soft);margin:18px 0 0;}
   .auth-switch a{color:var(--blue-700);font-weight:700;text-decoration:none;}
   .auth-switch a:hover{text-decoration:underline;}
+
+  @media (prefers-reduced-motion: reduce){
+    .auth-view{animation:none;}
+    .auth-card{animation:none;opacity:1;transform:none;}
+    .auth-mascot{animation:none;opacity:1;}
+  }
+
+  @media (max-width:760px){
+    .auth-mascot{flex-basis:100%;max-width:200px;order:-1;}
+  }
 </style>
 </head>
 <body>
 
 <section id="viewAuth" class="auth-view">
+  <div class="auth-mascot">
+    <img src="/assets/mascots/gaston-calculadora.png" alt="Gastón, la mascota de Gastia, con una calculadora">
+  </div>
   <div class="auth-card">
-    <div style="font-size:26px;margin-bottom:10px;">📊</div>
     <h1>Gastia</h1>
-    <p class="auth-sub">Crea tu cuenta para empezar a registrar tus gastos por WhatsApp y correo.</p>
+    <p class="auth-sub">Crea tu cuenta para empezar a registrar tus gastos automáticamente por WhatsApp y correo.</p>
     <form id="formRegister" class="auth-form">
-      <label>Nombre<input type="text" name="name" required placeholder="Javier"></label>
+      <label>Nombre y apellido<input type="text" name="name" required placeholder="Javier Chapoñán"></label>
       <label>Correo<input type="email" name="email" required placeholder="tu@correo.com"></label>
+      <label>Confirma tu correo<input type="email" name="emailConfirm" required placeholder="tu@correo.com"></label>
       <label>Contraseña
         <div class="auth-pw-field">
           <input type="password" name="password" required minlength="8" placeholder="Mínimo 8 caracteres">
           <button type="button" class="auth-pw-toggle" aria-label="Mantén presionado para mostrar la contraseña">👁</button>
         </div>
       </label>
-      <button type="submit" class="auth-btn">Crear cuenta</button>
+      <label>Confirma tu contraseña
+        <div class="auth-pw-field">
+          <input type="password" name="passwordConfirm" required minlength="8" placeholder="Repite la contraseña">
+          <button type="button" class="auth-pw-toggle" aria-label="Mantén presionado para mostrar la contraseña">👁</button>
+        </div>
+      </label>
+      <label>Número celular de WhatsApp
+        <input type="tel" name="phoneNumber" required placeholder="+51 987 654 321">
+        <span class="auth-hint">Debe ser el número desde el que le vas a escribir a Gastia por WhatsApp — así el bot te reconoce. Con código de país; si no lo pones, asumimos Perú (+51).</span>
+      </label>
+      <div class="auth-verify">
+        <input type="checkbox" id="humanCheck">
+        <label for="humanCheck">Verifiquemos que eres humano</label>
+      </div>
+      <button type="submit" class="auth-btn" id="registerSubmitBtn" disabled>Crear cuenta</button>
     </form>
     <p id="authError" class="auth-error" hidden></p>
     <p class="auth-switch">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a></p>
@@ -102,6 +215,7 @@ function showAuthError(msg) {
   el.hidden = false;
 }
 
+// Ojo de contraseña "press and hold", igual que en /login.
 document.querySelectorAll(".auth-pw-toggle").forEach(btn=>{
   const input = btn.previousElementSibling;
   const reveal = ()=>{ input.type = "text"; };
@@ -115,18 +229,53 @@ document.querySelectorAll(".auth-pw-toggle").forEach(btn=>{
   btn.addEventListener("click", (e)=> e.preventDefault());
 });
 
+// "Verifiquemos que eres humano": mientras no esté marcado, el botón de
+// Crear cuenta queda deshabilitado. Verificación visual por ahora, igual
+// que en /login (se reemplaza por Cloudflare Turnstile u otro real más
+// adelante sin tocar el resto del formulario).
+const humanCheck = document.getElementById("humanCheck");
+const registerSubmitBtn = document.getElementById("registerSubmitBtn");
+humanCheck.addEventListener("change", ()=>{
+  registerSubmitBtn.disabled = !humanCheck.checked;
+});
+
 document.getElementById("formRegister").addEventListener("submit", async (e)=>{
   e.preventDefault();
+  document.getElementById("authError").hidden = true;
   const form = new FormData(e.target);
+
+  const email = form.get("email").trim();
+  const emailConfirm = form.get("emailConfirm").trim();
+  const password = form.get("password");
+  const passwordConfirm = form.get("passwordConfirm");
+
+  if (email.toLowerCase() !== emailConfirm.toLowerCase()) {
+    showAuthError("Los correos no coinciden.");
+    return;
+  }
+  if (password !== passwordConfirm) {
+    showAuthError("Las contraseñas no coinciden.");
+    return;
+  }
+
+  registerSubmitBtn.disabled = true;
   try {
     const data = await api("/auth/register", {
       method:"POST",
-      body: JSON.stringify({ name: form.get("name"), email: form.get("email"), password: form.get("password") }),
+      body: JSON.stringify({
+        name: form.get("name"),
+        email,
+        password,
+        phoneNumber: form.get("phoneNumber"),
+      }),
     });
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
     location.href = "/";
-  } catch(err) { showAuthError(err.message); }
+  } catch(err) {
+    showAuthError(err.message);
+    registerSubmitBtn.disabled = !humanCheck.checked;
+  }
 });
 </script>
 </body>
