@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   backend:
     build: .
@@ -12,6 +10,10 @@ services:
       # venga en tu .env para que funcione sin que tengas que editarlo.
       DATABASE_URL: "postgresql://app:app_password@postgres:5432/gastos_db?schema=public"
       REDIS_URL: "redis://redis:6379"
+      # Docker Desktop (Windows/WSL2) a veces tiene rutas IPv6 inestables, lo
+      # que provoca errores intermitentes "network_error" de MSAL al hablar
+      # con login.microsoftonline.com. Forzamos a Node a preferir IPv4.
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
     ports:
       - "4000:4000"
     volumes:
