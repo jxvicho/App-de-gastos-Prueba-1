@@ -2,7 +2,7 @@ import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { sendInteractiveButtons, sendTextMessage } from "./whatsapp";
 import { downloadWhatsappMedia } from "./whatsappMedia";
-import { extractTransferFromImage, extractManualTransactionFromText } from "./gemini";
+import { extractTransferFromImage, extractManualTransactionFromText, transcribeAudio } from "./gemini";
 import { sendWeeklyReportToUser } from "./weeklyReportSender";
 import { currentWeekStart } from "./weeklyReportData";
 import { DEFAULT_CATEGORIES } from "../utils/defaultCategories";
@@ -267,6 +267,10 @@ function detectConfirmIntent(normalizedText: string): boolean {
 // normal se la comería.
 const PENDING_SUMMARY_INTENT_PHRASES = [
   "pendientes de confirmar", "pendiente de confirmar", "pendientes por confirmar",
+  // "aceptar" es sinónimo de "confirmar" en todo el bot (ver
+  // APPROVE_ALL_PENDING_VERBS), pero faltaba acá: "pendientes de/por aceptar"
+  // caía al fallback genérico en vez de reconocerse como este intent.
+  "pendientes de aceptar", "pendiente de aceptar", "pendientes por aceptar",
   "que tengo pendiente", "que tengo pendientes", "cuantos pendientes", "cuantas pendientes",
   "gastos que no he confirmado", "gastos sin confirmar", "movimientos sin confirmar",
   "resumen de pendientes", "que falta confirmar", "que me falta confirmar", "movimientos pendientes",
@@ -277,7 +281,13 @@ const PENDING_SUMMARY_INTENT_PHRASES = [
 ];
 
 function detectPendingSummaryIntent(normalizedText: string): boolean {
-  return PENDING_SUMMARY_INTENT_PHRASES.some((phrase) => normalizedText.includes(phrase));
+  if (PENDING_SUMMARY_INTENT_PHRASES.some((phrase) => normalizedText.includes(phrase))) {
+    return true;
+  }
+  // Respaldo con regex para frases donde se mete una palabra entre medio,
+  // ej. "que GASTOS tengo pendientes de aceptar" — no calza con "que tengo
+  // pendientes" como substring literal porque "gastos" rompe la secuencia.
+  return /\bque\b[\s\S]*\btengo\b[\s\S]*\bpendient/.test(normalizedText);
 }
 
 // Frases que, dentro de un pedido de resumen, indican que es sobre INGRESOS
@@ -789,12 +799,44 @@ function detectCreateRuleIntent(normalizedText: string): boolean {
  * "gasto(s)"/"ingreso(s)" -> crear una transacción manualmente. Se chequea
  * DESPUÉS de detectCreateRuleIntent (esa es más específica y gana en caso
  * de ambigüedad, ej. "todo gasto en X va a Y" no empieza con estos verbos
- * de todos modos). Devuelve null si no matchea — nunca se adivina el tipo.
+ * de todos modos).
+ *
+ * TAMBIÉN reconoce frases declarativas en primera persona ("gasté 15 soles
+ * en el grifo", "pagué el internet", "me depositaron 50 soles") — así habla
+ * la gente naturalmente, sobre todo por nota de voz (nadie dice "anotar
+ * gasto de..." en voz alta). Se exige que el verbo esté cerca del INICIO del
+ * mensaje (primeras ~4 palabras) para no disparar con un verbo mencionado
+ * de pasada en medio de otra frase.
+ *
+ * Devuelve null si no matchea — nunca se adivina el tipo.
  */
+const MANUAL_EXPENSE_DECLARATIVE_VERBS = [
+  "gaste", "pague", "compre", "consumi", "me cobraron", "me descontaron",
+];
+const MANUAL_INCOME_DECLARATIVE_VERBS = [
+  "recibi", "me pagaron", "me depositaron", "me deposito", "me transfirieron", "me ingreso", "cobre",
+];
+
+function startsNear(normalizedText: string, phrase: string): boolean {
+  const idx = normalizedText.indexOf(phrase);
+  if (idx === -1) return false;
+  // Permite hasta ~15 caracteres antes (ej. "oye gaste...", "pipo, pague...").
+  return idx <= 15;
+}
+
 function detectManualTransactionIntent(normalizedText: string): { type: "EXPENSE" | "INCOME" } | null {
-  if (!/^(anotar|anota|registra|registrar|agregar)\b/.test(normalizedText)) return null;
-  if (/\bgastos?\b/.test(normalizedText)) return { type: "EXPENSE" };
-  if (/\bingresos?\b/.test(normalizedText)) return { type: "INCOME" };
+  if (/^(anotar|anota|registra|registrar|agregar)\b/.test(normalizedText)) {
+    if (/\bgastos?\b/.test(normalizedText)) return { type: "EXPENSE" };
+    if (/\bingresos?\b/.test(normalizedText)) return { type: "INCOME" };
+    return null;
+  }
+
+  if (MANUAL_EXPENSE_DECLARATIVE_VERBS.some((verb) => startsNear(normalizedText, verb))) {
+    return { type: "EXPENSE" };
+  }
+  if (MANUAL_INCOME_DECLARATIVE_VERBS.some((verb) => startsNear(normalizedText, verb))) {
+    return { type: "INCOME" };
+  }
   return null;
 }
 
@@ -2821,6 +2863,51 @@ export async function handleIncomingImage(from: string, mediaId: string): Promis
     { id: BUTTON_ID_IMAGE_TRANSFER, title: "🔄 Traspaso propio" },
     { id: BUTTON_ID_IMAGE_INCOME, title: "💰 Ingreso" },
   ]);
+}
+
+/**
+ * Maneja una nota de voz recibida por WhatsApp: la descarga, la transcribe
+ * con Gemini, y entrega el texto resultante a handleIncomingMessage —
+ * reutilizando TODA la lógica de intenciones que ya existe para mensajes de
+ * texto (confirmar/descartar, anotar manual, consultar pendientes, etc.) en
+ * vez de duplicarla. Se le muestra al usuario lo que se entendió ("🎤
+ * Escuché: ...") antes de procesarlo, para que pueda notar de inmediato si
+ * la transcripción salió mal (y reenviar el audio o escribir el mensaje).
+ */
+export async function handleIncomingAudio(
+  from: string,
+  mediaId: string,
+  contextMessageId?: string | null
+): Promise<void> {
+  const user = await findUserByWhatsappNumber(from);
+  if (!user) {
+    console.log(`WhatsApp: nota de voz de un número no registrado (${from}), se ignora.`);
+    return;
+  }
+
+  const media = await downloadWhatsappMedia(mediaId);
+  if (!media) {
+    await sendTextMessage(from, "No pude descargar la nota de voz que enviaste. ¿Puedes intentar reenviarla, o escribir el mensaje?");
+    return;
+  }
+
+  let transcript: string | null;
+  try {
+    transcript = await transcribeAudio(media.base64, media.mimeType);
+  } catch (err) {
+    console.error("Error transcribiendo la nota de voz con Gemini:", err);
+    await sendTextMessage(from, "No pude escuchar bien esa nota de voz. ¿Puedes intentar de nuevo, o escribir el mensaje?");
+    return;
+  }
+
+  if (!transcript) {
+    await sendTextMessage(from, "No logré entender nada en esa nota de voz. ¿Puedes intentar de nuevo, o escribir el mensaje?");
+    return;
+  }
+
+  console.log(`WhatsApp: nota de voz de ${from} transcrita -> "${transcript}"`);
+  await sendTextMessage(from, `🎤 Escuché: "${transcript}"`);
+  await handleIncomingMessage(from, transcript, contextMessageId);
 }
 
 /**

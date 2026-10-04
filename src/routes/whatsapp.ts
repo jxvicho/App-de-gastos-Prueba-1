@@ -1,7 +1,31 @@
 import { Router, Request } from "express";
 import crypto from "crypto";
 import { env } from "../config/env";
-import { handleIncomingMessage, handleIncomingImage, textForButtonReply } from "../services/whatsappBot";
+import { handleIncomingMessage, handleIncomingImage, handleIncomingAudio, textForButtonReply } from "../services/whatsappBot";
+import { redisConnection } from "../queues/redisConnection";
+
+// Cuánto tiempo recordamos un wamid ya procesado, para descartar reintentos
+// de entrega de Meta sin volver a responder. 3 días es generoso frente a lo
+// que Meta reintenta en la práctica (minutos/horas), sin crecer sin límite.
+const PROCESSED_MESSAGE_TTL_SECONDS = 60 * 60 * 24 * 3;
+
+/**
+ * Marca un wamid como procesado de forma atómica (SET NX). Devuelve true si
+ * es la primera vez que lo vemos (hay que procesarlo), false si ya se había
+ * procesado antes (es un reintento de Meta, se descarta).
+ *
+ * Esto existe porque sin esto cada reintento de webhook de Meta (p. ej. tras
+ * una cuenta reactivada con mensajes en cola) generaba una respuesta
+ * duplicada del bot por cada entrega del mismo mensaje — y una ráfaga de
+ * varias respuestas idénticas al mismo usuario es exactamente el patrón que
+ * los sistemas antiabuso de WhatsApp detectan como spam, lo que a su vez
+ * puede volver a inhabilitar la cuenta.
+ */
+async function markMessageAsProcessed(messageId: string): Promise<boolean> {
+  const key = `wa:processed-msg:${messageId}`;
+  const result = await redisConnection.set(key, "1", "EX", PROCESSED_MESSAGE_TTL_SECONDS, "NX");
+  return result === "OK";
+}
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -89,6 +113,23 @@ whatsappRouter.post("/webhook", (req, res) => {
 
       for (const message of messages as any[]) {
         const from = message.from;
+
+        // Deduplicación por wamid: si Meta reintenta la entrega de este
+        // mismo mensaje (reintentos normales, o un lote reenviado tras
+        // reactivar la cuenta), lo descartamos en vez de volver a
+        // responder. Si por algún motivo el mensaje no trae "id", preferimos
+        // procesarlo (mejor una posible duplicación rara que perder mensajes).
+        const messageId: string | undefined = message.id;
+        if (messageId) {
+          const isFirstTime = await markMessageAsProcessed(messageId);
+          if (!isFirstTime) {
+            console.log(`WhatsApp: mensaje ${messageId} ya fue procesado antes (reintento de Meta), se omite.`);
+            continue;
+          }
+        } else {
+          console.warn("WhatsApp webhook: mensaje sin \"id\", no se puede deduplicar — se procesa igual.");
+        }
+
         // El "context.id" (cuando viene) es el wamid del mensaje al que el
         // usuario está respondiendo — nos deja identificar la transacción
         // exacta en vez de asumir "la más reciente pendiente".
@@ -120,6 +161,17 @@ whatsappRouter.post("/webhook", (req, res) => {
           console.log(`📩 WhatsApp de ${from}: imagen recibida (media id: ${mediaId ?? "desconocido"})`);
           if (mediaId) {
             await handleIncomingImage(from, mediaId);
+          }
+          continue;
+        }
+
+        if (message.type === "audio") {
+          const mediaId: string | undefined = message.audio?.id;
+          console.log(
+            `📩 WhatsApp de ${from}: nota de voz recibida (media id: ${mediaId ?? "desconocido"})${contextMessageId ? ` (context.id: ${contextMessageId})` : ""}`
+          );
+          if (mediaId) {
+            await handleIncomingAudio(from, mediaId, contextMessageId);
           }
           continue;
         }

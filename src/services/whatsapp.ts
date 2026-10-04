@@ -1,6 +1,36 @@
+import crypto from "crypto";
 import { env } from "../config/env";
+import { redisConnection } from "../queues/redisConnection";
 
 const GRAPH_BASE_URL = "https://graph.facebook.com";
+
+/**
+ * Evita mandar el MISMO texto al MISMO número más de una vez en una ventana
+ * corta. Esto es distinto del dedup por wamid del webhook (ese descarta
+ * reintentos de ENTREGA de un mensaje ENTRANTE que Meta repite). Este cubre
+ * el caso real que causó las deshabilitaciones de la cuenta: el usuario
+ * reenvía varios mensajes que el bot no reconoce en rápida sucesión (ej.
+ * "Hola", "Hola", "Hola" en menos de 1 segundo) y, sin este control, el bot
+ * contestaba la MISMA respuesta de fallback una y otra vez — una ráfaga de
+ * mensajes salientes casi idénticos al mismo usuario es justo el patrón que
+ * los sistemas antiabuso de WhatsApp detectan como spam.
+ */
+const OUTBOUND_DEDUP_WINDOW_SECONDS = 8;
+
+async function shouldSuppressDuplicateOutbound(to: string, fingerprint: string): Promise<boolean> {
+  try {
+    const hash = crypto.createHash("sha1").update(fingerprint).digest("hex");
+    const key = `wa:out-dedup:${to}:${hash}`;
+    const result = await redisConnection.set(key, "1", "EX", OUTBOUND_DEDUP_WINDOW_SECONDS, "NX");
+    return result !== "OK"; // true = este mismo texto ya se mandó hace menos de N segundos
+  } catch (err) {
+    // Si Redis falla, preferimos mandar el mensaje (mejor una posible
+    // duplicación rara que dejar al usuario sin respuesta) en vez de
+    // bloquear todo el envío de WhatsApp por un problema de Redis.
+    console.error("No se pudo verificar el dedup de mensajes salientes de WhatsApp:", err);
+    return false;
+  }
+}
 
 interface GraphSendResponse {
   messages?: { id: string }[];
@@ -40,6 +70,12 @@ async function postToGraph(payload: Record<string, unknown>): Promise<GraphSendR
  * Devuelve el wamid del mensaje enviado (o undefined si falló).
  */
 export async function sendTextMessage(to: string, body: string): Promise<string | undefined> {
+  if (await shouldSuppressDuplicateOutbound(to, body)) {
+    console.log(
+      `WhatsApp: se omite mensaje de texto repetido a ${to} (mismo texto enviado hace menos de ${OUTBOUND_DEDUP_WINDOW_SECONDS}s).`
+    );
+    return undefined;
+  }
   try {
     const data = await postToGraph({
       messaging_product: "whatsapp",
@@ -66,6 +102,13 @@ export async function sendInteractiveButtons(
   bodyText: string,
   buttons: { id: string; title: string }[]
 ): Promise<string | undefined> {
+  const fingerprint = bodyText + "|" + buttons.map((b) => b.id).join(",");
+  if (await shouldSuppressDuplicateOutbound(to, fingerprint)) {
+    console.log(
+      `WhatsApp: se omiten botones repetidos a ${to} (mismo contenido enviado hace menos de ${OUTBOUND_DEDUP_WINDOW_SECONDS}s).`
+    );
+    return undefined;
+  }
   try {
     const data = await postToGraph({
       messaging_product: "whatsapp",

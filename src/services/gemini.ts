@@ -234,6 +234,34 @@ Si la imagen NO es una captura de una operación bancaria (ej. es una foto de ot
   }
 }
 
+/**
+ * Transcribe una nota de voz de WhatsApp a texto plano en español. No
+ * interpreta el contenido (eso lo hace handleIncomingMessage reutilizando
+ * toda la lógica de intenciones que ya existe para texto) — solo convierte
+ * el audio a lo que la persona dijo, lo más literal posible. Devuelve null
+ * si Gemini no pudo transcribir nada útil (audio vacío, ruido, etc.).
+ */
+export async function transcribeAudio(base64: string, mimeType: string): Promise<string | null> {
+  // WhatsApp manda las notas de voz como "audio/ogg; codecs=opus" — Gemini
+  // espera el mime type "limpio" (ej. "audio/ogg"), sin el parámetro del códec.
+  const cleanMimeType = mimeType.split(";")[0].trim();
+
+  const prompt = `Transcribe este audio a texto en español, exactamente como lo dijo la persona (es una nota de voz para un bot de WhatsApp de control de gastos personales, ej. "gasté 20 soles en el grifo" o "cuáles son mis gastos pendientes").
+
+No traduzcas, no corrijas gramática, no agregues comentarios ni explicaciones — responde ÚNICAMENTE con la transcripción. Si el audio no tiene habla entendible (silencio, ruido, música), responde con un string vacío.`;
+
+  const response = await callGeminiWithRetry((model) =>
+    ai.models.generateContent({
+      model,
+      contents: [{ text: prompt }, { inlineData: { data: base64, mimeType: cleanMimeType } }],
+      config: { temperature: 0 },
+    })
+  );
+
+  const text = response.text?.trim();
+  return text ? text : null;
+}
+
 export interface ExtractedManualTransaction {
   isValidCommand: boolean;
   amount?: number;
