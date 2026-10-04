@@ -13,7 +13,13 @@ import { sendPasswordResetEmail } from "../services/email";
 export const authRouter = Router();
 
 function signToken(userId: string) {
-  return jwt.sign({ sub: userId }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
+  // env.JWT_EXPIRES_IN viene tipado como `string` genérico (Zod), pero
+  // @types/jsonwebtoken exige el tipo literal StringValue (ej. "7d", "2h").
+  // El valor en runtime siempre es válido (lo validamos nosotros vía .env),
+  // así que el cast es seguro — no hay forma de tipar un string arbitrario
+  // de entorno como ese literal sin esto.
+  const options: jwt.SignOptions = { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"] };
+  return jwt.sign({ sub: userId }, env.JWT_SECRET, options);
 }
 
 // Sin código de país asumimos Perú (+51), ya que es el mercado actual de
