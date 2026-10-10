@@ -8,6 +8,7 @@ import { asyncHandler } from "../middleware/asyncHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { encrypt } from "../utils/crypto";
 import { getMicrosoftAuthUrl, exchangeMicrosoftCode } from "../services/microsoftOAuth";
+import { getGoogleAuthUrl, exchangeGoogleCode, isGoogleConfigured } from "../services/googleOAuth";
 
 export const emailAccountsRouter = Router();
 
@@ -17,7 +18,16 @@ emailAccountsRouter.get(
   asyncHandler(async (req, res) => {
     const accounts = await prisma.emailAccount.findMany({
       where: { userId: req.userId, isActive: true },
-      include: { bankSenders: true },
+      // Nunca devolver accessToken/refreshToken al navegador.
+      select: {
+        id: true,
+        provider: true,
+        emailAddress: true,
+        isActive: true,
+        lastSyncedAt: true,
+        createdAt: true,
+        bankSenders: true,
+      },
     });
     res.json(accounts);
   })
@@ -135,6 +145,61 @@ emailAccountsRouter.get(
         accessToken: encrypt(JSON.stringify({ homeAccountId: tokens.homeAccountId })),
         refreshToken: encrypt(tokens.serializedCache),
         tokenExpiresAt: tokens.expiresOn,
+      },
+    });
+
+    res.redirect(`${env.APP_BASE_URL}/?email_connected=1`);
+  })
+);
+
+emailAccountsRouter.get(
+  "/auth/google",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!isGoogleConfigured()) {
+      throw new AppError("La conexión con Gmail aún no está configurada en el servidor", 503);
+    }
+    const state = jwt.sign({ sub: req.userId }, env.JWT_SECRET, { expiresIn: "10m" });
+    res.json({ url: getGoogleAuthUrl(state) });
+  })
+);
+
+emailAccountsRouter.get(
+  "/auth/google/callback",
+  asyncHandler(async (req, res) => {
+    const { code, state, error } = req.query as { code?: string; state?: string; error?: string };
+
+    if (error) {
+      return res.redirect(`${env.APP_BASE_URL}/?email_error=${encodeURIComponent(error)}`);
+    }
+    if (!code || !state) throw new AppError("Faltan parámetros de Google (code/state)", 400);
+
+    let userId: string;
+    try {
+      const payload = jwt.verify(state, env.JWT_SECRET) as { sub: string };
+      userId = payload.sub;
+    } catch {
+      throw new AppError("El enlace de conexión expiró, intenta conectar de nuevo", 400);
+    }
+
+    const tokens = await exchangeGoogleCode(code);
+
+    await prisma.emailAccount.upsert({
+      where: { userId_emailAddress: { userId, emailAddress: tokens.email } },
+      update: {
+        provider: "GMAIL",
+        accessToken: encrypt(tokens.accessToken),
+        refreshToken: encrypt(tokens.refreshToken),
+        tokenExpiresAt: tokens.expiresAt,
+        isActive: true,
+      },
+      create: {
+        userId,
+        provider: "GMAIL",
+        emailAddress: tokens.email,
+        accessToken: encrypt(tokens.accessToken),
+        refreshToken: encrypt(tokens.refreshToken),
+        tokenExpiresAt: tokens.expiresAt,
       },
     });
 

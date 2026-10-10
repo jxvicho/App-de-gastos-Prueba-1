@@ -4,9 +4,8 @@ import { prisma } from "../config/prisma";
 import { decrypt, encrypt } from "../utils/crypto";
 import { getMicrosoftAccessToken } from "./microsoftOAuth";
 import { extractTransactionFromEmail } from "./gemini";
-import { notifyPendingTransaction } from "./whatsappBot";
+import { resolveIngestStatus, afterEmailTransactionCreated } from "./emailIngest";
 import { normalizeText } from "../utils/text";
-import { getPetLabel } from "../utils/pet";
 
 type RuleWithCategory = CategoryRule & { category: { id: string; name: string } };
 
@@ -16,7 +15,7 @@ type RuleWithCategory = CategoryRule & { category: { id: string; name: string } 
  * coincida — es decir, si hay dos reglas que aplican, gana la más reciente.
  * Las reglas del usuario tienen prioridad sobre lo que sugiera Gemini.
  */
-function findMatchingRuleCategory(
+export function findMatchingRuleCategory(
   rules: RuleWithCategory[],
   merchant: string | undefined,
   amount: number
@@ -46,11 +45,11 @@ function findMatchingRuleCategory(
 
 const FIRST_SYNC_LOOKBACK_DAYS = 7;
 
-function sleep(ms: number) {
+export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function stripHtml(html: string): string {
+export function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
@@ -164,6 +163,7 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
     const matchedCategory = ruleCategory ?? geminiCategory;
 
     try {
+      const ingestStatus = await resolveIngestStatus(account.user);
       const created = await prisma.transaction.create({
         data: {
           userId: account.userId,
@@ -175,7 +175,7 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
           categoryId: matchedCategory?.id,
           bankKey: bank.bankKey,
           source: "EMAIL_AUTO",
-          status: "PENDING_CONFIRMATION",
+          status: ingestStatus,
           occurredAt: extracted.occurredAt
             ? new Date(extracted.occurredAt)
             : new Date(message.receivedDateTime),
@@ -184,11 +184,7 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
         },
       });
       createdCount++;
-      await notifyPendingTransaction(
-        { ...created, category: matchedCategory ? { name: matchedCategory.name } : null },
-        account.user.phoneNumber,
-        getPetLabel(account.user.petType, account.user.petName)
-      );
+      await afterEmailTransactionCreated(account.user, created, matchedCategory ? { id: matchedCategory.id, name: matchedCategory.name } : null);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
         console.log("Transacción duplicada omitida (correo ya procesado)");

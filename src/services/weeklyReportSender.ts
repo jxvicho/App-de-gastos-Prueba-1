@@ -1,8 +1,14 @@
 import { PetType } from "@prisma/client";
-import { sendImageMessage, sendTextMessage } from "./whatsapp";
-import { buildWeeklyReportData, getCurrenciesWithMovement } from "./weeklyReportData";
+import { env } from "../config/env";
+import { isWindowOpen, sendImageMessage, sendTemplateWithImage, sendTextMessage } from "./whatsapp";
+import {
+  buildWeeklyReportData,
+  countPendingTransactions,
+  formatMoneyPlain,
+  getCurrenciesWithMovement,
+} from "./weeklyReportData";
 import { buildWeeklyReportImage } from "./weeklyReportImage";
-import { getPetLabel } from "../utils/pet";
+import { getPetLabel, PetPersona } from "../utils/pet";
 
 // Orden fijo de envío cuando hay movimiento en ambas monedas — PEN primero
 // por ser la moneda por defecto de la app.
@@ -12,8 +18,10 @@ function currencyLabel(currency: string): string {
   return currency === "USD" ? "$ Dólares" : "S/ Soles";
 }
 
-function petGreeting(petLabel: string): string {
-  return `¡Hola! Soy ${petLabel} 🐾, tu mascota de Gastia.`;
+// El emoji ahora viene de `pet.emoji` (según la mascota real elegida:
+// 🐶/🐱/🦫/🐷) en vez de la patita "🐾" fija de antes.
+function petGreeting(pet: PetPersona): string {
+  return `¡Hola! Soy ${pet.name} ${pet.emoji}, tu mascota de Gastia.`;
 }
 
 /**
@@ -35,22 +43,41 @@ export async function sendWeeklyReportToUser(
 ): Promise<void> {
   if (!user.phoneNumber) return;
 
-  const petLabel = getPetLabel(user.petType, user.petName);
+  const pet = getPetLabel(user.petType, user.petName);
 
   // El saludo de la mascota va como texto al inicio del caption del reporte
   // (o del mensaje "sin movimientos") — ya no se manda la imagen de la
   // mascota por separado. Nunca toca las notificaciones de gasto
   // individuales, solo estos 2 mensajes programados.
-  const greetingPrefix = petLabel ? `${petGreeting(petLabel)}\n` : "";
+  const greetingPrefix = pet ? `${petGreeting(pet)}\n` : "";
 
   const currenciesPresent = await getCurrenciesWithMovement(user.id, weekStart, weekEnd);
 
+  // Dentro de las 24 h de la última escritura del usuario se manda texto/imagen
+  // libre; fuera, Meta solo acepta una plantilla aprobada (docs/plantillas-whatsapp.md).
+  const windowOpen = await isWindowOpen(user.phoneNumber);
+  const firstName = user.name.trim().split(/\s+/)[0] || "Hola";
+
   if (currenciesPresent.length === 0) {
     const data = await buildWeeklyReportData(user.id, user.name, weekStart, weekEnd, "PEN");
-    await sendTextMessage(
-      user.phoneNumber,
-      `${greetingPrefix}Hola ${user.name}, sin movimientos esta semana (${data.weekLabel}). 👍`
-    );
+    if (windowOpen) {
+      await sendTextMessage(
+        user.phoneNumber,
+        `${greetingPrefix}Hola ${user.name}, sin movimientos esta semana (${data.weekLabel}). 👍`,
+        { kind: "weekly_report" }
+      );
+    } else {
+      const pending = await countPendingTransactions(user.id);
+      // La plantilla lleva imagen en el encabezado: se manda el reporte vacío.
+      await sendTemplateWithImage(
+        user.phoneNumber,
+        env.WHATSAPP_TEMPLATE_WEEKLY,
+        env.WHATSAPP_TEMPLATE_LANG,
+        buildWeeklyReportImage(data),
+        [firstName, data.weekLabel, formatMoneyPlain(0, "PEN"), "ninguna", String(pending)],
+        { kind: "weekly_report" }
+      );
+    }
     return;
   }
 
@@ -67,6 +94,17 @@ export async function sendWeeklyReportToUser(
     const caption = sendSeparateLabel
       ? `${prefix}📊 Tu resumen semanal — ${currencyLabel(currency)} — ${data.weekLabel}`
       : `${prefix}📊 Tu resumen semanal — ${data.weekLabel}`;
-    await sendImageMessage(user.phoneNumber, image, caption);
+    if (windowOpen) {
+      await sendImageMessage(user.phoneNumber, image, caption, { kind: "weekly_report" });
+    } else {
+      const pending = await countPendingTransactions(user.id);
+      await sendTemplateWithImage(user.phoneNumber, env.WHATSAPP_TEMPLATE_WEEKLY, env.WHATSAPP_TEMPLATE_LANG, image, [
+        firstName,
+        data.weekLabel,
+        formatMoneyPlain(data.totalExpense, currency),
+        data.topCategory?.name ?? "ninguna",
+        String(pending),
+      ], { kind: "weekly_report" });
+    }
   }
 }

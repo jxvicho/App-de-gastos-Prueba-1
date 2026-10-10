@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD COLUMN "dailyReportEnabled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "users" ADD COLUMN "dailyReportHour" INTEGER NOT NULL DEFAULT 21;

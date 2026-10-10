@@ -12,6 +12,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   APP_BASE_URL: z.string().url(),
+  // URL pública (túnel ngrok) por la que Meta llega al webhook. Opcional: solo para el indicador de estado.
+  PUBLIC_URL: z.string().optional(),
   DASHBOARD_BASE_URL: z.string().url(),
 
   JWT_SECRET: z.string().min(16),
@@ -34,6 +36,12 @@ const envSchema = z.object({
   WHATSAPP_APP_SECRET: z.string().optional().default(""),
   WHATSAPP_VERIFY_TOKEN: z.string().optional().default(""),
   WHATSAPP_API_VERSION: z.string().default("v21.0"),
+  // Plantillas aprobadas por Meta para mensajes fuera de la ventana de 24 h
+  // (ver docs/plantillas-whatsapp.md). Si no existen en tu cuenta, el envío
+  // fuera de ventana falla y queda registrado en el log.
+  WHATSAPP_TEMPLATE_WEEKLY: z.string().default("gastia_resumen_semanal"),
+  WHATSAPP_TEMPLATE_DAILY: z.string().default("gastia_resumen_diario"),
+  WHATSAPP_TEMPLATE_LANG: z.string().default("es"),
 
   ANTHROPIC_API_KEY: z.string().optional().default(""),
 

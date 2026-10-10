@@ -1,6 +1,8 @@
 import { Router, Request } from "express";
 import crypto from "crypto";
 import { env } from "../config/env";
+import { markInboundWindow } from "../services/whatsapp";
+import { recordStatuses } from "../services/whatsappStatuses";
 import { handleIncomingMessage, handleIncomingImage, handleIncomingAudio, textForButtonReply } from "../services/whatsappBot";
 import { redisConnection } from "../queues/redisConnection";
 
@@ -108,11 +110,16 @@ whatsappRouter.post("/webhook", (req, res) => {
     try {
       const entry = req.body?.entry?.[0];
       const change = entry?.changes?.[0];
+      const statuses = change?.value?.statuses as any[] | undefined;
+      if (statuses?.length) await recordStatuses(statuses);
       const messages = change?.value?.messages as unknown[] | undefined;
       if (!messages?.length) return;
 
       for (const message of messages as any[]) {
         const from = message.from;
+        // Cualquier mensaje del usuario abre/renueva su ventana de 24 h:
+        // dentro de ella se puede responder con texto libre.
+        if (from) await markInboundWindow(from);
 
         // Deduplicación por wamid: si Meta reintenta la entrega de este
         // mismo mensaje (reintentos normales, o un lote reenviado tras
@@ -153,6 +160,15 @@ whatsappRouter.post("/webhook", (req, res) => {
           if (equivalentText) {
             await handleIncomingMessage(from, equivalentText, contextMessageId);
           }
+          continue;
+        }
+
+        // Botón de respuesta rápida de una PLANTILLA (reporte diario/semanal).
+        if (message.type === "button") {
+          const label = String(message.button?.text ?? message.button?.payload ?? "").trim().toLowerCase();
+          console.log(`📩 WhatsApp de ${from}: botón de plantilla "${label}"`);
+          const equivalentText = label.includes("pendiente") ? "mostrar pendientes" : label.includes("mes") ? "resumen" : null;
+          if (equivalentText) await handleIncomingMessage(from, equivalentText, contextMessageId);
           continue;
         }
 

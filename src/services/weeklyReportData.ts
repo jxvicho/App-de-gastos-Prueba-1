@@ -48,6 +48,28 @@ export function currentWeekStart(reference: Date = new Date()): Date {
   return limaWallClockToUtc(year, month, day - daysSinceMonday, 0, 0);
 }
 
+/** Hoy 00:00 (Lima) como instante UTC. */
+export function currentDayStart(reference: Date = new Date()): Date {
+  const { year, month, day } = toLimaParts(reference);
+  return limaWallClockToUtc(year, month, day, 0, 0);
+}
+
+/** Hora actual de pared en Lima (0-23). */
+export function currentLimaHour(reference: Date = new Date()): number {
+  return new Date(reference.getTime() - LIMA_OFFSET_HOURS * 3_600_000).getUTCHours();
+}
+
+/** "S/ 1,234.50" o "$ 10.00" (soles/dólares nunca se suman entre sí). */
+export function formatMoneyPlain(amount: number, currency: string): string {
+  const n = amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${currency === "USD" ? "$" : "S/"} ${n}`;
+}
+
+/** Cuántos movimientos esperan confirmación del usuario. */
+export async function countPendingTransactions(userId: string): Promise<number> {
+  return prisma.transaction.count({ where: { userId, status: "PENDING_CONFIRMATION", deletedAt: null } });
+}
+
 /** "7 - 13 sep" a partir del lunes de la semana (asume que termina el domingo siguiente). */
 export function formatWeekLabel(weekStart: Date): string {
   const startParts = toLimaParts(weekStart);
@@ -197,7 +219,7 @@ export async function buildWeeklyReportData(
     const entry = byCategory.get(key) ?? {
       name: t.categoryName ?? "Sin categoría",
       icon: t.categoryIcon ?? FALLBACK_CATEGORY_ICON,
-      colorHex: t.categoryColor ?? "#999999",
+      colorHex: t.categoryColor ?? "#757575",
       amount: 0,
     };
     entry.amount += t.amount;
@@ -207,7 +229,7 @@ export async function buildWeeklyReportData(
   const top4 = sortedCategories.slice(0, 4);
   const othersTotal = sortedCategories.slice(4).reduce((acc, c) => acc + c.amount, 0);
   const categoryBreakdown: WeeklyCategoryBreakdown[] =
-    othersTotal > 0 ? [...top4, { name: "Otras", icon: OTHER_CATEGORY_ICON, colorHex: "#B8BEC7", amount: othersTotal }] : top4;
+    othersTotal > 0 ? [...top4, { name: "Otras", icon: OTHER_CATEGORY_ICON, colorHex: "#90A4AE", amount: othersTotal }] : top4;
 
   // Gasto por día, Lunes a Domingo de esta semana (misma exclusión de "No considerar").
   const dayTotals = WEEKDAY_LABELS_ES.map((label) => ({ label, amount: 0 }));

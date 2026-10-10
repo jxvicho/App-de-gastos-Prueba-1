@@ -2,12 +2,13 @@ import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { sendInteractiveButtons, sendTextMessage } from "./whatsapp";
 import { downloadWhatsappMedia } from "./whatsappMedia";
+import { findEquivalentRule } from "./ruleDedup";
 import { extractTransferFromImage, extractManualTransactionFromText, transcribeAudio } from "./gemini";
 import { sendWeeklyReportToUser } from "./weeklyReportSender";
 import { currentWeekStart } from "./weeklyReportData";
 import { DEFAULT_CATEGORIES } from "../utils/defaultCategories";
 import { normalizeText } from "../utils/text";
-import { getPetLabel } from "../utils/pet";
+import { getPetLabel, PetPersona } from "../utils/pet";
 
 const CONFIRM_WORDS = new Set(["si", "s", "yes", "confirmar"]);
 const REJECT_WORDS = new Set(["no", "n"]);
@@ -32,6 +33,49 @@ const CONFIRM_INTENT_PATTERNS = [
  * haría falta adivinar cuál de todas, y una detección más laxa reintroduciría
  * los bugs de identificación de la Fase 3.
  */
+// Saludos sueltos ("hola", "buenas", "hey"...) sin ningún otro contenido —
+// se exige que sea (casi) todo el mensaje, para no tragarse un saludo
+// seguido de un pedido real ("hola, gasté 20 soles en el grifo"): si el
+// mensaje trae un número o es muy largo, ya no es un saludo suelto.
+const GREETING_PHRASES = [
+  "hola", "holaa", "holaaa", "holaa", "hello", "hey", "ola",
+  "buenas", "buenos dias", "buenas tardes", "buenas noches", "buen dia",
+  "que tal", "como estas", "como andas", "que hay",
+];
+function detectGreetingIntent(normalizedText: string): boolean {
+  // Quita puntuación final típica (!, ., ,, ¿?) para que "hola!" o "hola," también calcen.
+  const trimmed = normalizedText.replace(/[!¡.,¿?]+$/g, "").trim();
+  if (!trimmed || trimmed.length > 25 || /\d/.test(trimmed)) return false;
+  return GREETING_PHRASES.some((phrase) => trimmed === phrase || trimmed.startsWith(`${phrase} `));
+}
+
+/** Saludo cálido + mini-menú de lo que Gastia puede hacer, en vez de cualquier intento de adivinar una transacción. */
+function buildGreetingReply(userName: string, petLabel: PetPersona | null): string {
+  const firstName = userName?.trim().split(/\s+/)[0] ?? "";
+  // Emoji real de la mascota elegida (🐶/🐱/🦫/🐷) en vez de uno fijo — y
+  // si el usuario desactivó la mascota, se presenta como "Gastia" a secas,
+  // sin inventarle ningún animal.
+  const who = petLabel ? `${petLabel.emoji} ${petLabel.name}` : "Gastia";
+  const saludo = firstName ? `¡Hola, ${firstName}!` : "¡Hola!";
+
+  return (
+    `${saludo} 👋 Soy ${who}, tu asistente de gastos.\n\n` +
+    `¿En qué te ayudo? 😊\n\n` +
+    `*Registrar* (escribiendo o con una 🎤 nota de voz)\n` +
+    `💸 *Un gasto* — ej. "gasté 20 soles en el grifo"\n` +
+    `💰 *Un ingreso* — ej. "me depositaron 100 soles"\n` +
+    `📸 *Una captura* — mándame la foto de un pago y la leo\n\n` +
+    `*Consultar*\n` +
+    `📊 *Resumen* — ej. "resumen de hoy", "de la semana" o "de octubre"\n` +
+    `🏷️ *Por categoría* — ej. "cuánto gasté en comida"\n` +
+    `🔎 *Por comercio* — ej. "cuánto gasté en Rappi"\n` +
+    `📋 *Pendientes* — "muéstrame los pendientes" y los apruebas o rechazas\n\n` +
+    `*Automatizar*\n` +
+    `⚙️ *Reglas* — ej. "todo gasto en Taxi va a Transporte"\n\n` +
+    `Yo también leo tus correos del banco y te aviso cuando haya algo por confirmar. ✅`
+  );
+}
+
 function detectConfirmWordIntent(normalizedText: string): boolean {
   const hasNegation = /\bno\s+(lo\s+)?(anot\w*|confirm\w*|regist\w*)\b/.test(normalizedText);
   if (hasNegation) return false;
@@ -287,7 +331,19 @@ function detectPendingSummaryIntent(normalizedText: string): boolean {
   // Respaldo con regex para frases donde se mete una palabra entre medio,
   // ej. "que GASTOS tengo pendientes de aceptar" — no calza con "que tengo
   // pendientes" como substring literal porque "gastos" rompe la secuencia.
-  return /\bque\b[\s\S]*\btengo\b[\s\S]*\bpendient/.test(normalizedText);
+  if (/\bque\b[\s\S]*\btengo\b[\s\S]*\bpendient/.test(normalizedText)) return true;
+
+  // Pedidos naturales de "ver" los pendientes, ej. "y me puedes mostrar los
+  // pendientes", "ver pendientes", "dame mis pendientes", "cuáles están
+  // pendientes", "tengo algo pendiente?". Se excluyen verbos de ACCIÓN sobre
+  // pendientes (aprobar/rechazar/dejar...), que los resuelven otros flujos.
+  if (!/\b(aprueb\w*|acept\w*|confirm\w*|rechaz\w*|descart\w*|elimin\w*|borr\w*|dej\w*)\b/.test(normalizedText)) {
+    if (/\b(mostrar|muestra\w*|ver|veo|ensena\w*|lista\w*|dame|damelo\w*|pasa\w*|cuales|cuantos|cuantas|revisar|revisa\w*)\b[\s\S]*\bpendient/.test(normalizedText)) return true;
+    if (/\btengo\b[\s\S]*\bpendient/.test(normalizedText)) return true;
+    // Mensaje corto que es básicamente "pendientes" / "mis pendientes".
+    if (/^(y |ok |oye )?(los |mis |las )?(movimientos |gastos )?pendientes?[?!. ]*$/.test(normalizedText.trim())) return true;
+  }
+  return false;
 }
 
 // Frases que, dentro de un pedido de resumen, indican que es sobre INGRESOS
@@ -337,17 +393,47 @@ function wantsHourlyBreakdown(normalizedText: string): boolean {
   return /\bpor hora\b/.test(normalizedText) || /\bhora por hora\b/.test(normalizedText);
 }
 
+// Nombres de mes en español (sin tilde, normalizeText ya las quita), con
+// "setiembre" como variante coloquial peruana de "septiembre" — ambas
+// apuntan al mismo índice de mes (8, 0-based).
+const MONTH_NAME_TO_INDEX: Record<string, number> = {
+  enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5,
+  julio: 6, agosto: 7, septiembre: 8, setiembre: 8, octubre: 9, noviembre: 10, diciembre: 11,
+};
+function currentMonthNameEs(): string {
+  const names = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  return names[new Date().getMonth()];
+}
+
+/**
+ * ¿El mensaje trae alguna referencia de fecha explícita para el resumen
+ * ("hoy", "semana", "mes", "últimos N días", o el nombre de un mes)? Se usa
+ * para distinguir un pedido de resumen CLARO ("resumen de esta semana") de
+ * uno AMBIGUO ("resumen" a secas) — en el segundo caso no asumimos "hoy"
+ * en silencio, se le pregunta al usuario qué período quiere (ver 0.2 en
+ * handleIncomingMessage).
+ */
+function hasExplicitSummaryPeriod(normalizedText: string): boolean {
+  if (/\bsemana\b/.test(normalizedText)) return true;
+  if (/\bmes\b/.test(normalizedText)) return true;
+  if (/ultimos?\s+\d+\s+dias?/.test(normalizedText)) return true;
+  if (/\bhoy\b/.test(normalizedText) || /\bayer\b/.test(normalizedText) || /\banteayer\b/.test(normalizedText)) return true;
+  if (Object.keys(MONTH_NAME_TO_INDEX).some((name) => new RegExp(`\\b${name}\\b`).test(normalizedText))) return true;
+  return false;
+}
+
 /**
  * Igual que extractDateRange, pero además entiende "esta semana"/"este mes"/
- * "últimos N días" (rangos reales, no un solo día) y, si no reconoce
- * ninguna referencia de fecha, cae a "hoy" por defecto — a diferencia de
- * extractDateRange, que para identificar una transacción puntual prefiere
- * no asumir nada. `isMultiDay` decide si el resumen usa el formato
- * agrupado por día o el simple de una sola línea por categoría.
+ * "últimos N días"/el nombre de un mes puntual (rangos reales, no un solo
+ * día) y, si no reconoce ninguna referencia de fecha, cae a "hoy" por
+ * defecto — a diferencia de extractDateRange, que para identificar una
+ * transacción puntual prefiere no asumir nada. `isMultiDay` decide si el
+ * resumen usa el formato agrupado por día o el simple de una sola línea por
+ * categoría.
  */
 function extractSummaryDateRange(
   normalizedText: string
-): { start: Date; end: Date; label: string; isMultiDay: boolean } {
+): { start: Date; end: Date; label: string; isMultiDay: boolean; isMonth?: boolean } {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -358,10 +444,27 @@ function extractSummaryDateRange(
     return { start, end, label: "esta semana", isMultiDay: true };
   }
 
+  // Nombre de mes puntual ("octubre", "setiembre"...) — más específico que
+  // la palabra suelta "mes", así que se chequea primero. Si el mes nombrado
+  // es el actual, el rango va hasta hoy (no se puede resumir el futuro); si
+  // es un mes anterior, se usa completo. Si el mes nombrado todavía no llega
+  // este año, se asume que se refiere al año pasado.
+  for (const [name, monthIndex] of Object.entries(MONTH_NAME_TO_INDEX)) {
+    if (!new RegExp(`\\b${name}\\b`).test(normalizedText)) continue;
+    const isCurrentMonth = monthIndex === now.getMonth();
+    const year = monthIndex <= now.getMonth() ? now.getFullYear() : now.getFullYear() - 1;
+    const start = new Date(year, monthIndex, 1);
+    const end = isCurrentMonth && year === now.getFullYear()
+      ? new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() + 1)
+      : new Date(year, monthIndex + 1, 1);
+    const label = name === "setiembre" ? "septiembre" : name;
+    return { start, end, label, isMultiDay: true, isMonth: true };
+  }
+
   if (/\bmes\b/.test(normalizedText)) {
     const start = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
     const end = new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() + 1);
-    return { start, end, label: "este mes", isMultiDay: true };
+    return { start, end, label: "este mes", isMultiDay: true, isMonth: true };
   }
 
   const lastNDaysMatch = normalizedText.match(/ultimos?\s+(\d+)\s+dias?/);
@@ -390,18 +493,61 @@ function extractSummaryDateRange(
   };
 }
 
+/** "¿Resumen de hoy, de esta semana o de [mes actual]?" — se usa cuando el pedido de resumen no trae ningún período explícito (ver 0.2). */
+function buildSummaryPeriodPrompt(summaryType: "EXPENSE" | "INCOME"): string {
+  const noun = summaryType === "INCOME" ? "ingresos" : "gastos";
+  const month = capitalize(currentMonthNameEs());
+  return (
+    `¿De qué período quieres el resumen de tus ${noun}? 📅\n\n` +
+    `• *Hoy*\n` +
+    `• *Esta semana*\n` +
+    `• *${month}* (el mes completo)`
+  );
+}
+
+/**
+ * WhatsApp limita cada mensaje de texto a 4096 caracteres: si el texto es más
+ * largo se parte en varios mensajes, cortando siempre en un salto de línea.
+ */
+async function sendLongTextMessage(to: string, body: string, maxLength = 3800): Promise<void> {
+  if (body.length <= maxLength) {
+    await sendTextMessage(to, body);
+    return;
+  }
+  const chunks: string[] = [];
+  let current = "";
+  for (const line of body.split("\n")) {
+    if (current && current.length + line.length + 1 > maxLength) {
+      chunks.push(current);
+      current = line;
+    } else {
+      current = current ? `${current}\n${line}` : line;
+    }
+  }
+  if (current) chunks.push(current);
+  for (const chunk of chunks) await sendTextMessage(to, chunk);
+}
+
 /**
  * Arma el resumen de movimientos CONFIRMED de un usuario para el rango de
  * fechas que se detecte en el mensaje (por defecto, hoy) — de gastos, o de
- * ingresos si el mensaje lo pide explícitamente (ver detectSummaryType).
+ * ingresos si el mensaje lo pide explícitamente (ver detectSummaryType),
+ * salvo que se le pase `summaryTypeOverride` (se usa cuando el tipo ya se
+ * detectó de un mensaje anterior — ver el seguimiento "awaiting_summary_period"
+ * — y el mensaje actual, que solo trae el período, ya no lo menciona).
  * Para un solo día usa el desglose simple por categoría; para 2+ días, el
  * formato agrupado por día (con total del período, el más grande, y
  * desglose por categoría al cierre) — salvo que se haya pedido
  * explícitamente el detalle por hora.
  */
-async function buildSummaryReply(userId: string, normalizedText: string, userName: string): Promise<string> {
-  const { start, end, label, isMultiDay } = extractSummaryDateRange(normalizedText);
-  const summaryType = detectSummaryType(normalizedText);
+async function buildSummaryReply(
+  userId: string,
+  normalizedText: string,
+  userName: string,
+  summaryTypeOverride?: "EXPENSE" | "INCOME"
+): Promise<string> {
+  const { start, end, label, isMultiDay, isMonth } = extractSummaryDateRange(normalizedText);
+  const summaryType = summaryTypeOverride ?? detectSummaryType(normalizedText);
   const typeLabel = summaryType === "INCOME" ? "ingresos" : "gastos";
 
   const transactions = await prisma.transaction.findMany({
@@ -421,6 +567,10 @@ async function buildSummaryReply(userId: string, normalizedText: string, userNam
 
   if (wantsHourlyBreakdown(normalizedText)) {
     return buildHourlySummaryReply(transactions, label);
+  }
+
+  if (isMonth) {
+    return buildMonthlySummaryReply(userId, summaryType, transactions, start, end, userName);
   }
 
   if (isMultiDay) {
@@ -461,6 +611,149 @@ async function buildSummaryReply(userId: string, normalizedText: string, userNam
       : `${c.count} mov.`;
     lines.push(`${c.icon} ${c.name}: ${c.currency} ${c.amount.toFixed(2)} (${detail})`);
   });
+
+  return lines.join("\n");
+}
+
+const MONTH_FULL_NAMES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+/**
+ * Resumen COMPACTO para períodos de un mes (nombre de mes o "este mes"):
+ * un mes puede tener decenas de movimientos y el formato por día excede el
+ * límite de ~4096 caracteres de WhatsApp, así que acá se muestra solo el
+ * total, la comparación contra el mes anterior (mismo tramo), el desglose
+ * por semana (lunes–domingo, recortado a los límites del mes) y por
+ * categoría (con %), el movimiento más grande y el día más caro. Su
+ * longitud casi no depende de cuántos movimientos haya.
+ */
+async function buildMonthlySummaryReply(
+  userId: string,
+  summaryType: "EXPENSE" | "INCOME",
+  transactions: PendingTransaction[],
+  start: Date,
+  end: Date,
+  userName: string
+): Promise<string> {
+  const year = start.getFullYear();
+  const month = start.getMonth();
+  const monthName = capitalize(MONTH_FULL_NAMES_ES[month]);
+  const typeWord = summaryType === "INCOME" ? "ingresos" : "gastos";
+  const lastIncl = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
+  const monthEnd = new Date(year, month + 1, 1);
+  const isPartial = end.getTime() < monthEnd.getTime();
+
+  const currencies = new Set(transactions.map((t) => t.currency));
+  const singleCurrency = currencies.size === 1;
+  const totalLine = formatTotalsByCurrency(transactions.map((t) => ({ currency: t.currency, amount: Number(t.amount) })));
+  const n = transactions.length;
+
+  const lines: string[] = [
+    `📒 *Resumen de ${typeWord} de ${monthName}${isPartial ? ` (1–${lastIncl.getDate()})` : ""}*, ${userName}`,
+    "",
+    `💰 *Total:* ${totalLine} (${n} movimiento${n === 1 ? "" : "s"})`,
+  ];
+
+  // Comparación contra el mes anterior, en el mismo tramo de días (si hoy es
+  // 15, se compara contra el 1–15 del mes pasado, no contra el mes completo).
+  if (singleCurrency) {
+    const currency = [...currencies][0];
+    const daysSpan = Math.round((end.getTime() - start.getTime()) / 86_400_000);
+    const prevStart = new Date(year, month - 1, 1);
+    const prevMonthEnd = new Date(year, month, 1);
+    const prevEndCandidate = new Date(year, month - 1, 1 + daysSpan);
+    const prevEnd = prevEndCandidate.getTime() < prevMonthEnd.getTime() ? prevEndCandidate : prevMonthEnd;
+    const agg = await prisma.transaction.aggregate({
+      where: {
+        userId,
+        status: "CONFIRMED",
+        deletedAt: null,
+        type: summaryType,
+        currency,
+        occurredAt: { gte: prevStart, lt: prevEnd },
+      },
+      _sum: { amount: true },
+    });
+    const prevTotal = Number(agg._sum.amount ?? 0);
+    const currentTotal = transactions.reduce((acc, t) => acc + Number(t.amount), 0);
+    if (prevTotal > 0) {
+      const pct = Math.round(((currentTotal - prevTotal) / prevTotal) * 100);
+      const arrow = pct > 0 ? "📈" : pct < 0 ? "📉" : "➖";
+      const sign = pct > 0 ? "+" : "";
+      const prevName = MONTH_FULL_NAMES_ES[(month + 11) % 12];
+      lines.push(`${arrow} *Vs. ${prevName}${isPartial ? " (mismo tramo)" : ""}:* ${sign}${pct}% (${currency} ${prevTotal.toFixed(2)})`);
+    }
+  }
+
+  // Semanas (lunes–domingo) recortadas a los límites del rango.
+  const weeks: { from: Date; to: Date; items: PendingTransaction[] }[] = [];
+  let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  while (cursor.getTime() <= lastIncl.getTime()) {
+    const daysToSunday = (7 - cursor.getDay()) % 7;
+    let to = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + daysToSunday);
+    if (to.getTime() > lastIncl.getTime()) to = lastIncl;
+    weeks.push({ from: cursor, to, items: [] });
+    cursor = new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1);
+  }
+  for (const t of transactions) {
+    const day = new Date(t.occurredAt.getFullYear(), t.occurredAt.getMonth(), t.occurredAt.getDate()).getTime();
+    const week = weeks.find((w) => day >= w.from.getTime() && day <= w.to.getTime());
+    if (week) week.items.push(t);
+  }
+  lines.push("", "📅 *Por semana*");
+  weeks.forEach((w, i) => {
+    const range =
+      w.from.getDate() === w.to.getDate()
+        ? `${w.from.getDate()} ${MONTH_NAMES_ES[w.to.getMonth()]}`
+        : `${w.from.getDate()}–${w.to.getDate()} ${MONTH_NAMES_ES[w.to.getMonth()]}`;
+    const total = w.items.length
+      ? formatTotalsByCurrency(w.items.map((t) => ({ currency: t.currency, amount: Number(t.amount) })))
+      : "sin movimientos";
+    lines.push(` · Sem ${i + 1} (${range}): ${total}`);
+  });
+
+  // Categorías (máx. 8; el resto se agrupa en "Otros").
+  const byCategory = new Map<string, { name: string; icon: string; currency: string; amount: number }>();
+  for (const t of transactions) {
+    const key = `${t.categoryId ?? "sin-categoria"}|${t.currency}`;
+    const name = t.category?.name ?? "Sin categoría";
+    const icon = t.category ? CATEGORY_ICON_BY_NAME.get(t.category.name) ?? FALLBACK_CATEGORY_ICON : "❔";
+    const entry = byCategory.get(key) ?? { name, icon, currency: t.currency, amount: 0 };
+    entry.amount += Number(t.amount);
+    byCategory.set(key, entry);
+  }
+  const sortedCategories = [...byCategory.values()].sort((a, b) => b.amount - a.amount);
+  const MAX_CATEGORIES = 8;
+  const shown = sortedCategories.slice(0, MAX_CATEGORIES);
+  const rest = sortedCategories.slice(MAX_CATEGORIES);
+  const grandTotal = transactions.reduce((acc, t) => acc + Number(t.amount), 0);
+  lines.push("", "🗂️ *Por categoría*");
+  const pctOf = (amount: number) => (singleCurrency && grandTotal > 0 ? ` (${Math.round((amount / grandTotal) * 100)}%)` : "");
+  shown.forEach((c) => lines.push(` ${c.icon} ${c.name}: ${c.currency} ${c.amount.toFixed(2)}${pctOf(c.amount)}`));
+  if (rest.length > 0) {
+    const restTotal = formatTotalsByCurrency(rest.map((c) => ({ currency: c.currency, amount: c.amount })));
+    const restAmount = rest.reduce((acc, c) => acc + c.amount, 0);
+    lines.push(` 📦 Otros (${rest.length}): ${restTotal}${pctOf(restAmount)}`);
+  }
+
+  // Movimiento más grande y día más caro.
+  const biggest = [...transactions].sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+  const biggestWho = biggest.merchant || biggest.description || "el movimiento";
+  lines.push("", `🏆 *El más grande:* ${formatAmount(biggest)} en ${biggestWho}`);
+  if (singleCurrency) {
+    const byDay = new Map<number, { date: Date; amount: number }>();
+    for (const t of transactions) {
+      const d = new Date(t.occurredAt.getFullYear(), t.occurredAt.getMonth(), t.occurredAt.getDate());
+      const entry = byDay.get(d.getTime()) ?? { date: d, amount: 0 };
+      entry.amount += Number(t.amount);
+      byDay.set(d.getTime(), entry);
+    }
+    const topDay = [...byDay.values()].sort((a, b) => b.amount - a.amount)[0];
+    lines.push(
+      `📆 *Día más ${summaryType === "INCOME" ? "alto" : "caro"}:* ${DAY_NAMES_ES[topDay.date.getDay()].slice(0, 3)} ${topDay.date.getDate()} ${MONTH_NAMES_ES[topDay.date.getMonth()]}, ${[...currencies][0]} ${topDay.amount.toFixed(2)}`
+    );
+  }
+
+  lines.push("", "_Para ver el detalle día por día, pídeme el resumen de hoy o de esta semana._");
 
   return lines.join("\n");
 }
@@ -736,7 +1029,23 @@ interface CategoryQueryFollowUp {
   categoryName: string;
   transactionIds: string[]; // TODOS los CONFIRMED de esa categoría en el período consultado, orden desc por fecha
 }
-type FollowUpContext = MerchantQueryFollowUp | RetroactiveRuleFollowUp | PendingReviewFollowUp | CategoryQueryFollowUp;
+/**
+ * Se preguntó "¿resumen de hoy, de la semana o del mes?" porque el pedido
+ * original no traía ningún período explícito (ver hasExplicitSummaryPeriod).
+ * Se recuerda el tipo (gasto/ingreso) detectado en ese mensaje original,
+ * porque la respuesta del usuario ("semana", "octubre"...) normalmente ya
+ * no repite esa palabra y detectSummaryType no tendría de dónde sacarla.
+ */
+interface AwaitingSummaryPeriodFollowUp {
+  type: "awaiting_summary_period";
+  summaryType: "EXPENSE" | "INCOME";
+}
+type FollowUpContext =
+  | MerchantQueryFollowUp
+  | RetroactiveRuleFollowUp
+  | PendingReviewFollowUp
+  | CategoryQueryFollowUp
+  | AwaitingSummaryPeriodFollowUp;
 interface FollowUpState {
   context: FollowUpContext;
   createdAt: number;
@@ -824,8 +1133,15 @@ function startsNear(normalizedText: string, phrase: string): boolean {
   return idx <= 15;
 }
 
+// Antes del verbo ("anotar", "registrar"...) se permite un "quiero"/
+// "necesito"/etc. de cortesía, para reconocer frases como "quiero registrar
+// un gasto" o "necesito anotar un ingreso" — no solo el verbo pelado al
+// inicio del mensaje.
+const MANUAL_TXN_LEAD_IN = "(?:quiero|quisiera|necesito|deseo|me gustaria|por favor|podrias|puedes)\\s+";
+const MANUAL_TXN_VERB_REGEX = new RegExp(`^(?:${MANUAL_TXN_LEAD_IN})?(?:anotar|anota|registra|registrar|agregar)\\b`);
+
 function detectManualTransactionIntent(normalizedText: string): { type: "EXPENSE" | "INCOME" } | null {
-  if (/^(anotar|anota|registra|registrar|agregar)\b/.test(normalizedText)) {
+  if (MANUAL_TXN_VERB_REGEX.test(normalizedText)) {
     if (/\bgastos?\b/.test(normalizedText)) return { type: "EXPENSE" };
     if (/\bingresos?\b/.test(normalizedText)) return { type: "INCOME" };
     return null;
@@ -1518,7 +1834,7 @@ async function resolveExpenseCategoryForImage(
 async function finalizeImageTransaction(
   userId: string,
   userPhoneNumber: string | null | undefined,
-  petLabel: string | null,
+  petLabel: PetPersona | null,
   pending: PendingImageClassification,
   kind: "EXPENSE" | "TRANSFER" | "INCOME"
 ): Promise<void> {
@@ -1605,10 +1921,10 @@ function formatBankLabel(bankKey: string): string {
  */
 function buildNotificationBody(
   t: Transaction & { category?: { name: string } | null },
-  petLabel?: string | null
+  petLabel?: PetPersona | null
 ): string {
   const lines = [
-    petLabel ? `🐾 *${petLabel} encontró un movimiento nuevo*` : "🧾 *Nuevo movimiento detectado*",
+    petLabel ? `${petLabel.emoji} *${petLabel.name} encontró un movimiento nuevo*` : "🧾 *Nuevo movimiento detectado*",
     "",
     `🏪 *Comercio:* ${t.merchant || t.description || "Sin nombre"}`,
     `💵 *Monto:* ${formatAmount(t)}`,
@@ -1656,7 +1972,7 @@ async function sumConfirmedThisMonth(userId: string, categoryId: string): Promis
 async function confirmTransaction(
   pending: PendingTransaction,
   userId: string,
-  petLabel: string | null,
+  petLabel: PetPersona | null,
   categoryOverride?: { id: string; name: string }
 ): Promise<string> {
   await prisma.transaction.update({
@@ -1670,7 +1986,7 @@ async function confirmTransaction(
 
   const who = pending.merchant || pending.description || "el movimiento";
   let reply = petLabel
-    ? `🐾 *${petLabel} ya lo guardó:* ${formatAmount(pending)} en ${who}.`
+    ? `${petLabel.emoji} *${petLabel.name} ya lo guardó:* ${formatAmount(pending)} en ${who}.`
     : `✅ *Anotado:* ${formatAmount(pending)} en ${who}.`;
 
   const categoryId = categoryOverride?.id ?? pending.categoryId;
@@ -1714,14 +2030,14 @@ async function recategorizeConfirmedTransaction(
   await sendTextMessage(from, reply);
 }
 
-async function rejectTransaction(pending: PendingTransaction, from: string, petLabel: string | null): Promise<void> {
+async function rejectTransaction(pending: PendingTransaction, from: string, petLabel: PetPersona | null): Promise<void> {
   await prisma.transaction.update({
     where: { id: pending.id },
     data: { status: "REJECTED" },
   });
   await sendTextMessage(
     from,
-    petLabel ? `${petLabel} lo dejó pasar esta vez 👍 no quedó registrado.` : "Entendido, no lo anotamos. 👍"
+    petLabel ? `${petLabel.emoji} ${petLabel.name} lo dejó pasar esta vez 👍 no quedó registrado.` : "Entendido, no lo anotamos. 👍"
   );
 }
 
@@ -1779,7 +2095,7 @@ async function applyResolvedIntent(
   userId: string,
   from: string,
   intent: ResolvedIntent,
-  petLabel: string | null
+  petLabel: PetPersona | null
 ): Promise<void> {
   if (intent.action === "reject") {
     await rejectTransaction(pending, from, petLabel);
@@ -1814,7 +2130,7 @@ async function handleFreeformDecision(
   userId: string,
   from: string,
   normalized: string,
-  petLabel: string | null
+  petLabel: PetPersona | null
 ): Promise<void> {
   if (detectConfirmWordIntent(normalized)) {
     const reply = await confirmTransaction(pending, userId, petLabel);
@@ -1891,6 +2207,18 @@ export async function handleIncomingMessage(
     }
   }
 
+  // -0.5) Saludo suelto ("hola", "buenas"...) sin nada más pegado — se
+  // resuelve con un mensaje de bienvenida + mini-menú en vez de intentar
+  // adivinar a qué transacción se refiere. Va después de la clasificación
+  // de imagen pendiente (prioridad absoluta) pero antes de todo lo demás,
+  // para que un saludo nunca termine cayendo en el fallback genérico de
+  // "no logré identificar a qué movimiento te referías".
+  if (detectGreetingIntent(normalized)) {
+    console.log(`WhatsApp: SALUDO detectado de ${from}, respondiendo con menú de bienvenida.`);
+    await sendTextMessage(from, buildGreetingReply(user.name, petLabel));
+    return;
+  }
+
   // 0) Intención de CREAR UNA REGLA de categorización automática — se
   // chequea primero entre las detecciones de intención "normales" (después
   // de la clasificación de imagen pendiente, que tiene prioridad absoluta):
@@ -1922,22 +2250,51 @@ export async function handleIncomingMessage(
       ? { type: "MERCHANT_CONTAINS" as const, value: merchantCriterion, description: `el comercio contenga "${merchantCriterion}"` }
       : { type: amountCriterion!.type, value: String(amountCriterion!.amount), description: `el monto sea ${amountCriterion!.label} ${amountCriterion!.amount}` };
 
-    const rule = await prisma.categoryRule.create({
-      data: {
-        userId: user.id,
-        type: ruleData.type,
-        value: ruleData.value,
-        categoryId: matchedCategory.id,
-        source: "WHATSAPP",
-      },
-    });
-
-    console.log(`WhatsApp: regla creada -> ${rule.id} (${ruleData.type} "${ruleData.value}" -> ${matchedCategory.name})`);
-    await sendTextMessage(
-      from,
-      `📏 Listo, apunté la regla: de ahora en más, cuando ${ruleData.description}, lo mando directo a *${matchedCategory.name}*. ` +
-        `La puedes ver o editar cuando quieras en el dashboard, en la sección *Reglas*.`
-    );
+    // Anti-duplicados: si ya existe una regla con el mismo criterio, no se
+    // crea otra igual (pasaba al repetir el mismo pedido dos veces).
+    const existingRule = await findEquivalentRule(user.id, ruleData.type, ruleData.value);
+    let rule;
+    if (existingRule && existingRule.categoryId === matchedCategory.id) {
+      if (!existingRule.isActive) {
+        await prisma.categoryRule.update({ where: { id: existingRule.id }, data: { isActive: true } });
+      }
+      console.log(`WhatsApp: regla duplicada omitida -> ya existía ${existingRule.id}.`);
+      await sendTextMessage(
+        from,
+        `📏 Esa regla ya la tenías: cuando ${ruleData.description}, va directo a *${matchedCategory.name}*. ` +
+          `${existingRule.isActive ? "" : "Estaba desactivada, así que la volví a activar. "}No hace falta crearla de nuevo.`
+      );
+      return;
+    } else if (existingRule) {
+      // Mismo criterio pero otra categoría: se actualiza la existente en vez
+      // de dejar dos reglas que se contradicen.
+      rule = await prisma.categoryRule.update({
+        where: { id: existingRule.id },
+        data: { categoryId: matchedCategory.id, isActive: true },
+      });
+      console.log(`WhatsApp: regla existente ${rule.id} actualizada -> ${matchedCategory.name}`);
+      await sendTextMessage(
+        from,
+        `📏 Ya tenía una regla para ese criterio (iba a *${existingRule.category.name}*). La actualicé: ` +
+          `de ahora en más, cuando ${ruleData.description}, lo mando a *${matchedCategory.name}*.`
+      );
+    } else {
+      rule = await prisma.categoryRule.create({
+        data: {
+          userId: user.id,
+          type: ruleData.type,
+          value: ruleData.value,
+          categoryId: matchedCategory.id,
+          source: "WHATSAPP",
+        },
+      });
+      console.log(`WhatsApp: regla creada -> ${rule.id} (${ruleData.type} "${ruleData.value}" -> ${matchedCategory.name})`);
+      await sendTextMessage(
+        from,
+        `📏 Listo, apunté la regla: de ahora en más, cuando ${ruleData.description}, lo mando directo a *${matchedCategory.name}*. ` +
+          `La puedes ver o editar cuando quieras en el dashboard, en la sección *Reglas*.`
+      );
+    }
 
     // Parte 3: ¿esta regla también aplica a movimientos que ya existen?
     // Modifica datos reales en bloque, así que solo se pregunta — nunca se
@@ -1989,6 +2346,25 @@ export async function handleIncomingMessage(
   const manualTxnIntent = detectManualTransactionIntent(normalized);
   if (manualTxnIntent) {
     console.log(`WhatsApp: intención de CREAR TRANSACCIÓN MANUAL (${manualTxnIntent.type}) detectada de ${from}.`);
+
+    // Mensaje tipo "registrar gasto"/"quiero registrar un ingreso" sin
+    // ningún monto pegado: ni vale la pena llamar a Gemini (no hay nada que
+    // extraer todavía), se pide el monto directo con un mensaje amigable y
+    // específico según el tipo.
+    if (extractAmount(normalized) === undefined) {
+      const noun = manualTxnIntent.type === "INCOME" ? "ingreso" : "gasto";
+      const example =
+        manualTxnIntent.type === "INCOME"
+          ? '"me depositaron 100 soles de mi papá" o "anotar ingreso de 50 soles"'
+          : '"gasté 20 soles en el grifo" o "anotar gasto de 15 soles en almuerzo"';
+      console.log(`WhatsApp: pedido de ${noun} sin monto, pidiendo el detalle antes de llamar a Gemini.`);
+      await sendTextMessage(
+        from,
+        `¡Claro! 💸 Para registrar el ${noun}, cuéntame el *monto* y en *qué fue* (o quién te pagó). Por ejemplo: ${example}.`
+      );
+      return;
+    }
+
     const categoriesForManual = await getCategories(user.id);
     const categoryNamesForManual = categoriesForManual.map((c) => c.name);
 
@@ -2134,9 +2510,20 @@ export async function handleIncomingMessage(
   // movimiento puntual, así que se resuelve antes que cualquier otra cosa
   // y no toca ningún estado de desambiguación pendiente.
   if (detectSummaryIntent(normalized)) {
+    // Pedido AMBIGUO ("resumen" a secas, sin día/semana/mes): en vez de
+    // asumir "hoy" en silencio, se pregunta qué período quiere y se recuerda
+    // el tipo (gasto/ingreso) para cuando responda solo con el período.
+    if (!hasExplicitSummaryPeriod(normalized)) {
+      const summaryType = detectSummaryType(normalized);
+      console.log(`WhatsApp: intención de RESUMEN (${summaryType}) detectada de ${from}, pero sin período explícito — se pregunta.`);
+      await sendTextMessage(from, buildSummaryPeriodPrompt(summaryType));
+      followUpByUserId.set(user.id, { createdAt: Date.now(), context: { type: "awaiting_summary_period", summaryType } });
+      return;
+    }
+
     console.log(`WhatsApp: intención de RESUMEN detectada de ${from}.`);
     const reply = await buildSummaryReply(user.id, normalized, user.name);
-    await sendTextMessage(from, reply);
+    await sendLongTextMessage(from, reply);
     return;
   }
 
@@ -2364,6 +2751,27 @@ export async function handleIncomingMessage(
         return;
       }
       // No fue una respuesta de seguimiento reconocible: seguimos el flujo normal de abajo.
+    }
+
+    // Se había preguntado "¿resumen de hoy, de la semana o del mes?" (ver
+    // 0.2) — si la respuesta trae un período reconocible, se usa junto con
+    // el tipo (gasto/ingreso) ya recordado, sin necesitar que el mensaje
+    // repita la palabra "resumen"/"gasto"/"ingreso".
+    if (!followUpExpired && followUp.context.type === "awaiting_summary_period") {
+      const ctx = followUp.context;
+
+      if (hasExplicitSummaryPeriod(normalized)) {
+        console.log(`WhatsApp: respuesta al período de RESUMEN (${ctx.summaryType}) de ${from} -> "${normalized}".`);
+        const reply = await buildSummaryReply(user.id, normalized, user.name, ctx.summaryType);
+        await sendLongTextMessage(from, reply);
+        return;
+      }
+
+      if (declinesFollowUp(normalized)) {
+        await sendTextMessage(from, "Listo, cualquier cosa me dices. 👍");
+        return;
+      }
+      // No fue un período reconocible: seguimos el flujo normal de abajo (puede ser otro pedido completamente distinto).
     }
   }
 
@@ -2919,14 +3327,14 @@ export async function handleIncomingAudio(
 export async function notifyPendingTransaction(
   transaction: Transaction & { category?: { name: string } | null },
   phoneNumber: string | null | undefined,
-  petLabel?: string | null
+  petLabel?: PetPersona | null
 ): Promise<void> {
   if (!phoneNumber) return;
 
   const messageId = await sendInteractiveButtons(phoneNumber, buildNotificationBody(transaction, petLabel), [
     { id: BUTTON_ID_CONFIRM, title: "✅ Anotar" },
     { id: BUTTON_ID_REJECT, title: "🗑️ Descartar" },
-  ]);
+  ], { kind: "txn_notification" });
 
   if (messageId) {
     await prisma.transaction.update({
@@ -2934,6 +3342,34 @@ export async function notifyPendingTransaction(
       data: { lastNotificationMessageId: messageId },
     });
   }
+}
+
+/**
+ * Aviso informativo (sin botones) cuando el registro automático está activo:
+ * el movimiento ya se guardó solo, así que no hay nada que confirmar.
+ */
+export async function notifyAutoRegisteredTransaction(
+  transaction: Transaction & { category?: { name: string } | null },
+  phoneNumber: string | null | undefined,
+  petLabel?: PetPersona | null
+): Promise<void> {
+  if (!phoneNumber) return;
+
+  const lines = [
+    petLabel ? `${petLabel.emoji} *${petLabel.name} registró un movimiento automáticamente*` : "✅ *Movimiento registrado automáticamente*",
+    "",
+    `🏪 *Comercio:* ${transaction.merchant || transaction.description || "Sin nombre"}`,
+    `💵 *Monto:* ${formatAmount(transaction)}`,
+  ];
+  if (transaction.category) {
+    const icon = CATEGORY_ICON_BY_NAME.get(transaction.category.name) ?? FALLBACK_CATEGORY_ICON;
+    lines.push(`${icon} *Categoría:* ${transaction.category.name}`);
+  }
+  lines.push(`🗓️ *Fecha:* ${formatShortDate(transaction.occurredAt)}`);
+  if (transaction.bankKey) lines.push(`🏛️ *Banco:* ${formatBankLabel(transaction.bankKey)}`);
+  lines.push("", "Ya quedó anotado en tu dashboard. 👍");
+
+  await sendTextMessage(phoneNumber, lines.join("\n"), { kind: "txn_notification" });
 }
 
 /**

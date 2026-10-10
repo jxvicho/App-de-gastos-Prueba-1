@@ -4,6 +4,7 @@ import { prisma } from "../config/prisma";
 import { AppError } from "../middleware/errorHandler";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { requireAuth } from "../middleware/requireAuth";
+import { findEquivalentRule } from "../services/ruleDedup";
 
 export const categoryRulesRouter = Router();
 
@@ -42,6 +43,14 @@ categoryRulesRouter.post(
 
     if (parsed.data.type !== "MERCHANT_CONTAINS" && Number.isNaN(parseFloat(parsed.data.value))) {
       throw new AppError("El valor debe ser un número para reglas de monto", 422);
+    }
+
+    const duplicate = await findEquivalentRule(req.userId!, parsed.data.type, parsed.data.value);
+    if (duplicate) {
+      throw new AppError(
+        `Ya tienes una regla con ese criterio (va a "${duplicate.category.name}"). Edítala en vez de crear otra igual.`,
+        409
+      );
     }
 
     const rule = await prisma.categoryRule.create({
@@ -94,6 +103,13 @@ categoryRulesRouter.patch(
     const effectiveValue = parsed.data.value ?? rule.value;
     if (effectiveType !== "MERCHANT_CONTAINS" && Number.isNaN(parseFloat(effectiveValue))) {
       throw new AppError("El valor debe ser un número para reglas de monto", 422);
+    }
+
+    if (parsed.data.type !== undefined || parsed.data.value !== undefined) {
+      const clash = await findEquivalentRule(req.userId!, effectiveType, effectiveValue);
+      if (clash && clash.id !== rule.id) {
+        throw new AppError(`Ya tienes otra regla con ese criterio (va a "${clash.category.name}").`, 409);
+      }
     }
 
     const updated = await prisma.categoryRule.update({

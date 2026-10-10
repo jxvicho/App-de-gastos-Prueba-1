@@ -9,6 +9,8 @@ import { emailSyncWorker } from "./queues/emailSyncWorker";
 import { scheduleEmailSyncRepeatable } from "./queues/emailSyncQueue";
 import { weeklyReportWorker } from "./queues/weeklyReportWorker";
 import { scheduleWeeklyReportRepeatable } from "./queues/weeklyReportQueue";
+import { dailyReportWorker } from "./queues/dailyReportWorker";
+import { scheduleDailyReportRepeatable } from "./queues/dailyReportQueue";
 import { keepDatabaseAwake } from "./config/keepAlive";
 
 const app = express();
@@ -20,6 +22,8 @@ app.use(
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "font-src": ["'self'", "https://fonts.gstatic.com"],
+        // Logos de bancos (ícono oficial del sitio de cada banco) en Configuración
+        "img-src": ["'self'", "data:", "https://www.google.com", "https://*.gstatic.com"],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "script-src": ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
       },
@@ -89,3 +93,9 @@ scheduleWeeklyReportRepeatable().catch((err) => {
 });
 console.log("📊 Worker de reporte semanal activo");
 void weeklyReportWorker;
+
+scheduleDailyReportRepeatable().catch((err) => {
+  console.error("❌ No se pudo programar el reporte diario:", err);
+});
+console.log("📅 Worker de reporte diario activo");
+void dailyReportWorker;

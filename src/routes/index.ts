@@ -9,6 +9,10 @@ import { banksRouter } from "./banks";
 import { whatsappRouter } from "./whatsapp";
 import { categoryRulesRouter } from "./categoryRules";
 import { profileRouter } from "./profile";
+import { recurringRouter } from "./recurring";
+import { goalsRouter } from "./goals";
+import { subscriptionRouter } from "./subscription";
+import { debtsRouter } from "./debts";
 
 export const apiRouter = Router();
 
@@ -22,3 +26,7 @@ apiRouter.use("/banks", banksRouter);
 apiRouter.use("/whatsapp", whatsappRouter);
 apiRouter.use("/category-rules", categoryRulesRouter);
 apiRouter.use("/profile", profileRouter);
+apiRouter.use("/recurring-payments", recurringRouter);
+apiRouter.use("/category-goals", goalsRouter);
+apiRouter.use("/subscription", subscriptionRouter);
+apiRouter.use("/debts", debtsRouter);
