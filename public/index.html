@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Gastia · Tu resumen financiero</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4290,6 +4290,22 @@ if (authToken) {
 }
 </script>
 
+<style>
+/* --- Celular: ancho fijo, sin zoom ni desplazamiento lateral --- */
+html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+@media (max-width:900px){
+  /* iOS Safari hace zoom al enfocar un campo con letra menor a 16px */
+  input,select,textarea{font-size:16px !important;}
+}
+@media (max-width:430px){
+  .sidebar{padding:0 10px;gap:6px;}
+  .sidebar-nav{margin:0;gap:2px;}
+  .sidebar-item{padding:0 10px;}
+  .sidebar-brand::before{width:36px;height:36px;border-radius:11px;font-size:18px;}
+  .sidebar-pet-row,.sidebar-pet-row.empty{padding:5px 6px;}
+  .sys-pill{padding:0 10px;}
+}
+</style>
 <!-- ===== Chat web (misma lógica que el bot de WhatsApp) ===== -->
 <style>
 #wcFab{position:fixed;right:20px;bottom:20px;z-index:40;width:56px;height:56px;border-radius:50%;border:0;background:var(--accent,#2472c8);color:#fff;font-size:26px;cursor:pointer;box-shadow:0 10px 24px -8px rgba(36,114,200,.6);display:none;align-items:center;justify-content:center;}
