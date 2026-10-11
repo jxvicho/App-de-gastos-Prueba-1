@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import { z } from "zod";
 import { env } from "../config/env";
 import { prisma } from "../config/prisma";
@@ -6,7 +6,7 @@ import { AppError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { limaDayStart } from "../services/plans";
-import { handleWebMessage, textForButtonReply } from "../services/whatsappBot";
+import { handleWebMessage, handleWebMedia, textForButtonReply } from "../services/whatsappBot";
 
 /**
  * Chat web del dashboard. Reutiliza handleIncomingMessage (la misma lógica del
@@ -47,10 +47,15 @@ async function usedToday(sessionId: string) {
   });
 }
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const AUDIO_TYPES = ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav", "audio/aac"];
+
 chatRouter.get(
   "/config",
   asyncHandler(async (_req, res) => {
-    res.json({ enabled: env.WEB_CHAT_ENABLED, dailyCap: env.WEB_CHAT_DAILY_CAP });
+    res.json({ enabled: env.WEB_CHAT_ENABLED, dailyCap: env.WEB_CHAT_DAILY_CAP, media: true });
   })
 );
 
@@ -117,6 +122,54 @@ chatRouter.post(
     }
     await prisma.whatsappSession.update({ where: { id: session.id }, data: { lastMessageAt: new Date() } });
 
+    res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, env.WEB_CHAT_DAILY_CAP - used - 1) });
+  })
+);
+
+// Imagen o nota de voz: el navegador manda el archivo crudo (Content-Type = su mime).
+chatRouter.post(
+  "/media",
+  express.raw({ type: ["image/*", "audio/*"], limit: "6mb" }),
+  asyncHandler(async (req, res) => {
+    requireEnabled();
+    const mime = String(req.headers["content-type"] ?? "").split(";")[0].trim().toLowerCase();
+    const isImage = IMAGE_TYPES.includes(mime);
+    const isAudio = AUDIO_TYPES.includes(mime);
+    if (!isImage && !isAudio) throw new AppError("Tipo de archivo no permitido (imagen JPG/PNG/WebP o nota de voz)", 415);
+    const buf = req.body as Buffer;
+    if (!Buffer.isBuffer(buf) || buf.length === 0) throw new AppError("Archivo vacío", 400);
+    if (buf.length > (isImage ? MAX_IMAGE_BYTES : MAX_AUDIO_BYTES)) {
+      throw new AppError(isImage ? "La imagen supera 5 MB" : "La nota de voz es muy larga (máx. ~2 MB)", 413);
+    }
+
+    const userId = req.userId!;
+    const session = await getSession(userId);
+    const used = await usedToday(session.id);
+    if (used >= env.WEB_CHAT_DAILY_CAP) {
+      throw new AppError("Llegaste al límite de mensajes del chat por hoy. Mañana podrás seguir.", 429);
+    }
+
+    await prisma.whatsappMessage.create({
+      data: { sessionId: session.id, direction: "INBOUND", content: isImage ? "📷 Imagen enviada" : "🎤 Nota de voz", channel: "WEB" },
+    });
+
+    let replies;
+    try {
+      replies = await handleWebMedia(userId, isImage ? "image" : "audio", { base64: buf.toString("base64"), mimeType: mime });
+    } catch (err) {
+      console.error("Chat web: error procesando el archivo:", err);
+      replies = [{ text: "Tuve un problema procesando el archivo. Inténtalo de nuevo en un momento." }];
+    }
+
+    const saved = [];
+    for (const r of replies) {
+      saved.push(
+        await prisma.whatsappMessage.create({
+          data: { sessionId: session.id, direction: "OUTBOUND", content: r.text, channel: "WEB", buttons: r.buttons ? (r.buttons as any) : undefined },
+        })
+      );
+    }
+    await prisma.whatsappSession.update({ where: { id: session.id }, data: { lastMessageAt: new Date() } });
     res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, env.WEB_CHAT_DAILY_CAP - used - 1) });
   })
 );

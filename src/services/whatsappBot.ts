@@ -3248,14 +3248,18 @@ export async function handleIncomingMessage(
  * (puede ser a un tercero o entre cuentas propias del mismo usuario). Se
  * llama desde POST /webhook cuando message.type === "image".
  */
-export async function handleIncomingImage(from: string, mediaId: string): Promise<void> {
+export async function handleIncomingImage(
+  from: string,
+  mediaId: string,
+  preloaded?: { base64: string; mimeType: string }
+): Promise<void> {
   const user = await findUserByWhatsappNumber(from);
   if (!user) {
     console.log(`WhatsApp: imagen de un número no registrado (${from}), se ignora.`);
     return;
   }
 
-  const media = await downloadWhatsappMedia(mediaId);
+  const media = preloaded ?? (await downloadWhatsappMedia(mediaId));
   if (!media) {
     await sendTextMessage(from, "No pude descargar la imagen que enviaste. ¿Puedes intentar reenviarla?");
     return;
@@ -3315,7 +3319,8 @@ export async function handleIncomingImage(from: string, mediaId: string): Promis
 export async function handleIncomingAudio(
   from: string,
   mediaId: string,
-  contextMessageId?: string | null
+  contextMessageId?: string | null,
+  preloaded?: { base64: string; mimeType: string }
 ): Promise<void> {
   const user = await findUserByWhatsappNumber(from);
   if (!user) {
@@ -3323,7 +3328,7 @@ export async function handleIncomingAudio(
     return;
   }
 
-  const media = await downloadWhatsappMedia(mediaId);
+  const media = preloaded ?? (await downloadWhatsappMedia(mediaId));
   if (!media) {
     await sendTextMessage(from, "No pude descargar la nota de voz que enviaste. ¿Puedes intentar reenviarla, o escribir el mensaje?");
     return;
@@ -3426,5 +3431,21 @@ export async function handleWebMessage(userId: string, text: string): Promise<We
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { phoneNumber: true } });
   if (!user) return [];
   const { replies } = await runInWebChannel(() => handleIncomingMessage(user.phoneNumber, text));
+  return replies;
+}
+
+/** Chat web: imagen (captura de transferencia) o nota de voz ya cargada desde el navegador (sin pasar por Meta). */
+export async function handleWebMedia(
+  userId: string,
+  kind: "image" | "audio",
+  media: { base64: string; mimeType: string }
+): Promise<WebReply[]> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { phoneNumber: true } });
+  if (!user) return [];
+  const { replies } = await runInWebChannel(() =>
+    kind === "image"
+      ? handleIncomingImage(user.phoneNumber, "web", media)
+      : handleIncomingAudio(user.phoneNumber, "web", null, media)
+  );
   return replies;
 }

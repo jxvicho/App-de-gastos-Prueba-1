@@ -4260,6 +4260,9 @@ if (authToken) {
 .wc-form input{flex:1;min-height:40px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-family:inherit;font-size:14px;background:var(--card);color:var(--ink);}
 .wc-form button{border:0;border-radius:12px;background:var(--accent,#2472c8);color:#fff;padding:0 16px;font-weight:700;cursor:pointer;}
 .wc-form button:disabled{opacity:.5;}
+.wc-form .wc-ic{background:var(--bg);border:1px solid var(--line);color:var(--ink);padding:0 10px;font-size:16px;}
+.wc-form .wc-ic.rec{background:#fde8e8;border-color:#e05252;animation:wcPulse 1s infinite;}
+@keyframes wcPulse{50%{opacity:.55}}
 .wc-hint{text-align:center;color:var(--ink-faint);font-size:12px;padding:4px 0;}
 @media (max-width:520px){#wcPanel{right:8px;bottom:80px;}}
 </style>
@@ -4267,7 +4270,7 @@ if (authToken) {
 <div id="wcPanel" role="dialog" aria-label="Chat de Gastia">
   <div class="wc-head"><div>Chat de Gastia<small id="wcSub">Pregúntame o registra un gasto</small></div><button type="button" id="wcClose" aria-label="Cerrar">×</button></div>
   <div id="wcMsgs"></div>
-  <form class="wc-form" id="wcForm"><input id="wcInput" maxlength="1000" autocomplete="off" placeholder="Escribe un mensaje…"><button id="wcSend" type="submit">Enviar</button></form>
+  <form class="wc-form" id="wcForm"><button type="button" class="wc-ic" id="wcAttach" title="Adjuntar captura" aria-label="Adjuntar captura">📎</button><button type="button" class="wc-ic" id="wcMic" title="Nota de voz" aria-label="Grabar nota de voz">🎤</button><input type="file" id="wcFile" accept="image/jpeg,image/png,image/webp" hidden><input id="wcInput" maxlength="1000" autocomplete="off" placeholder="Escribe un mensaje…"><button id="wcSend" type="submit">Enviar</button></form>
 </div>
 <script>
 (function(){
@@ -4310,6 +4313,47 @@ if (authToken) {
     }
     busy=false; sendBtn.disabled=false; scrollEnd(); input.focus();
   }
+
+  async function sendMedia(blob, label){
+    if(busy) return; busy=true; sendBtn.disabled=true;
+    addMsg({role:"user", text:label});
+    const wait=document.createElement("div"); wait.className="wc-hint"; wait.textContent="Procesando…"; msgs.appendChild(wait); scrollEnd();
+    try{
+      const r=await api("/chat/media",{method:"POST",headers:{"Content-Type":blob.type},body:blob});
+      wait.remove(); (r.replies||[]).forEach(addMsg); setRemaining(r.remainingToday);
+      if(typeof refreshData==="function") refreshData();
+      if(typeof loadReview==="function") loadReview();
+    }catch(e){ wait.remove(); addMsg({role:"bot", text:e.message||"No pude enviar el archivo."}); }
+    busy=false; sendBtn.disabled=false; scrollEnd();
+  }
+  const fileIn=document.getElementById("wcFile"), micBtn=document.getElementById("wcMic");
+  document.getElementById("wcAttach").addEventListener("click",()=>fileIn.click());
+  fileIn.addEventListener("change",()=>{
+    const f=fileIn.files[0]; fileIn.value=""; if(!f) return;
+    if(f.size>5*1024*1024){ addMsg({role:"bot",text:"La imagen supera 5 MB."}); return; }
+    disableOldButtons(); sendMedia(f,"📷 "+f.name);
+  });
+  let rec=null, chunks=[], recTimer=null;
+  function stopRec(){ if(rec && rec.state!=="inactive") rec.stop(); }
+  micBtn.addEventListener("click", async ()=>{
+    if(rec && rec.state==="recording"){ stopRec(); return; }
+    if(!navigator.mediaDevices || !window.MediaRecorder){ addMsg({role:"bot",text:"Tu navegador no permite grabar audio."}); return; }
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      chunks=[]; rec=new MediaRecorder(stream);
+      rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+      rec.onstop=()=>{
+        clearTimeout(recTimer); stream.getTracks().forEach(t=>t.stop()); micBtn.classList.remove("rec"); micBtn.textContent="🎤";
+        const type=(rec.mimeType||"audio/webm").split(";")[0];
+        const blob=new Blob(chunks,{type}); chunks=[];
+        if(blob.size<1500) return; // clic accidental
+        if(blob.size>2*1024*1024){ addMsg({role:"bot",text:"La nota de voz es muy larga. Intenta con una más corta."}); return; }
+        disableOldButtons(); sendMedia(blob,"🎤 Nota de voz");
+      };
+      rec.start(); micBtn.classList.add("rec"); micBtn.textContent="⏹";
+      recTimer=setTimeout(stopRec, 60000); // máx. 60 s
+    }catch(e){ addMsg({role:"bot",text:"No tengo permiso para usar el micrófono. Actívalo en el candado de la barra de direcciones."}); }
+  });
   async function loadHistory(){
     try{
       const r=await api("/chat/history");
