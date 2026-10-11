@@ -4239,5 +4239,93 @@ if (authToken) {
   location.href = "/login";
 }
 </script>
+
+<!-- ===== Chat web (misma lógica que el bot de WhatsApp) ===== -->
+<style>
+#wcFab{position:fixed;right:20px;bottom:20px;z-index:40;width:56px;height:56px;border-radius:50%;border:0;background:var(--accent,#2472c8);color:#fff;font-size:26px;cursor:pointer;box-shadow:0 10px 24px -8px rgba(36,114,200,.6);display:none;align-items:center;justify-content:center;}
+#wcFab.show{display:flex;}
+#wcPanel{position:fixed;right:20px;bottom:88px;z-index:40;width:370px;max-width:calc(100vw - 24px);height:min(560px,calc(100vh - 110px));background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 60px -20px rgba(16,24,40,.35);display:none;flex-direction:column;overflow:hidden;}
+#wcPanel.open{display:flex;}
+.wc-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;}
+.wc-head small{display:block;font-weight:500;color:var(--ink-faint);font-size:12px;}
+.wc-head button{border:0;background:none;font-size:20px;cursor:pointer;color:var(--ink-soft);}
+#wcMsgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg);}
+.wc-m{max-width:85%;padding:8px 11px;border-radius:14px;font-size:14px;line-height:1.4;white-space:pre-wrap;word-break:break-word;}
+.wc-m.user{align-self:flex-end;background:var(--accent,#2472c8);color:#fff;border-bottom-right-radius:4px;}
+.wc-m.bot{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px;}
+.wc-btns{display:flex;flex-wrap:wrap;gap:6px;align-self:flex-start;}
+.wc-btns button{border:1px solid var(--accent,#2472c8);background:var(--card);color:var(--accent,#2472c8);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;font-family:inherit;}
+.wc-btns button:disabled{opacity:.45;cursor:default;}
+.wc-form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line);}
+.wc-form input{flex:1;min-height:40px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-family:inherit;font-size:14px;background:var(--card);color:var(--ink);}
+.wc-form button{border:0;border-radius:12px;background:var(--accent,#2472c8);color:#fff;padding:0 16px;font-weight:700;cursor:pointer;}
+.wc-form button:disabled{opacity:.5;}
+.wc-hint{text-align:center;color:var(--ink-faint);font-size:12px;padding:4px 0;}
+@media (max-width:520px){#wcPanel{right:8px;bottom:80px;}}
+</style>
+<button id="wcFab" type="button" aria-label="Abrir chat de Gastia" title="Chat de Gastia">💬</button>
+<div id="wcPanel" role="dialog" aria-label="Chat de Gastia">
+  <div class="wc-head"><div>Chat de Gastia<small id="wcSub">Pregúntame o registra un gasto</small></div><button type="button" id="wcClose" aria-label="Cerrar">×</button></div>
+  <div id="wcMsgs"></div>
+  <form class="wc-form" id="wcForm"><input id="wcInput" maxlength="1000" autocomplete="off" placeholder="Escribe un mensaje…"><button id="wcSend" type="submit">Enviar</button></form>
+</div>
+<script>
+(function(){
+  if(typeof authToken === "undefined" || !authToken) return;
+  const fab=document.getElementById("wcFab"), panel=document.getElementById("wcPanel"),
+        msgs=document.getElementById("wcMsgs"), form=document.getElementById("wcForm"),
+        input=document.getElementById("wcInput"), sendBtn=document.getElementById("wcSend"),
+        sub=document.getElementById("wcSub");
+  let loaded=false, busy=false;
+  function scrollEnd(){ msgs.scrollTop=msgs.scrollHeight; }
+  function disableOldButtons(){ msgs.querySelectorAll(".wc-btns button").forEach(b=>b.disabled=true); }
+  function addMsg(m){
+    const d=document.createElement("div");
+    d.className="wc-m "+(m.role==="user"?"user":"bot");
+    d.textContent=m.text; // textContent: nunca interpreta HTML
+    msgs.appendChild(d);
+    if(m.buttons && m.buttons.length){
+      const w=document.createElement("div"); w.className="wc-btns";
+      m.buttons.forEach(b=>{
+        const el=document.createElement("button"); el.type="button"; el.textContent=b.title;
+        el.addEventListener("click",()=>{ disableOldButtons(); send({buttonId:b.id}, b.title); });
+        w.appendChild(el);
+      });
+      msgs.appendChild(w);
+    }
+  }
+  function setRemaining(n){ if(typeof n==="number") sub.textContent = n<=10 ? "Te quedan "+n+" mensajes hoy" : "Pregúntame o registra un gasto"; }
+  async function send(payload, label){
+    if(busy) return; busy=true; sendBtn.disabled=true;
+    addMsg({role:"user", text: label || payload.text});
+    const wait=document.createElement("div"); wait.className="wc-hint"; wait.textContent="Escribiendo…"; msgs.appendChild(wait); scrollEnd();
+    try{
+      const r=await api("/chat",{method:"POST",body:JSON.stringify(payload)});
+      wait.remove(); (r.replies||[]).forEach(addMsg); setRemaining(r.remainingToday);
+      // El bot puede haber registrado o confirmado movimientos: refrescamos el dashboard.
+      if(typeof refreshData==="function") refreshData();
+      if(typeof loadReview==="function") loadReview();
+    }catch(e){
+      wait.remove(); addMsg({role:"bot", text: e.message || "No pude enviar el mensaje."});
+    }
+    busy=false; sendBtn.disabled=false; scrollEnd(); input.focus();
+  }
+  async function loadHistory(){
+    try{
+      const r=await api("/chat/history");
+      msgs.innerHTML=""; (r.messages||[]).forEach(addMsg); setRemaining(r.remainingToday);
+      // Solo el último grupo de botones sigue vigente.
+      const groups=msgs.querySelectorAll(".wc-btns"); groups.forEach((g,i)=>{ if(i<groups.length-1 || msgs.lastElementChild!==g) g.querySelectorAll("button").forEach(b=>b.disabled=true); });
+      if(!(r.messages||[]).length){ const h=document.createElement("div"); h.className="wc-hint"; h.textContent="Prueba: “gasté 15 soles en almuerzo” o “mostrar pendientes”"; msgs.appendChild(h); }
+      loaded=true; scrollEnd();
+    }catch(e){ msgs.textContent="No se pudo cargar el chat."; }
+  }
+  fab.addEventListener("click",()=>{ panel.classList.toggle("open"); if(panel.classList.contains("open")){ if(!loaded) loadHistory(); input.focus(); } });
+  document.getElementById("wcClose").addEventListener("click",()=>panel.classList.remove("open"));
+  form.addEventListener("submit",e=>{ e.preventDefault(); const t=input.value.trim(); if(!t) return; input.value=""; disableOldButtons(); send({text:t}); });
+  // El botón solo aparece si el backend tiene el chat web habilitado.
+  api("/chat/config").then(c=>{ if(c && c.enabled) fab.classList.add("show"); }).catch(()=>{});
+})();
+</script>
 </body>
 </html>

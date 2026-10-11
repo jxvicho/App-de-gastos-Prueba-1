@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { AsyncLocalStorage } from "async_hooks";
 import { env } from "../config/env";
 import { redisConnection } from "../queues/redisConnection";
 import { prisma } from "../config/prisma";
@@ -113,6 +114,29 @@ export async function isWindowOpen(waId: string): Promise<boolean> {
   return !!user?.lastInboundAt && Date.now() - user.lastInboundAt.getTime() < WINDOW_MS;
 }
 
+/**
+ * Canal "chat web" del dashboard. Dentro de runInWebChannel(), sendTextMessage y
+ * sendInteractiveButtons NO llaman a Meta: guardan la respuesta en un buffer que
+ * el endpoint /api/chat devuelve al navegador. Así el chat web reutiliza la misma
+ * lógica del bot sin tocar sus ~75 puntos de envío, y no abre la ventana de 24 h,
+ * ni cuenta contra el límite de mensajes, ni se registra en OutboundMessage.
+ */
+export interface WebReply {
+  text: string;
+  buttons?: { id: string; title: string }[];
+}
+const webChannelStore = new AsyncLocalStorage<{ replies: WebReply[] }>();
+
+export function isWebChannel(): boolean {
+  return !!webChannelStore.getStore();
+}
+
+export async function runInWebChannel<T>(fn: () => Promise<T>): Promise<{ result: T; replies: WebReply[] }> {
+  const store = { replies: [] as WebReply[] };
+  const result = await webChannelStore.run(store, fn);
+  return { result, replies: store.replies };
+}
+
 interface AuthResult {
   allowed: boolean;
   userId?: string;
@@ -196,6 +220,11 @@ async function recordOutbound(userId: string | undefined, wamid: string | undefi
  * Devuelve el wamid del mensaje enviado (o undefined si falló).
  */
 export async function sendTextMessage(to: string, body: string, opts: SendOpts = {}): Promise<string | undefined> {
+  const web = webChannelStore.getStore();
+  if (web) {
+    web.replies.push({ text: body });
+    return "web";
+  }
   const kind = opts.kind ?? "reply";
   if (await shouldSuppressDuplicateOutbound(to, body)) {
     console.log(
@@ -234,6 +263,11 @@ export async function sendInteractiveButtons(
   buttons: { id: string; title: string }[],
   opts: SendOpts = {}
 ): Promise<string | undefined> {
+  const web = webChannelStore.getStore();
+  if (web) {
+    web.replies.push({ text: bodyText, buttons: buttons.slice(0, 3) });
+    return "web";
+  }
   const kind = opts.kind ?? "reply";
   const fingerprint = bodyText + "|" + buttons.map((b) => b.id).join(",");
   if (await shouldSuppressDuplicateOutbound(to, fingerprint)) {

@@ -409,6 +409,8 @@ model WhatsappMessage {
   content         String            @db.Text
   relatedTxnId    String? // si el mensaje fue una confirmación de gasto, referencia a la transacción
   metaMessageId   String? // ID del mensaje en la API de Meta, para tracking de entrega
+  channel         String            @default("WHATSAPP") // WHATSAPP | WEB (historial unificado)
+  buttons         Json? // botones de respuesta rápida mostrados (solo chat web)
   createdAt       DateTime          @default(now())
 
   @@index([sessionId, createdAt])

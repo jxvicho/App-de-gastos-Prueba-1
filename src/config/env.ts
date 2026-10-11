@@ -44,6 +44,10 @@ const envSchema = z.object({
   WHATSAPP_TEMPLATE_LANG: z.string().default("es"),
   // true: el domingo solo se envía el reporte semanal (se omite el diario ese día).
   SUNDAY_MERGE_DAILY_INTO_WEEKLY: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  // Chat web dentro del dashboard (misma lógica que el bot de WhatsApp). Apagado por defecto.
+  WEB_CHAT_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  // Tope de mensajes por usuario y día en el chat web (cada uno puede llamar a Gemini).
+  WEB_CHAT_DAILY_CAP: z.coerce.number().int().positive().default(100),
 
   ANTHROPIC_API_KEY: z.string().optional().default(""),
 

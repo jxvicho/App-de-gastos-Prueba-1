@@ -13,6 +13,7 @@ import { recurringRouter } from "./recurring";
 import { goalsRouter } from "./goals";
 import { subscriptionRouter } from "./subscription";
 import { debtsRouter } from "./debts";
+import { chatRouter } from "./chat";
 
 export const apiRouter = Router();
 
@@ -30,3 +31,4 @@ apiRouter.use("/recurring-payments", recurringRouter);
 apiRouter.use("/category-goals", goalsRouter);
 apiRouter.use("/subscription", subscriptionRouter);
 apiRouter.use("/debts", debtsRouter);
+apiRouter.use("/chat", chatRouter);

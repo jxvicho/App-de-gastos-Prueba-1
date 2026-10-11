@@ -1,6 +1,6 @@
 import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
-import { sendInteractiveButtons, sendTextMessage } from "./whatsapp";
+import { sendInteractiveButtons, sendTextMessage, isWebChannel, runInWebChannel, WebReply } from "./whatsapp";
 import { downloadWhatsappMedia } from "./whatsappMedia";
 import { findEquivalentRule } from "./ruleDedup";
 import { extractTransferFromImage, extractManualTransactionFromText, transcribeAudio } from "./gemini";
@@ -967,13 +967,36 @@ interface ResolvedIntent {
  * segundos, no hace falta persistirla en la DB — si el proceso se reinicia
  * justo en el medio, el usuario simplemente vuelve a intentar.
  */
+/**
+ * Map en memoria con el canal (web / WhatsApp) incorporado a la llave: el estado
+ * pendiente de una conversación en WhatsApp ("¿a cuál de estos?", "¿gasto o
+ * traspaso?") nunca se mezcla con el del chat web. Misma API que Map<string, T>
+ * usando el id del usuario, así los puntos de uso no cambian.
+ */
+class ChannelMap<T> {
+  private readonly m = new Map<string, T>();
+  private k(userId: string) {
+    return (isWebChannel() ? "web:" : "wa:") + userId;
+  }
+  get(userId: string) {
+    return this.m.get(this.k(userId));
+  }
+  set(userId: string, value: T) {
+    this.m.set(this.k(userId), value);
+    return this;
+  }
+  delete(userId: string) {
+    return this.m.delete(this.k(userId));
+  }
+}
+
 interface DisambiguationState {
   transactionIds: string[];
   intent: ResolvedIntent | null;
   createdAt: number;
 }
 const DISAMBIGUATION_TTL_MS = 10 * 60 * 1000;
-const disambiguationByUserId = new Map<string, DisambiguationState>();
+const disambiguationByUserId = new ChannelMap<DisambiguationState>();
 
 /**
  * Datos ya extraídos de una captura de transferencia (Fase 4), esperando
@@ -995,7 +1018,7 @@ interface PendingImageClassification {
   createdAt: number;
 }
 const PENDING_IMAGE_TTL_MS = 10 * 60 * 1000;
-const pendingImageByUserId = new Map<string, PendingImageClassification>();
+const pendingImageByUserId = new ChannelMap<PendingImageClassification>();
 
 /**
  * Contexto de una conversación de seguimiento que NO es una desambiguación
@@ -1051,7 +1074,7 @@ interface FollowUpState {
   createdAt: number;
 }
 const FOLLOWUP_TTL_MS = 10 * 60 * 1000;
-const followUpByUserId = new Map<string, FollowUpState>();
+const followUpByUserId = new ChannelMap<FollowUpState>();
 
 /**
  * El número que manda Meta en `message.from` viene sin "+" (ej. "51987654321"),
@@ -2500,6 +2523,13 @@ export async function handleIncomingMessage(
   // 8pm para poder probarlo en cualquier momento.
   if (detectWeeklyReportIntent(normalized)) {
     console.log(`WhatsApp: pedido manual de REPORTE SEMANAL de ${from}.`);
+    if (isWebChannel()) {
+      await sendTextMessage(
+        from,
+        "El reporte semanal te llega por WhatsApp cada domingo. Mientras tanto, el detalle de tu semana está en *Inicio* del dashboard."
+      );
+      return;
+    }
     const weekStart = currentWeekStart();
     await sendWeeklyReportToUser(user, weekStart, new Date());
     return;
@@ -3384,4 +3414,17 @@ export function textForButtonReply(buttonId: string): string | null {
   if (buttonId === BUTTON_ID_IMAGE_TRANSFER) return "traspaso";
   if (buttonId === BUTTON_ID_IMAGE_INCOME) return "ingreso";
   return null;
+}
+
+
+/**
+ * Chat web del dashboard: ejecuta EXACTAMENTE la misma lógica de
+ * handleIncomingMessage, pero capturando las respuestas en vez de mandarlas
+ * por WhatsApp. No toca la ventana de 24 h ni los contadores de mensajes.
+ */
+export async function handleWebMessage(userId: string, text: string): Promise<WebReply[]> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { phoneNumber: true } });
+  if (!user) return [];
+  const { replies } = await runInWebChannel(() => handleIncomingMessage(user.phoneNumber, text));
+  return replies;
 }
