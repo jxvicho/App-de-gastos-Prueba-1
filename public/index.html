@@ -4281,7 +4281,7 @@ if (authToken) {
         sub=document.getElementById("wcSub");
   let loaded=false, busy=false;
   function scrollEnd(){ msgs.scrollTop=msgs.scrollHeight; }
-  function disableOldButtons(){ msgs.querySelectorAll(".wc-btns button").forEach(b=>b.disabled=true); }
+  function disableOldButtons(){ msgs.querySelectorAll(".wc-btns button:not([data-keep])").forEach(b=>b.disabled=true); }
   function addMsg(m){
     const d=document.createElement("div");
     d.className="wc-m "+(m.role==="user"?"user":"bot");
@@ -4290,7 +4290,7 @@ if (authToken) {
     if(m.buttons && m.buttons.length){
       const w=document.createElement("div"); w.className="wc-btns";
       m.buttons.forEach(b=>{
-        const el=document.createElement("button"); el.type="button"; el.textContent=b.title;
+        const el=document.createElement("button"); el.type="button"; el.textContent=b.title; if(String(b.id).startsWith("web_del:")) el.dataset.keep="1"; // "Eliminar" sigue disponible en movimientos anteriores
         el.addEventListener("click",()=>{ disableOldButtons(); send({buttonId:b.id}, b.title); });
         w.appendChild(el);
       });
@@ -4359,7 +4359,7 @@ if (authToken) {
       const r=await api("/chat/history");
       msgs.innerHTML=""; (r.messages||[]).forEach(addMsg); setRemaining(r.remainingToday);
       // Solo el último grupo de botones sigue vigente.
-      const groups=msgs.querySelectorAll(".wc-btns"); groups.forEach((g,i)=>{ if(i<groups.length-1 || msgs.lastElementChild!==g) g.querySelectorAll("button").forEach(b=>b.disabled=true); });
+      const groups=msgs.querySelectorAll(".wc-btns"); groups.forEach((g,i)=>{ if(i<groups.length-1 || msgs.lastElementChild!==g) g.querySelectorAll("button:not([data-keep])").forEach(b=>b.disabled=true); });
       if(!(r.messages||[]).length){ const h=document.createElement("div"); h.className="wc-hint"; h.textContent="Prueba: “gasté 15 soles en almuerzo” o “mostrar pendientes”"; msgs.appendChild(h); }
       loaded=true; scrollEnd();
     }catch(e){ msgs.textContent="No se pudo cargar el chat."; }

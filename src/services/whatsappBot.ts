@@ -1,6 +1,6 @@
 import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
-import { sendInteractiveButtons, sendTextMessage, isWebChannel, runInWebChannel, WebReply } from "./whatsapp";
+import { sendInteractiveButtons, sendTextMessage, isWebChannel, runInWebChannel, queueWebButtons, WebReply } from "./whatsapp";
 import { downloadWhatsappMedia } from "./whatsappMedia";
 import { findEquivalentRule } from "./ruleDedup";
 import { extractTransferFromImage, extractManualTransactionFromText, transcribeAudio } from "./gemini";
@@ -914,8 +914,14 @@ function buildConfirmPrompt(t: PendingTransaction): string {
   return `Encontré esta transacción: ${formatAmount(t)} en ${who} (${formatShortDate(t.occurredAt)}). ¿La confirmamos? Responde *Sí* o *No*.`;
 }
 
+const WEB_YES_NO = [
+  { id: "web_yes", title: "✅ Sí, eliminar" },
+  { id: "web_no", title: "Cancelar" },
+];
+
 /** Eliminar un movimiento ya CONFIRMED es irreversible: siempre se pide esta confirmación explícita antes de borrar. */
 function buildDeleteConfirmPrompt(t: PendingTransaction): string {
+  queueWebButtons(WEB_YES_NO);
   const who = t.merchant || t.description || "el movimiento";
   const kind = t.type === "INCOME" ? "ingreso" : "gasto";
   return (
@@ -926,6 +932,7 @@ function buildDeleteConfirmPrompt(t: PendingTransaction): string {
 
 /** Swipe-reply a la notificación de un gasto que ya está CONFIRMED, sin intención clara en el texto. */
 function buildAlreadyConfirmedPrompt(t: PendingTransaction): string {
+  queueWebButtons(WEB_YES_NO);
   const who = t.merchant || t.description || "el movimiento";
   return (
     `Este movimiento ya está *confirmado*: ${formatAmount(t)} en ${who} (${formatShortDate(t.occurredAt)}). ` +
@@ -2007,6 +2014,7 @@ async function confirmTransaction(
     },
   });
 
+  queueWebButtons([{ id: `web_del:${pending.id}`, title: "🗑️ Eliminar" }]);
   const who = pending.merchant || pending.description || "el movimiento";
   let reply = petLabel
     ? `${petLabel.emoji} *${petLabel.name} ya lo guardó:* ${formatAmount(pending)} en ${who}.`
@@ -2920,7 +2928,9 @@ export async function handleIncomingMessage(
   let contextIdFailedToResolve = false;
   if (contextMessageId) {
     const byContext = await prisma.transaction.findFirst({
-      where: { userId: user.id, lastNotificationMessageId: contextMessageId },
+      where: contextMessageId.startsWith("web:txn:")
+        ? { userId: user.id, id: contextMessageId.slice("web:txn:".length) }
+        : { userId: user.id, lastNotificationMessageId: contextMessageId },
       include: { category: true },
     });
 
@@ -3418,6 +3428,8 @@ export function textForButtonReply(buttonId: string): string | null {
   if (buttonId === BUTTON_ID_IMAGE_EXPENSE) return "gasto";
   if (buttonId === BUTTON_ID_IMAGE_TRANSFER) return "traspaso";
   if (buttonId === BUTTON_ID_IMAGE_INCOME) return "ingreso";
+  if (buttonId === "web_yes") return "sí";
+  if (buttonId === "web_no") return "no";
   return null;
 }
 
@@ -3427,10 +3439,10 @@ export function textForButtonReply(buttonId: string): string | null {
  * handleIncomingMessage, pero capturando las respuestas en vez de mandarlas
  * por WhatsApp. No toca la ventana de 24 h ni los contadores de mensajes.
  */
-export async function handleWebMessage(userId: string, text: string): Promise<WebReply[]> {
+export async function handleWebMessage(userId: string, text: string, contextMessageId?: string | null): Promise<WebReply[]> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { phoneNumber: true } });
   if (!user) return [];
-  const { replies } = await runInWebChannel(() => handleIncomingMessage(user.phoneNumber, text));
+  const { replies } = await runInWebChannel(() => handleIncomingMessage(user.phoneNumber, text, contextMessageId));
   return replies;
 }
 

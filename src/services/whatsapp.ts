@@ -125,7 +125,16 @@ export interface WebReply {
   text: string;
   buttons?: { id: string; title: string }[];
 }
-const webChannelStore = new AsyncLocalStorage<{ replies: WebReply[] }>();
+const webChannelStore = new AsyncLocalStorage<{ replies: WebReply[]; nextButtons?: { id: string; title: string }[] }>();
+
+/**
+ * Solo chat web: deja botones listos para que los lleve el PRÓXIMO texto que el bot
+ * mande (ej. "🗑️ Eliminar" bajo "✅ Anotado"). En WhatsApp no hace nada.
+ */
+export function queueWebButtons(buttons: { id: string; title: string }[]): void {
+  const store = webChannelStore.getStore();
+  if (store) store.nextButtons = buttons;
+}
 
 export function isWebChannel(): boolean {
   return !!webChannelStore.getStore();
@@ -222,7 +231,8 @@ async function recordOutbound(userId: string | undefined, wamid: string | undefi
 export async function sendTextMessage(to: string, body: string, opts: SendOpts = {}): Promise<string | undefined> {
   const web = webChannelStore.getStore();
   if (web) {
-    web.replies.push({ text: body });
+    web.replies.push({ text: body, ...(web.nextButtons ? { buttons: web.nextButtons } : {}) });
+    web.nextButtons = undefined;
     return "web";
   }
   const kind = opts.kind ?? "reply";
@@ -265,6 +275,7 @@ export async function sendInteractiveButtons(
 ): Promise<string | undefined> {
   const web = webChannelStore.getStore();
   if (web) {
+    web.nextButtons = undefined;
     web.replies.push({ text: bodyText, buttons: buttons.slice(0, 3) });
     return "web";
   }

@@ -84,7 +84,10 @@ chatRouter.post(
     requireEnabled();
     const body = sendSchema.parse(req.body);
     // Un clic en botón equivale al mismo texto que entiende el bot de WhatsApp.
-    const text = body.buttonId ? textForButtonReply(body.buttonId) : body.text;
+    // "web_del:<id>" = botón 🗑️ bajo un movimiento registrado (equivale a responder "eliminar" a ese mensaje en WhatsApp).
+    const delMatch = body.buttonId?.match(/^web_del:([\w-]{1,64})$/);
+    const text = delMatch ? "eliminar" : body.buttonId ? textForButtonReply(body.buttonId) : body.text;
+    const contextId = delMatch ? `web:txn:${delMatch[1]}` : null;
     if (!text) throw new AppError("Botón no reconocido", 400);
     const userId = req.userId!;
     const session = await getSession(userId);
@@ -100,7 +103,7 @@ chatRouter.post(
 
     let replies;
     try {
-      replies = await handleWebMessage(userId, text);
+      replies = await handleWebMessage(userId, text, contextId);
     } catch (err) {
       console.error("Chat web: error procesando el mensaje:", err);
       replies = [{ text: "Tuve un problema procesando tu mensaje. Inténtalo de nuevo en un momento." }];
