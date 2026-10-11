@@ -39,3 +39,12 @@ export function getPetLabel(
     emoji: PET_EMOJI_BY_TYPE[petType] ?? FALLBACK_PET_EMOJI,
   };
 }
+
+/**
+ * Frase corta para la variable de las plantillas de WhatsApp ("soy {{2}}"):
+ * con mascota → "Pipo 🐶, tu mascota de Gastia"; sin mascota → "Gastia".
+ */
+export function petIntroPhrase(petType: string | null | undefined, petName: string | null | undefined): string {
+  const pet = getPetLabel(petType, petName);
+  return pet ? `${pet.name} ${pet.emoji}, tu mascota de Gastia` : "Gastia";
+}

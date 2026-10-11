@@ -1316,9 +1316,10 @@ tbody tr:hover{background:#f7faff;}
           <div class="daily-row">
             <label for="dailyHour">Hora de envío (Lima)</label>
             <select id="dailyHour" aria-label="Hora del reporte diario"></select>
+            <span class="plan-fixed" id="dailyHourFixed" style="display:none;max-width:none;"></span>
           </div>
           <p class="daily-hint" id="dailyOptHint" style="display:none">Para recibirlo, acepta los mensajes por WhatsApp en “Tu perfil”.</p>
-          <p class="auto-explain">
+          <p class="auto-explain" id="dailyExplain">
             Te escribimos por WhatsApp con lo que gastaste hoy, tu categoría con más gasto y cuántos movimientos
             esperan tu confirmación. Si hoy no hubo gastos ni pendientes, no te enviamos nada.
           </p>
@@ -3044,14 +3045,22 @@ function renderDaily(){
   const fixed = document.getElementById("dailyFixed");
   t.style.display = can ? "" : "none";
   fixed.style.display = can ? "none" : "";
-  fixed.textContent = on ? "Activado por defecto para tu plan actual." : "No incluido en tu plan actual.";
+  fixed.textContent = f.dailySummaryAvailable === false ? "Disponible en el plan Pro." : on ? "Activado por defecto para tu plan actual." : "No incluido en tu plan actual.";
   t.classList.toggle("on", on);
   t.setAttribute("aria-checked", on ? "true" : "false");
   document.getElementById("dailyLabel").textContent = on ? "Activado" : "Desactivado";
   const sel = document.getElementById("dailyHour");
   sel.value = String(state.dailySummaryHour ?? 21);
   sel.disabled = !on;
-  document.getElementById("dailyOptHint").style.display = (on && !state.whatsappOptIn) ? "" : "none";
+  const basic = f.dailySummaryAvailable === false;
+  const fixedHour = document.getElementById("dailyHourFixed");
+  sel.style.display = basic ? "none" : "";
+  fixedHour.style.display = basic ? "" : "none";
+  fixedHour.textContent = "Tu resumen semanal llega los domingos a las 8:00 p. m.";
+  document.getElementById("dailyExplain").textContent = basic
+    ? "El resumen diario es parte del plan Pro. Con tu plan recibes cada domingo un resumen de la semana por WhatsApp: cuánto gastaste, tu categoría con más gasto y cuántos movimientos esperan tu confirmación."
+    : "Te escribimos por WhatsApp con lo que gastaste hoy, tu categoría con más gasto y cuántos movimientos esperan tu confirmación. Si hoy no hubo gastos ni pendientes, no te enviamos nada.";
+  document.getElementById("dailyOptHint").style.display = ((on || basic) && !state.whatsappOptIn) ? "" : "none";
 }
 async function saveDaily(next){
   const f = state.features || {};
@@ -3059,11 +3068,12 @@ async function saveDaily(next){
   state.dailyOn = next.enabled; state.dailySummaryHour = next.hour;
   renderDaily();
   try {
-    const body = { dailySummaryHour: next.hour };
+    const body = {};
+    if(f.canChangeDailyHour !== false) body.dailySummaryHour = next.hour;
     if(f.canToggleDailySummary !== false) body.dailySummaryEnabled = next.enabled;
     const res = await api("/profile/whatsapp-prefs", { method:"PATCH", body: JSON.stringify(body) });
     if(f.canToggleDailySummary !== false) state.dailyOn = !!res.dailySummaryEnabled;
-    state.dailySummaryHour = res.dailySummaryHour;
+    if(res.dailySummaryHour !== undefined) state.dailySummaryHour = res.dailySummaryHour;
     renderDaily();
   } catch(err) {
     state.dailyOn = prev.on; state.dailySummaryHour = prev.hour;

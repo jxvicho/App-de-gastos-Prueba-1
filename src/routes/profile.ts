@@ -53,8 +53,10 @@ profileRouter.get(
       features: {
         canToggleAutoRegister: isUnlimited,
         canToggleDailySummary: isUnlimited,
+        canChangeDailyHour: eff.plan !== "BASIC",
         autoRegisterOn: isUnlimited ? user.autoRegister : true,
-        dailySummaryOn: isUnlimited ? user.dailySummaryEnabled : true,
+        dailySummaryAvailable: eff.plan !== "BASIC",
+        dailySummaryOn: eff.plan === "BASIC" ? false : isUnlimited ? user.dailySummaryEnabled : true,
         alerts: eff.plan === "PRO" || isUnlimited,
         fullChat: eff.plan !== "BASIC",
       },
@@ -168,13 +170,17 @@ profileRouter.patch(
     const parsed = setWhatsappPrefsSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError("Datos inválidos: whatsappOptIn, dailySummaryEnabled (true/false) y dailySummaryHour (0 a 23)", 422);
 
-    if (parsed.data.dailySummaryEnabled !== undefined) {
+    if (parsed.data.dailySummaryEnabled !== undefined || parsed.data.dailySummaryHour !== undefined) {
       const current = await prisma.user.findUniqueOrThrow({
         where: { id: req.userId },
         select: { plan: true, planOverride: true, planOverrideUntil: true },
       });
-      if ((await getEffectivePlan(current)).plan !== "UNLIMITED") {
+      const plan = (await getEffectivePlan(current)).plan;
+      if (parsed.data.dailySummaryEnabled !== undefined && plan !== "UNLIMITED") {
         throw new AppError("El resumen diario ya está activo para tu plan actual", 403);
+      }
+      if (parsed.data.dailySummaryHour !== undefined && plan === "BASIC") {
+        throw new AppError("El resumen diario está disponible desde el plan Pro", 403);
       }
     }
     const user = await prisma.user.update({

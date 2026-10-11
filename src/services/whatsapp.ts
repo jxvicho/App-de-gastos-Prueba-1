@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { env } from "../config/env";
 import { redisConnection } from "../queues/redisConnection";
 import { prisma } from "../config/prisma";
-import { DAILY_HARD_CAP_PER_USER } from "../config/plans";
+import { DAILY_HARD_CAP_PER_USER, COUNTED_MESSAGE_KINDS } from "../config/plans";
 import { getEffectivePlan, limaDayStart, limaMonthStart } from "./plans";
 
 const GRAPH_BASE_URL = "https://graph.facebook.com";
@@ -73,8 +73,10 @@ async function postToGraph(payload: Record<string, unknown>): Promise<GraphSendR
    OutboundMessage. El dedup de 8 s se mantiene en cada función de envío.
    ========================================================= */
 
-/** Tipos de mensaje saliente. Solo "reply" cuenta para el tope mensual del plan. */
-export type OutboundKind = "reply" | "txn_notification" | "alert" | "daily_summary" | "weekly_report" | "limit_notice";
+/** Tipos de mensaje saliente. Cuentan para el tope mensual: reply, alert y txn_notification (ver COUNTED_MESSAGE_KINDS). */
+export type OutboundKind =
+  | "reply" | "txn_notification" | "alert" | "daily_summary" | "weekly_report"
+  | "limit_notice" | "verification" | "welcome";
 export interface SendOpts {
   kind?: OutboundKind;
 }
@@ -140,14 +142,28 @@ async function authorizeSend(to: string, kind: OutboundKind, isTemplate: boolean
       return { allowed: false, userId: user.id };
     }
 
-    if (kind === "reply") {
+    if ((COUNTED_MESSAGE_KINDS as readonly string[]).includes(kind)) {
       const eff = await getEffectivePlan(user, now);
       if (eff.monthlyReplies !== null) {
+        const monthStart = limaMonthStart(now);
         const used = await prisma.outboundMessage.count({
-          where: { userId: user.id, kind: "reply", createdAt: { gte: limaMonthStart(now) } },
+          where: { userId: user.id, kind: { in: [...COUNTED_MESSAGE_KINDS] }, createdAt: { gte: monthStart } },
         });
         if (used >= eff.monthlyReplies) {
-          console.log(`WhatsApp: tope mensual de respuestas (${eff.monthlyReplies}, plan ${eff.plan}) alcanzado para ${user.id}; se omite la respuesta.`);
+          console.log(`WhatsApp: tope mensual (${eff.monthlyReplies}, plan ${eff.plan}) alcanzado para ${user.id}; se omite ${kind}.`);
+          // Un solo aviso por mes, solo cuando el usuario escribió y no pudimos responderle.
+          if (kind === "reply") {
+            const already = await prisma.outboundMessage.count({
+              where: { userId: user.id, kind: "limit_notice", createdAt: { gte: monthStart } },
+            });
+            if (already === 0) {
+              const text =
+                eff.plan === "BASIC"
+                  ? "El chat de Gastia es parte del plan Pro. Tu resumen semanal te llega cada domingo y tus consumos se siguen registrando solos desde tu correo."
+                  : "Llegaste a tu límite de mensajes del mes. Todo sigue registrándose en tu dashboard y tu cupo se renueva el día 1.";
+              void sendTextMessage(to, text, { kind: "limit_notice" });
+            }
+          }
           return { allowed: false, userId: user.id };
         }
       }

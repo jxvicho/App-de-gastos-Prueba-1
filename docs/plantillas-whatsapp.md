@@ -7,25 +7,34 @@ Crear en **Meta Business Manager → WhatsApp Manager → Plantillas de mensajes
 Categoría: **Utilidad (Utility)**. Idioma: **Español (es)**. Los nombres deben coincidir con las variables de entorno
 (`WHATSAPP_TEMPLATE_WEEKLY`, `WHATSAPP_TEMPLATE_DAILY`, `WHATSAPP_TEMPLATE_LANG`; valores por defecto abajo).
 
-## 1. `gastia_resumen_semanal`
+## Qué plan recibe qué
+- **Básico:** solo el resumen semanal (domingo 8:00 p. m.). Sin chat (0 respuestas al mes).
+- **Pro:** resumen diario a la hora que elija + semanal. Hasta 20 mensajes al mes entre respuestas del chat y alertas.
+- **Unlimited:** igual que Pro, sin tope, y puede apagar el diario.
+- No cuentan para el tope: resúmenes programados, código de verificación, bienvenida y el aviso de límite alcanzado.
+- `SUNDAY_MERGE_DAILY_INTO_WEEKLY=true` hace que el domingo solo salga el semanal.
+
+## 1. `gastia_resumen_semanal` (Básico, Pro y Unlimited)
 - **Encabezado**: Imagen (ejemplo: cualquier PNG del reporte semanal).
 - **Cuerpo**:
 
 ```
-Hola {{1}}, este es tu resumen semanal de Gastia ({{2}}). Gastaste {{3}} y tu categoría con más gasto fue {{4}}. Tienes {{5}} movimientos pendientes de confirmar. Toca un botón o escríbeme cuando quieras.
+Hola {{1}}, soy {{2}}. Este es tu resumen semanal ({{3}}): gastaste {{4}} y tu categoría con más gasto fue {{5}}. Tienes {{6}} movimientos pendientes de confirmar. Revisa el detalle en tu dashboard de Gastia.
 ```
-- **Botones (respuesta rápida)**: `Ver pendientes` · `Resumen del mes`
-- **Ejemplos de variables**: {{1}} Javier · {{2}} 5 - 11 oct · {{3}} S/ 320.50 · {{4}} Alimentación · {{5}} 3
+- **Botones**: ninguno (el Básico no tiene chat, y un botón de respuesta rápida generaría una respuesta del bot). Cuando exista el dominio definitivo se puede agregar un botón de enlace `Ver en Gastia`.
+- **Ejemplos de variables**: {{1}} Javier · {{2}} Pipo 🐶, tu mascota de Gastia · {{3}} 5 - 11 oct · {{4}} S/ 320.50 · {{5}} Alimentación · {{6}} 3
+- {{2}} es la mascota del usuario; sin mascota dice "Gastia" (queda "soy Gastia").
 
-## 2. `gastia_resumen_diario`
-- **Sin encabezado**.
+## 2. `gastia_resumen_diario` (Pro y Unlimited)
+- **Sin encabezado.**
 - **Cuerpo**:
 
 ```
-Hola {{1}}, este es tu resumen de hoy en Gastia. Gastaste {{2}} y tu categoría con más gasto fue {{3}}. Tienes {{4}} movimientos pendientes de confirmar. Escríbeme si quieres ver el detalle.
+Hola {{1}}, soy {{2}}. Hoy registraste {{3}} movimientos por {{4}} y tu categoría con más gasto fue {{5}}. Pendientes por confirmar: {{6}}. Avisos: {{7}}. Escríbeme si quieres ver el detalle.
 ```
 - **Botón (respuesta rápida)**: `Ver pendientes`
-- **Ejemplos de variables**: {{1}} Javier · {{2}} S/ 45.00 · {{3}} Alimentación · {{4}} 2
+- **Ejemplos de variables**: {{1}} Javier · {{2}} Pipo 🐶, tu mascota de Gastia · {{3}} 5 · {{4}} S/ 120.00 · {{5}} Alimentación · {{6}} 2 · {{7}} presupuesto de Alimentación al 80 %
+- La variable {{7}} reúne en una línea las alertas que no pudieron enviarse antes por tener la ventana de 24 h cerrada; si no hay, dice "ninguno".
 
 ## Reglas de Meta que ya cumple el código
 - Ninguna variable al inicio ni al final del texto.

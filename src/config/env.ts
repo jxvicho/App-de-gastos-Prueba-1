@@ -42,6 +42,8 @@ const envSchema = z.object({
   WHATSAPP_TEMPLATE_WEEKLY: z.string().default("gastia_resumen_semanal"),
   WHATSAPP_TEMPLATE_DAILY: z.string().default("gastia_resumen_diario"),
   WHATSAPP_TEMPLATE_LANG: z.string().default("es"),
+  // true: el domingo solo se envía el reporte semanal (se omite el diario ese día).
+  SUNDAY_MERGE_DAILY_INTO_WEEKLY: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
 
   ANTHROPIC_API_KEY: z.string().optional().default(""),
 

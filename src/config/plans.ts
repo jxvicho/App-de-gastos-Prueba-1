@@ -5,12 +5,18 @@ import type { Plan } from "@prisma/client";
  * sueltos en la lógica). `null` = sin límite.
  */
 export const PLAN_LIMITS: Record<Plan, { monthlyReplies: number | null }> = {
-  BASIC: { monthlyReplies: 10 },
-  PRO: { monthlyReplies: 100 },
+  BASIC: { monthlyReplies: 0 }, // el Básico no tiene chat: solo resumen semanal
+  PRO: { monthlyReplies: 20 },
   UNLIMITED: { monthlyReplies: null },
 };
 
 /** Tope duro de mensajes salientes por usuario en un día (Lima), sea cual sea su plan. */
+/**
+ * Tipos de mensaje que CUENTAN para el tope mensual del plan (respuestas del chat, alertas y avisos de consumo).
+ * NO cuentan: resúmenes programados (diario/semanal), código de verificación, bienvenida y el aviso de límite alcanzado.
+ */
+export const COUNTED_MESSAGE_KINDS = ["reply", "alert", "txn_notification"] as const;
+
 export const DAILY_HARD_CAP_PER_USER = 200;
 
 /** Tarifa de Meta (USD por mensaje entregado, Perú) usada cuando Meta no informa la categoría. */

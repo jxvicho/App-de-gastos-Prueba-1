@@ -1,6 +1,6 @@
 import { PetType } from "@prisma/client";
 import { env } from "../config/env";
-import { isWindowOpen, sendTemplateMessage, sendTextMessage } from "./whatsapp";
+import { isWindowOpen, sendTemplateMessage, sendTextMessage, sanitizeTemplateParam } from "./whatsapp";
 import {
   buildWeeklyReportData,
   countPendingTransactions,
@@ -8,7 +8,9 @@ import {
   formatMoneyPlain,
   getCurrenciesWithMovement,
 } from "./weeklyReportData";
-import { getPetLabel } from "../utils/pet";
+import { petIntroPhrase } from "../utils/pet";
+import { prisma } from "../config/prisma";
+import { takePendingAlerts } from "./alerts";
 
 const CURRENCY_ORDER = ["PEN", "USD"];
 
@@ -35,6 +37,17 @@ export async function sendDailyReportToUser(user: {
   // Solo se envía en días con movimientos (los pendientes por sí solos no alcanzan).
   if (currencies.length === 0) return false;
 
+  // Alertas que no pudieron salir en su momento (ventana de 24 h cerrada): van en este resumen.
+  const alerts = await takePendingAlerts(user.id);
+  const movementsToday = await prisma.transaction.count({
+    where: {
+      userId: user.id,
+      status: { in: ["CONFIRMED", "AUTO_CONFIRMED"] },
+      deletedAt: null,
+      occurredAt: { gte: dayStart, lt: now },
+    },
+  });
+
   let totals: string[] = [];
   let topCategory: string | null = null;
   for (const currency of currencies) {
@@ -45,22 +58,22 @@ export async function sendDailyReportToUser(user: {
   const totalLabel = totals.length ? totals.join(" y ") : formatMoneyPlain(0, "PEN");
   const firstName = user.name.trim().split(/\s+/)[0] || "Hola";
 
+  // Los avisos van en una sola línea (las variables de plantilla no admiten saltos de línea).
+  const avisos = alerts.length ? alerts.map((a) => a.replace(/^[^\p{L}\p{N}]+/u, "")).join("; ") : "ninguno";
+  const petIntro = petIntroPhrase(user.petType, user.petName);
+  const vars = [firstName, petIntro, String(movementsToday), totalLabel, topCategory ?? "ninguna", String(pending), avisos];
+
   if (await isWindowOpen(user.phoneNumber)) {
-    const pet = getPetLabel(user.petType, user.petName);
-    const lines = [
-      `${pet ? `¡Hola! Soy ${pet.name} ${pet.emoji}. ` : ""}📅 Tu resumen de hoy, ${firstName}:`,
-      `• Gastaste ${totalLabel}`,
-      topCategory ? `• Categoría con más gasto: ${topCategory}` : null,
-      pending > 0 ? `• Tienes ${pending} movimiento${pending === 1 ? "" : "s"} pendiente${pending === 1 ? "" : "s"} de confirmar. Escribe "pendientes" para verlos.` : null,
-    ].filter(Boolean);
-    await sendTextMessage(user.phoneNumber, lines.join("\n"), { kind: "daily_summary" });
+    // Mismo texto que el cuerpo de la plantilla aprobada (docs/plantillas-whatsapp.md).
+    const [n, p, m, t, c, pe, av] = vars.map((v) => sanitizeTemplateParam(v));
+    await sendTextMessage(
+      user.phoneNumber,
+      `Hola ${n}, soy ${p}. Hoy registraste ${m} movimientos por ${t} y tu categoría con más gasto fue ${c}. ` +
+        `Pendientes por confirmar: ${pe}. Avisos: ${av}. Escríbeme si quieres ver el detalle.`,
+      { kind: "daily_summary" }
+    );
   } else {
-    await sendTemplateMessage(user.phoneNumber, env.WHATSAPP_TEMPLATE_DAILY, env.WHATSAPP_TEMPLATE_LANG, [
-      firstName,
-      totalLabel,
-      topCategory ?? "ninguna",
-      String(pending),
-    ], { kind: "daily_summary" });
+    await sendTemplateMessage(user.phoneNumber, env.WHATSAPP_TEMPLATE_DAILY, env.WHATSAPP_TEMPLATE_LANG, vars, { kind: "daily_summary" });
   }
   return true;
 }
