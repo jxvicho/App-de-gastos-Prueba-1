@@ -4423,6 +4423,7 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
         input=document.getElementById("wcInput"), sendBtn=document.getElementById("wcSend"),
         sub=document.getElementById("wcSub");
   let loaded=false, busy=false;
+  const touchDevice = window.matchMedia("(pointer:coarse)").matches;
   function scrollEnd(){ msgs.scrollTop=msgs.scrollHeight; }
   function disableOldButtons(){ msgs.querySelectorAll(".wc-btns button:not([data-keep])").forEach(b=>b.disabled=true); }
   const seen=new Set(); let lastTs=null, unread=0;
@@ -4457,7 +4458,7 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
     }catch(e){
       wait.remove(); addMsg({role:"bot", text: e.message || "No pude enviar el mensaje."});
     }
-    busy=false; sendBtn.disabled=false; scrollEnd(); input.focus();
+    busy=false; sendBtn.disabled=false; scrollEnd(); if(!touchDevice || payload.text) input.focus(); // en celular solo si el usuario venía escribiendo
   }
 
   async function sendMedia(blob, label){
@@ -4525,7 +4526,7 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
     }catch(e){}
   }
   setInterval(pollNew, 10000);
-  fab.addEventListener("click",()=>{ panel.classList.toggle("open"); if(panel.classList.contains("open")){ unread=0; setBadge(); if(!loaded) loadHistory(); else scrollEnd(); input.focus(); } });
+  fab.addEventListener("click",()=>{ panel.classList.toggle("open"); if(panel.classList.contains("open")){ unread=0; setBadge(); if(!loaded) loadHistory(); else scrollEnd(); if(!touchDevice) input.focus(); /* en celular no abrimos el teclado solos */ } });
   document.getElementById("wcClose").addEventListener("click",()=>panel.classList.remove("open"));
   form.addEventListener("submit",e=>{ e.preventDefault(); const t=input.value.trim(); if(!t) return; input.value=""; disableOldButtons(); send({text:t}); });
   // El botón solo aparece si el backend tiene el chat web habilitado.
