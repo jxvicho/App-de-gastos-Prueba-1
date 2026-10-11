@@ -1,6 +1,6 @@
 import type { Transaction, User } from "@prisma/client";
 import { getEffectivePlan } from "./plans";
-import { notifyAutoRegisteredTransaction, notifyPendingTransaction } from "./whatsappBot";
+import { notifyAutoRegisteredTransaction, notifyPendingTransaction, notifyWebChatTransaction } from "./whatsappBot";
 import { processAlertsForTransaction } from "./alerts";
 import { getPetLabel } from "../utils/pet";
 
@@ -32,6 +32,9 @@ export async function afterEmailTransactionCreated(
   const eff = await getEffectivePlan(user);
   const withCategory = { ...created, category: category ? { name: category.name } : null };
   const pet = getPetLabel(user.petType, user.petName);
+
+  // Chat web: el aviso llega a TODOS los planes (no cuesta mensajes de Meta). El de WhatsApp no cambia.
+  await notifyWebChatTransaction(user.id, withCategory, pet);
 
   if (eff.plan === "UNLIMITED") {
     const notify = created.status === "AUTO_CONFIRMED" ? notifyAutoRegisteredTransaction : notifyPendingTransaction;

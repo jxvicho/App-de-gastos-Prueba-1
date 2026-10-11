@@ -2,6 +2,7 @@ import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { sendInteractiveButtons, sendTextMessage, isWebChannel, runInWebChannel, queueWebButtons, WebReply } from "./whatsapp";
 import { downloadWhatsappMedia } from "./whatsappMedia";
+import { recordWebBotMessage } from "./webChatNotify";
 import { findEquivalentRule } from "./ruleDedup";
 import { extractTransferFromImage, extractManualTransactionFromText, transcribeAudio } from "./gemini";
 import { sendWeeklyReportToUser } from "./weeklyReportSender";
@@ -3389,17 +3390,10 @@ export async function notifyPendingTransaction(
   }
 }
 
-/**
- * Aviso informativo (sin botones) cuando el registro automático está activo:
- * el movimiento ya se guardó solo, así que no hay nada que confirmar.
- */
-export async function notifyAutoRegisteredTransaction(
+function buildAutoRegisteredBody(
   transaction: Transaction & { category?: { name: string } | null },
-  phoneNumber: string | null | undefined,
   petLabel?: PetPersona | null
-): Promise<void> {
-  if (!phoneNumber) return;
-
+): string {
   const lines = [
     petLabel ? `${petLabel.emoji} *${petLabel.name} registró un movimiento automáticamente*` : "✅ *Movimiento registrado automáticamente*",
     "",
@@ -3414,7 +3408,22 @@ export async function notifyAutoRegisteredTransaction(
   if (transaction.bankKey) lines.push(`🏛️ *Banco:* ${formatBankLabel(transaction.bankKey)}`);
   lines.push("", "Ya quedó anotado en tu dashboard. 👍");
 
-  await sendTextMessage(phoneNumber, lines.join("\n"), { kind: "txn_notification" });
+  return lines.join("\n");
+}
+
+/**
+ * Aviso informativo (sin botones) cuando el registro automático está activo:
+ * el movimiento ya se guardó solo, así que no hay nada que confirmar.
+ */
+export async function notifyAutoRegisteredTransaction(
+  transaction: Transaction & { category?: { name: string } | null },
+  phoneNumber: string | null | undefined,
+  petLabel?: PetPersona | null
+): Promise<void> {
+  if (!phoneNumber) return;
+
+  const text = buildAutoRegisteredBody(transaction, petLabel);
+  await sendTextMessage(phoneNumber, text, { kind: "txn_notification" });
 }
 
 /**
@@ -3460,4 +3469,29 @@ export async function handleWebMedia(
       : handleIncomingAudio(user.phoneNumber, "web", null, media)
   );
   return replies;
+}
+
+/**
+ * Aviso de movimiento nuevo detectado en el correo, para el CHAT WEB (todos los planes, sin costo
+ * de Meta). Pendiente -> con botones Anotar/Descartar ligados a ese movimiento; auto-registrado ->
+ * solo informativo con botón Eliminar. No toca el aviso de WhatsApp. Se omiten movimientos viejos
+ * (sincronización histórica) para no inundar el chat.
+ */
+export async function notifyWebChatTransaction(
+  userId: string,
+  transaction: Transaction & { category?: { name: string } | null },
+  petLabel?: PetPersona | null
+): Promise<void> {
+  if (isWebChannel()) return; // ya va en las respuestas del propio chat
+  if (Date.now() - transaction.occurredAt.getTime() > 48 * 60 * 60 * 1000) return;
+  if (transaction.status === "AUTO_CONFIRMED") {
+    await recordWebBotMessage(userId, buildAutoRegisteredBody(transaction, petLabel), [
+      { id: `web_del:${transaction.id}`, title: "🗑️ Eliminar" },
+    ]);
+    return;
+  }
+  await recordWebBotMessage(userId, buildNotificationBody(transaction, petLabel), [
+    { id: `web_ok:${transaction.id}`, title: "✅ Anotar" },
+    { id: `web_no:${transaction.id}`, title: "🗑️ Descartar" },
+  ]);
 }

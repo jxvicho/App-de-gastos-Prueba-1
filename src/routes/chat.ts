@@ -64,6 +64,17 @@ chatRouter.get(
   asyncHandler(async (req, res) => {
     requireEnabled();
     const session = await getSession(req.userId!);
+    // ?since=ISO -> solo mensajes del bot posteriores (polling de avisos nuevos, sin repetir los propios).
+    const sinceRaw = typeof req.query.since === "string" ? new Date(req.query.since) : null;
+    if (sinceRaw && !isNaN(sinceRaw.getTime())) {
+      const fresh = await prisma.whatsappMessage.findMany({
+        where: { sessionId: session.id, direction: "OUTBOUND", createdAt: { gt: sinceRaw } },
+        orderBy: { createdAt: "asc" },
+        take: 30,
+      });
+      res.json({ messages: fresh.map(serialize) });
+      return;
+    }
     const rows = await prisma.whatsappMessage.findMany({
       where: { sessionId: session.id },
       orderBy: { createdAt: "desc" },
@@ -85,9 +96,14 @@ chatRouter.post(
     const body = sendSchema.parse(req.body);
     // Un clic en botón equivale al mismo texto que entiende el bot de WhatsApp.
     // "web_del:<id>" = botón 🗑️ bajo un movimiento registrado (equivale a responder "eliminar" a ese mensaje en WhatsApp).
-    const delMatch = body.buttonId?.match(/^web_del:([\w-]{1,64})$/);
-    const text = delMatch ? "eliminar" : body.buttonId ? textForButtonReply(body.buttonId) : body.text;
-    const contextId = delMatch ? `web:txn:${delMatch[1]}` : null;
+    // "web_ok:<id>" / "web_no:<id>" = Anotar / Descartar un movimiento detectado (como los botones de WhatsApp).
+    const txMatch = body.buttonId?.match(/^web_(del|ok|no):([\w-]{1,64})$/);
+    const text = txMatch
+      ? { del: "eliminar", ok: "confirmar", no: "no" }[txMatch[1] as "del" | "ok" | "no"]
+      : body.buttonId
+        ? textForButtonReply(body.buttonId)
+        : body.text;
+    const contextId = txMatch ? `web:txn:${txMatch[2]}` : null;
     if (!text) throw new AppError("Botón no reconocido", 400);
     const userId = req.userId!;
     const session = await getSession(userId);

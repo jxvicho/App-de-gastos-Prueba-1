@@ -4294,6 +4294,9 @@ if (authToken) {
 <style>
 #wcFab{position:fixed;right:20px;bottom:20px;z-index:40;width:56px;height:56px;border-radius:50%;border:0;background:var(--accent,#2472c8);color:#fff;font-size:26px;cursor:pointer;box-shadow:0 10px 24px -8px rgba(36,114,200,.6);display:none;align-items:center;justify-content:center;}
 #wcFab.show{display:flex;}
+#wcFab{position:fixed;}
+#wcBadge{position:absolute;top:-2px;right:-2px;min-width:20px;height:20px;border-radius:10px;background:#e04646;color:#fff;font-size:12px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 5px;}
+#wcBadge.show{display:flex;}
 #wcPanel{position:fixed;right:20px;bottom:88px;z-index:40;width:370px;max-width:calc(100vw - 24px);height:min(560px,calc(100vh - 110px));background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 60px -20px rgba(16,24,40,.35);display:none;flex-direction:column;overflow:hidden;}
 #wcPanel.open{display:flex;}
 .wc-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;}
@@ -4316,7 +4319,7 @@ if (authToken) {
 .wc-hint{text-align:center;color:var(--ink-faint);font-size:12px;padding:4px 0;}
 @media (max-width:520px){#wcPanel{right:8px;bottom:80px;}}
 </style>
-<button id="wcFab" type="button" aria-label="Abrir chat de Gastia" title="Chat de Gastia">💬</button>
+<button id="wcFab" type="button" aria-label="Abrir chat de Gastia" title="Chat de Gastia">💬<span id="wcBadge"></span></button>
 <div id="wcPanel" role="dialog" aria-label="Chat de Gastia">
   <div class="wc-head"><div>Chat de Gastia<small id="wcSub">Pregúntame o registra un gasto</small></div><button type="button" id="wcClose" aria-label="Cerrar">×</button></div>
   <div id="wcMsgs"></div>
@@ -4332,7 +4335,10 @@ if (authToken) {
   let loaded=false, busy=false;
   function scrollEnd(){ msgs.scrollTop=msgs.scrollHeight; }
   function disableOldButtons(){ msgs.querySelectorAll(".wc-btns button:not([data-keep])").forEach(b=>b.disabled=true); }
+  const seen=new Set(); let lastTs=null, unread=0;
   function addMsg(m){
+    if(m.id){ if(seen.has(m.id)) return; seen.add(m.id); }
+    if(m.createdAt && (!lastTs || m.createdAt>lastTs)) lastTs=m.createdAt;
     const d=document.createElement("div");
     d.className="wc-m "+(m.role==="user"?"user":"bot");
     d.textContent=m.text; // textContent: nunca interpreta HTML
@@ -4340,8 +4346,8 @@ if (authToken) {
     if(m.buttons && m.buttons.length){
       const w=document.createElement("div"); w.className="wc-btns";
       m.buttons.forEach(b=>{
-        const el=document.createElement("button"); el.type="button"; el.textContent=b.title; if(String(b.id).startsWith("web_del:")) el.dataset.keep="1"; // "Eliminar" sigue disponible en movimientos anteriores
-        el.addEventListener("click",()=>{ disableOldButtons(); send({buttonId:b.id}, b.title); });
+        const el=document.createElement("button"); el.type="button"; el.textContent=b.title; if(/^web_(del|ok|no):/.test(String(b.id))) el.dataset.keep="1"; // "Eliminar" sigue disponible en movimientos anteriores
+        el.addEventListener("click",()=>{ if(/^web_(ok|no):/.test(String(b.id))) w.querySelectorAll("button").forEach(x=>x.disabled=true); else disableOldButtons(); send({buttonId:b.id}, b.title); });
         w.appendChild(el);
       });
       msgs.appendChild(w);
@@ -4411,14 +4417,29 @@ if (authToken) {
       // Solo el último grupo de botones sigue vigente.
       const groups=msgs.querySelectorAll(".wc-btns"); groups.forEach((g,i)=>{ if(i<groups.length-1 || msgs.lastElementChild!==g) g.querySelectorAll("button:not([data-keep])").forEach(b=>b.disabled=true); });
       if(!(r.messages||[]).length){ const h=document.createElement("div"); h.className="wc-hint"; h.textContent="Prueba: “gasté 15 soles en almuerzo” o “mostrar pendientes”"; msgs.appendChild(h); }
-      loaded=true; scrollEnd();
+      loaded=true; if(!lastTs) lastTs=new Date().toISOString(); scrollEnd();
     }catch(e){ msgs.textContent="No se pudo cargar el chat."; }
   }
-  fab.addEventListener("click",()=>{ panel.classList.toggle("open"); if(panel.classList.contains("open")){ if(!loaded) loadHistory(); input.focus(); } });
+  const badge=document.getElementById("wcBadge");
+  function setBadge(){ badge.textContent=unread>9?"9+":String(unread); badge.classList.toggle("show",unread>0); }
+  async function pollNew(){
+    if(busy || document.hidden || !loaded || !lastTs) return;
+    try{
+      const r=await api("/chat/history?since="+encodeURIComponent(lastTs));
+      const fresh=(r.messages||[]).filter(m=>!seen.has(m.id));
+      if(!fresh.length) return;
+      fresh.forEach(addMsg); scrollEnd();
+      if(!panel.classList.contains("open")){ unread+=fresh.length; setBadge(); }
+      if(typeof refreshData==="function") refreshData();
+      if(typeof loadReview==="function") loadReview();
+    }catch(e){}
+  }
+  setInterval(pollNew, 10000);
+  fab.addEventListener("click",()=>{ panel.classList.toggle("open"); if(panel.classList.contains("open")){ unread=0; setBadge(); if(!loaded) loadHistory(); else scrollEnd(); input.focus(); } });
   document.getElementById("wcClose").addEventListener("click",()=>panel.classList.remove("open"));
   form.addEventListener("submit",e=>{ e.preventDefault(); const t=input.value.trim(); if(!t) return; input.value=""; disableOldButtons(); send({text:t}); });
   // El botón solo aparece si el backend tiene el chat web habilitado.
-  api("/chat/config").then(c=>{ if(c && c.enabled) fab.classList.add("show"); }).catch(()=>{});
+  api("/chat/config").then(c=>{ if(c && c.enabled){ fab.classList.add("show"); loadHistory(); } }).catch(()=>{});
 })();
 </script>
 </body>
