@@ -151,3 +151,24 @@ transactionsRouter.patch(
     res.json(updated);
   })
 );
+
+// Borrado lógico (deletedAt), igual que el bot de WhatsApp y el chat web: reversible con /restore.
+transactionsRouter.delete(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const tx = await prisma.transaction.findFirst({ where: { id: req.params.id, userId: req.userId, deletedAt: null } });
+    if (!tx) throw new AppError("Transacción no encontrada", 404);
+    await prisma.transaction.update({ where: { id: tx.id }, data: { deletedAt: new Date() } });
+    res.json({ id: tx.id, deleted: true });
+  })
+);
+
+transactionsRouter.post(
+  "/:id/restore",
+  asyncHandler(async (req, res) => {
+    const tx = await prisma.transaction.findFirst({ where: { id: req.params.id, userId: req.userId, deletedAt: { not: null } } });
+    if (!tx) throw new AppError("Transacción no encontrada", 404);
+    await prisma.transaction.update({ where: { id: tx.id }, data: { deletedAt: null } });
+    res.json({ id: tx.id, deleted: false });
+  })
+);

@@ -424,6 +424,15 @@
       display:block;position:fixed;inset:0;background:rgba(11,37,69,.4);z-index:39;
     }
   }
+
+.txn-del{border:0;background:none;cursor:pointer;font-size:15px;opacity:.35;padding:4px 6px;border-radius:8px;}
+tr:hover .txn-del,.txn-del:focus-visible{opacity:1;}
+.txn-del:hover{background:#fde8e8;}
+th.del-col,td.del-col{width:36px;text-align:center;padding-left:0;padding-right:8px;}
+@media (hover:none){.txn-del{opacity:.8;}}
+.undo-toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:60;background:var(--ink);color:#fff;border-radius:12px;padding:10px 14px;font-size:14px;display:flex;gap:14px;align-items:center;transition:.2s;box-shadow:0 12px 30px -10px rgba(16,24,40,.5);}
+.undo-toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto;}
+.undo-toast button{border:0;background:none;color:#8fc2ff;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;}
 </style>
 <style>
   [hidden]{display:none !important;}
@@ -1146,6 +1155,7 @@ tbody tr:hover{background:#f7faff;}
           <th data-key="category">Categoría <span class="arrow">▾</span></th>
           <th data-key="account">Cuenta <span class="arrow">▾</span></th>
           <th data-key="amount" class="num">Monto <span class="arrow">▾</span></th>
+          <th class="del-col" aria-label="Acciones"></th>
         </tr>
       </thead>
       <tbody id="tblBody"></tbody>
@@ -2253,6 +2263,41 @@ function renderChips(){
 /* =========================================================
    TABLE
    ========================================================= */
+/* ---- Eliminar movimiento (borrado lógico, con "Deshacer") ---- */
+let toastTimer = null;
+function showUndoToast(msg, onUndo){
+  let el = document.getElementById("undoToast");
+  if(!el){
+    el = document.createElement("div"); el.id = "undoToast"; el.className = "undo-toast";
+    document.body.appendChild(el);
+  }
+  el.innerHTML = "";
+  const span = document.createElement("span"); span.textContent = msg; el.appendChild(span);
+  if(onUndo){
+    const b = document.createElement("button"); b.type = "button"; b.textContent = "Deshacer";
+    b.addEventListener("click", async ()=>{ el.classList.remove("show"); clearTimeout(toastTimer); await onUndo(); });
+    el.appendChild(b);
+  }
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove("show"), 8000);
+}
+async function deleteTxn(idx){
+  const t = TXNS[idx]; if(!t) return;
+  const label = `${t.type==="ingreso" ? "ingreso" : "gasto"} de ${fmt(t.amount, t.currency)} (${t.desc})`;
+  if(!confirm(`¿Eliminar este ${label}?`)) return;
+  try {
+    await api("/transactions/"+t.id, {method:"DELETE"});
+  } catch(err){ alert("No se pudo eliminar: "+err.message); return; }
+  const id = t.id;
+  TXNS.splice(idx,1); TXNS.forEach((x,i)=>{ x.__idx = i; });
+  renderAll();
+  showUndoToast("Movimiento eliminado", async ()=>{
+    try { await api(`/transactions/${id}/restore`, {method:"POST"}); await refreshData(); showUndoToast("Movimiento restaurado"); }
+    catch(err){ alert("No se pudo restaurar: "+err.message); }
+  });
+}
+
 function renderTable(){
   let rows = getFiltered(true);
   rows.sort((a,b)=>{
@@ -2281,7 +2326,7 @@ function renderTable(){
   tbody.innerHTML = "";
   const shown = rows.slice(0, state.visibleRows);
   if(!shown.length){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No hay movimientos con estos filtros.</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No hay movimientos con estos filtros.</td></tr>`;
   }
   shown.forEach(t=>{
     const dateStr = fmtDateShort(t.date) + " " + t.date.slice(0,4);
@@ -2302,8 +2347,13 @@ function renderTable(){
       <td>${selectHtml}</td>
       <td>${t.account}</td>
       <td class="num ${t.type==='ingreso'?'ingreso':''}">${t.type==='ingreso' ? '+ ' : ''}${fmt(t.amount, t.currency)}</td>
+      <td class="del-col"><button type="button" class="txn-del" data-idx="${t.__idx}" title="Eliminar movimiento" aria-label="Eliminar movimiento">🗑️</button></td>
     `;
     tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".txn-del").forEach(btn=>{
+    btn.addEventListener("click", ()=>deleteTxn(Number(btn.dataset.idx)));
   });
 
   tbody.querySelectorAll(".cat-select").forEach(sel=>{
