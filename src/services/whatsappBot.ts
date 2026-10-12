@@ -4,7 +4,7 @@ import { sendInteractiveButtons, sendTextMessage, isWebChannel, runInWebChannel,
 import { downloadWhatsappMedia } from "./whatsappMedia";
 import { recordWebBotMessage } from "./webChatNotify";
 import { findEquivalentRule } from "./ruleDedup";
-import { extractTransferFromImage, extractManualTransactionFromText, transcribeAudio } from "./gemini";
+import { extractTransferFromImage, extractReceiptFromImage, extractManualTransactionFromText, transcribeAudio } from "./gemini";
 import { sendWeeklyReportToUser } from "./weeklyReportSender";
 import { currentWeekStart } from "./weeklyReportData";
 import { DEFAULT_CATEGORIES } from "../utils/defaultCategories";
@@ -3289,7 +3289,45 @@ export async function handleIncomingImage(
   }
 
   if (!extracted.isTransferScreenshot || !extracted.amount) {
-    await sendTextMessage(from, "No reconocí esa imagen como una captura de transferencia — si me equivoco, cuéntame el movimiento por texto.");
+    // No es una transferencia: probamos si es una boleta/ticket. Una boleta
+    // siempre es un gasto, así que va directo a "¿Lo anotamos?".
+    let receipt;
+    try {
+      receipt = await extractReceiptFromImage(media.base64, media.mimeType, categoryNames);
+    } catch (err) {
+      console.error("Error leyendo la boleta con Gemini Vision:", err);
+      receipt = null;
+    }
+    if (receipt?.isReceipt && receipt.total && receipt.total > 0) {
+      const merchantName = receipt.merchant || "Compra";
+      const currency = receipt.currency ?? "PEN";
+      const rules = await resolveExpenseCategoryForImage(user.id, merchantName, receipt.total, receipt.suggestedCategory, categories);
+      let occurredAt = receipt.occurredAt ? new Date(receipt.occurredAt) : new Date();
+      if (isNaN(occurredAt.getTime())) occurredAt = new Date();
+      const created = await prisma.transaction.create({
+        data: {
+          userId: user.id,
+          type: "EXPENSE",
+          amount: receipt.total,
+          currency,
+          merchant: merchantName,
+          description: receipt.description || undefined,
+          categoryId: rules?.id,
+          source: "WHATSAPP_MANUAL",
+          status: "PENDING_CONFIRMATION",
+          occurredAt,
+        },
+      });
+      console.log(`WhatsApp: boleta leída de ${from} -> ${created.id} (${currency} ${receipt.total}, ${merchantName}, categoría: ${rules?.name ?? "ninguna"})`);
+      await sendTextMessage(from, `🧾 Leí la boleta: ${currency} ${receipt.total.toFixed(2)} en ${merchantName}.`);
+      await notifyPendingTransaction(
+        { ...created, category: rules ? { name: rules.name } : null },
+        from,
+        getPetLabel(user.petType, user.petName)
+      );
+      return;
+    }
+    await sendTextMessage(from, "No reconocí esa imagen como una captura de transferencia ni como una boleta — si me equivoco, cuéntame el movimiento por texto.");
     return;
   }
 

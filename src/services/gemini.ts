@@ -234,6 +234,74 @@ Si la imagen NO es una captura de una operación bancaria (ej. es una foto de ot
   }
 }
 
+export interface ExtractedReceipt {
+  isReceipt: boolean;
+  total?: number;
+  currency?: string;
+  merchant?: string;
+  description?: string;
+  occurredAt?: string;
+  suggestedCategory?: string;
+}
+
+function buildReceiptSchema(categoryNames: string[]) {
+  const properties: Record<string, unknown> = {
+    isReceipt: {
+      type: "boolean",
+      description: "true solo si la imagen es una foto o captura de una boleta, factura, ticket o comprobante de compra con un total legible",
+    },
+    total: { type: "number", description: "Monto TOTAL pagado (con impuestos), no subtotales ni precios unitarios" },
+    currency: { type: "string", description: 'Código de moneda: "PEN" si dice S/ o soles, "USD" si dice $ o dólares. Si no se ve, "PEN".' },
+    merchant: { type: "string", description: "Nombre del comercio o establecimiento" },
+    description: { type: "string", description: "Resumen corto de lo comprado, ej. 'Almuerzo menú' o 'Compras de supermercado'" },
+    occurredAt: { type: "string", description: "Fecha (y hora si aparece) de la compra en formato ISO 8601, si el comprobante la muestra" },
+  };
+  if (categoryNames.length > 0) {
+    properties.suggestedCategory = {
+      type: "string",
+      enum: categoryNames,
+      description: "La categoría más adecuada para esta compra, elegida de la lista dada",
+    };
+  }
+  return { type: "object", properties, required: ["isReceipt"] } as const;
+}
+
+/**
+ * Lee la foto de una boleta/factura/ticket con Gemini Vision. Una boleta
+ * siempre es un GASTO, así que a diferencia de las capturas de
+ * transferencia no hace falta preguntar el tipo.
+ */
+export async function extractReceiptFromImage(
+  base64: string,
+  mimeType: string,
+  categoryNames: string[] = []
+): Promise<ExtractedReceipt> {
+  const prompt = `Eres un extractor de datos de comprobantes de compra. Mira esta imagen y, si es una boleta, factura, ticket o recibo de una compra (restaurante, tienda, supermercado, grifo, farmacia, etc.), extrae el comercio, el TOTAL pagado, la moneda y la fecha.
+
+Usa el total final a pagar, no subtotales ni precios de cada ítem. Si la imagen NO es un comprobante de compra o no se alcanza a leer el total, responde con isReceipt: false y nada más.`;
+
+  const response = await callGeminiWithRetry((model) =>
+    ai.models.generateContent({
+      model,
+      contents: [{ text: prompt }, { inlineData: { data: base64, mimeType } }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: buildReceiptSchema(categoryNames),
+        temperature: 0,
+      },
+    })
+  );
+
+  const text = response.text;
+  if (!text) return { isReceipt: false };
+  try {
+    return JSON.parse(text) as ExtractedReceipt;
+  } catch {
+    console.error("Gemini Vision devolvió un JSON inválido (boleta):", text);
+    return { isReceipt: false };
+  }
+}
+
 /**
  * Transcribe una nota de voz de WhatsApp a texto plano en español. No
  * interpreta el contenido (eso lo hace handleIncomingMessage reutilizando
