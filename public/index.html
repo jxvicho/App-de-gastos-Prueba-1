@@ -4397,7 +4397,15 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
 .wc-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;}
 .wc-head small{display:block;font-weight:500;color:var(--ink-faint);font-size:12px;}
 .wc-head button{border:0;background:none;font-size:20px;cursor:pointer;color:var(--ink-soft);}
-.wc-m .wc-t{display:block;margin-top:3px;font-size:10.5px;line-height:1;opacity:.6;text-align:right;font-weight:400;}
+.wc-m .wc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:3px;font-size:10.5px;line-height:1;font-weight:400;}
+.wc-m .wc-t{opacity:.6;margin-left:auto;}
+.wc-m .wc-rp{opacity:.75;cursor:pointer;font-weight:600;color:var(--accent,#2472c8);}
+.wc-m.has-txn{cursor:pointer;}
+.wc-m.replying{outline:2px solid var(--accent,#2472c8);}
+#wcReply{display:none;align-items:center;gap:8px;padding:6px 12px;border-top:1px solid var(--line);background:var(--bg);font-size:12.5px;color:var(--ink-soft);}
+#wcReply.show{display:flex;}
+#wcReply span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#wcReply button{border:0;background:none;font-size:16px;cursor:pointer;color:var(--ink-soft);}
 #wcMsgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg);}
 .wc-m{max-width:85%;padding:8px 11px;border-radius:14px;font-size:14px;line-height:1.4;white-space:pre-wrap;word-break:break-word;}
 .wc-m.user{align-self:flex-end;background:var(--accent,#2472c8);color:#fff;border-bottom-right-radius:4px;}
@@ -4419,6 +4427,7 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
 <div id="wcPanel" role="dialog" aria-label="Chat de Gastia">
   <div class="wc-head"><div>Chat de Gastia<small id="wcSub">Pregúntame o registra un gasto</small></div><button type="button" id="wcClose" aria-label="Cerrar">×</button></div>
   <div id="wcMsgs"></div>
+  <div id="wcReply"><span id="wcReplyTxt"></span><button type="button" id="wcReplyX" aria-label="Quitar respuesta">✕</button></div>
   <form class="wc-form" id="wcForm"><button type="button" class="wc-ic" id="wcAttach" title="Adjuntar captura" aria-label="Adjuntar captura">📎</button><button type="button" class="wc-ic" id="wcMic" title="Nota de voz" aria-label="Grabar nota de voz">🎤</button><input type="file" id="wcFile" accept="image/jpeg,image/png,image/webp" hidden><input id="wcInput" maxlength="1000" autocomplete="off" placeholder="Escribe un mensaje…"><button id="wcSend" type="submit">Enviar</button></form>
 </div>
 <script>
@@ -4433,6 +4442,11 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
   function scrollEnd(){ msgs.scrollTop=msgs.scrollHeight; }
   function disableOldButtons(){ msgs.querySelectorAll(".wc-btns button:not([data-keep])").forEach(b=>b.disabled=true); }
   const seen=new Set(); let lastTs=null, unread=0;
+  // "Responder a" un movimiento: el siguiente texto se manda ligado a ese gasto (como el "responder" de WhatsApp).
+  let replyTo=null; const replyBar=document.getElementById("wcReply"), replyTxt=document.getElementById("wcReplyTxt");
+  function clearReply(){ replyTo=null; replyBar.classList.remove("show"); msgs.querySelectorAll(".replying").forEach(e=>e.classList.remove("replying")); }
+  function setReply(id,label,el){ clearReply(); replyTo={id}; replyTxt.textContent="↩ Respondiendo a: "+(label||"movimiento"); replyBar.classList.add("show"); if(el) el.classList.add("replying"); input.focus(); }
+  document.getElementById("wcReplyX").addEventListener("click",clearReply);
   // Hora del mensaje: "14:32" si es de hoy, "11 oct 14:32" si es de otro día (hora del dispositivo).
   function fmtTime(iso){
     const dt = iso ? new Date(iso) : new Date();
@@ -4448,8 +4462,17 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
     const d=document.createElement("div");
     d.className="wc-m "+(m.role==="user"?"user":"bot");
     d.textContent=m.text; // textContent: nunca interpreta HTML
-    const t=document.createElement("span"); t.className="wc-t"; t.textContent=fmtTime(m.createdAt);
-    d.appendChild(t);
+    const foot=document.createElement("div"); foot.className="wc-foot";
+    const txnBtn=(m.buttons||[]).find(b=>/^web_(del|ok|no):/.test(String(b.id)));
+    if(txnBtn && m.role!=="user"){
+      const tid=String(txnBtn.id).split(":")[1];
+      d.classList.add("has-txn");
+      const rp=document.createElement("span"); rp.className="wc-rp"; rp.textContent="↩ Responder"; foot.appendChild(rp);
+      const label=(m.text.split("\n").find(l=>/Comercio|🏪/.test(l)) || m.text.split("\n")[0] || "").replace(/[*_]/g,"").replace(/^🏪\s*/,"").replace(/^Comercio:\s*/i,"").trim().slice(0,60);
+      d.addEventListener("click",()=>{ if(window.getSelection && String(window.getSelection())) return; setReply(tid,label,d); });
+    }
+    const t=document.createElement("span"); t.className="wc-t"; t.textContent=fmtTime(m.createdAt); foot.appendChild(t);
+    d.appendChild(foot);
     msgs.appendChild(d);
     if(m.buttons && m.buttons.length){
       const w=document.createElement("div"); w.className="wc-btns";
@@ -4464,6 +4487,8 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
   function setRemaining(n){ if(typeof n==="number") sub.textContent = n<=10 ? "Te quedan "+n+" mensajes hoy" : "Pregúntame o registra un gasto"; }
   async function send(payload, label){
     if(busy) return; busy=true; sendBtn.disabled=true;
+    if(replyTo && payload.text){ payload=Object.assign({},payload,{replyToTxnId:replyTo.id}); }
+    clearReply();
     addMsg({role:"user", text: label || payload.text});
     const wait=document.createElement("div"); wait.className="wc-hint"; wait.textContent="Escribiendo…"; msgs.appendChild(wait); scrollEnd();
     try{

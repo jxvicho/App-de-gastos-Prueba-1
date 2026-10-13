@@ -86,7 +86,12 @@ chatRouter.get(
 );
 
 const sendSchema = z
-  .object({ text: z.string().trim().min(1).max(MAX_TEXT).optional(), buttonId: z.string().max(100).optional() })
+  .object({
+    text: z.string().trim().min(1).max(MAX_TEXT).optional(),
+    buttonId: z.string().max(100).optional(),
+    // "Responder a" un movimiento concreto (equivale al "responder" de WhatsApp sobre su aviso).
+    replyToTxnId: z.string().regex(/^[\w-]{1,64}$/).optional(),
+  })
   .refine((v) => v.text || v.buttonId, { message: "Escribe un mensaje" });
 
 chatRouter.post(
@@ -103,7 +108,11 @@ chatRouter.post(
       : body.buttonId
         ? textForButtonReply(body.buttonId)
         : body.text;
-    const contextId = txMatch ? `web:txn:${txMatch[2]}` : null;
+    const contextId = txMatch
+      ? `web:txn:${txMatch[2]}`
+      : body.replyToTxnId && body.text
+        ? `web:txn:${body.replyToTxnId}`
+        : null;
     if (!text) throw new AppError("Botón no reconocido", 400);
     const userId = req.userId!;
     const session = await getSession(userId);
