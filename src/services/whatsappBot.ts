@@ -1122,6 +1122,219 @@ async function getCategories(userId: string): Promise<{ id: string; name: string
   });
 }
 
+/* =========================================================
+   CREAR CATEGORÍAS DESDE EL CHAT (WhatsApp y chat web)
+   - "crea la categoría Mascotas"  -> la crea (con aviso si ya existe o se parece a otra).
+   - "guárdalo en Mascotas" cuando no existe -> ofrece crearla (o usar una parecida) y lo guarda ahí.
+   ========================================================= */
+const BUTTON_ID_CAT_USE = "cat_use";
+const BUTTON_ID_CAT_NEW = "cat_new";
+const BUTTON_ID_CAT_NO = "cat_no";
+const NEW_CATEGORY_ICON = "🏷️";
+const NEW_CATEGORY_COLOR = "#E53935"; // mismo rojo por defecto que el dashboard (routes/categories.ts)
+
+interface PendingCategoryCreate {
+  name: string;
+  similar?: { id: string; name: string };
+  txnId?: string;
+  createdAt: number;
+}
+const PENDING_CATEGORY_TTL_MS = 10 * 60 * 1000;
+const pendingCategoryByUserId = new ChannelMap<PendingCategoryCreate>();
+
+const CATEGORY_NAME_RESERVED = new Set(["si", "no", "s", "n", "otra", "otro", "categoria", "nueva", "nada", "eso", "esto", "ese", "esa", "ultimo", "ultima"]);
+
+/** Limpia el nombre pedido: sin comillas ni puntuación final, espacios simples, primera letra en mayúscula. null si no sirve. */
+function cleanCategoryName(raw: string): string | null {
+  let n = raw.replace(/["“”«»'`]/g, " ").replace(/[.!?¡¿,;:]+$/g, "").replace(/\s+/g, " ").trim();
+  n = n.replace(/\s+(por favor|porfa|gracias)$/i, "").trim();
+  if (n.length < 2 || n.length > 50) return null;
+  if (n.split(" ").length > 5) return null;
+  if (CATEGORY_NAME_RESERVED.has(normalizeText(n))) return null;
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
+/** "crea la categoría Mascotas" / "agrega una nueva categoría llamada Mascotas" / "nueva categoría: Mascotas" */
+function extractNewCategoryName(text: string): string | null {
+  const m = text
+    .trim()
+    .match(
+      /^(?:por favor\s*,?\s*)?(?:(?:crea(?:r|me|la)?|agrega(?:r|me)?|a[ñn]ade|a[ñn]adir|registra(?:r)?)\s+(?:una\s+|la\s+)?(?:nueva\s+)?|nueva\s+)categor[ií]a\b\s*(?:llamada|que se llame|de nombre|:|-)?\s*(.+)$/i
+    );
+  return m ? cleanCategoryName(m[1]) : null;
+}
+
+/** "guárdalo en Mascotas" / "anótalo en la categoría Mascotas" / "cámbialo a Mascotas" -> "Mascotas" */
+function extractRequestedCategoryName(text: string): string | null {
+  const m = text
+    .trim()
+    .match(
+      /\b(?:gu[aá]rd(?:a|alo|ala|ar)|an[oó]t(?:a|alo|ala|ar)|p[oó]nl[oa]|p[aá]sal[oa]|c[aá]mbial[oa]|reg[ií]strala|reg[ií]stralo|clasif[ií]cal[oa]|m[uú][eé]vel[oa]|ponlo|ponla)\s+(?:en|a|como|bajo)\s+(?:la\s+)?(?:categor[ií]a\s+)?(.+)$/i
+    );
+  return m ? cleanCategoryName(m[1]) : null;
+}
+
+function editDistance(a: string, b: string): number {
+  const dp: number[] = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = dp[j];
+      dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return dp[b.length];
+}
+
+function singularizeWord(s: string): string {
+  return s.replace(/(es|s)$/, "");
+}
+
+/**
+ * ¿El nombre pedido ya existe o se parece a una categoría? "exact" = mismo nombre (sin mayúsculas ni acentos);
+ * "similar" = singular/plural, una letra de diferencia, uno contiene al otro, o es un alias de una categoría
+ * (ej. "comida" -> Alimentación). Incluye las archivadas solo para detectar el nombre exacto.
+ */
+async function findSimilarCategory(
+  userId: string,
+  name: string
+): Promise<{ kind: "exact" | "similar"; category: { id: string; name: string; isArchived: boolean } } | null> {
+  const all = await prisma.category.findMany({ where: { userId }, select: { id: true, name: true, isArchived: true } });
+  const n = normalizeText(name);
+  const exact = all.find((c) => normalizeText(c.name) === n);
+  if (exact) return { kind: "exact", category: exact };
+
+  const sn = singularizeWord(n);
+  for (const c of all.filter((x) => !x.isArchived)) {
+    const cn = normalizeText(c.name);
+    const minLen = Math.min(cn.length, n.length);
+    const maxDist = Math.max(cn.length, n.length) >= 8 ? 2 : 1;
+    const aliases = (CATEGORY_ALIASES[c.name] ?? []).map((a) => normalizeText(a));
+    if (
+      singularizeWord(cn) === sn ||
+      (minLen >= 4 && editDistance(cn, n) <= maxDist) ||
+      (minLen >= 4 && (cn.includes(n) || n.includes(cn))) ||
+      aliases.includes(n)
+    ) {
+      return { kind: "similar", category: c };
+    }
+  }
+  return null;
+}
+
+/** Crea la categoría (o reactiva una archivada con ese nombre). El nombre es único por usuario. */
+async function createCustomCategory(userId: string, name: string): Promise<{ id: string; name: string; reactivated: boolean }> {
+  const all = await prisma.category.findMany({ where: { userId }, select: { id: true, name: true, isArchived: true } });
+  const same = all.find((c) => normalizeText(c.name) === normalizeText(name));
+  if (same) {
+    if (same.isArchived) await prisma.category.update({ where: { id: same.id }, data: { isArchived: false } });
+    return { id: same.id, name: same.name, reactivated: same.isArchived };
+  }
+  const created = await prisma.category.create({
+    data: { userId, name, icon: NEW_CATEGORY_ICON, colorHex: NEW_CATEGORY_COLOR },
+  });
+  return { id: created.id, name: created.name, reactivated: false };
+}
+
+/** Respuesta a la pregunta de crear/usar categoría: "usar" la parecida, "crear" la nueva, o "no". null = otra cosa. */
+function detectCategoryDecision(normalized: string, hasSimilar: boolean, hasTxn: boolean): "use" | "new" | "no" | null {
+  if (/\bno crear\b/.test(normalized) || /^(no|n|cancelar|cancela|nada|dejalo|olvidalo)\b/.test(normalized)) return "no";
+  if (normalized.includes("usar categoria existente") || (hasSimilar && /\b(usar|usa|existente)\b/.test(normalized))) return "use";
+  if (normalized.includes("crear categoria nueva") || /\b(crear|crea|creala|crealo|igual)\b/.test(normalized)) return "new";
+  if (/^(si|s|yes|dale|ok|okay|claro|listo|va)\b/.test(normalized)) return hasSimilar && hasTxn ? "use" : "new";
+  return null;
+}
+
+/** Pregunta qué hacer con una categoría que no existe (o se parece a otra). */
+async function askAboutNewCategory(userId: string, from: string, name: string, txnId?: string): Promise<void> {
+  const found = await findSimilarCategory(userId, name);
+  const similar = found && found.kind === "similar" ? found.category : undefined;
+  pendingCategoryByUserId.set(userId, { name, similar, txnId, createdAt: Date.now() });
+
+  if (similar && txnId) {
+    await sendInteractiveButtons(from, `No tengo la categoría *${name}*, pero sí *${similar.name}*. ¿Lo guardo en *${similar.name}* o creo *${name}*?`, [
+      { id: BUTTON_ID_CAT_USE, title: "✅ Usar existente" },
+      { id: BUTTON_ID_CAT_NEW, title: "➕ Crear nueva" },
+      { id: BUTTON_ID_CAT_NO, title: "❌ Cancelar" },
+    ]);
+  } else if (similar) {
+    await sendInteractiveButtons(from, `Ya tienes *${similar.name}*, que se parece a *${name}*. ¿Creo *${name}* igual?`, [
+      { id: BUTTON_ID_CAT_NEW, title: "➕ Crear igual" },
+      { id: BUTTON_ID_CAT_NO, title: "❌ No" },
+    ]);
+  } else {
+    const q = txnId ? `No tengo la categoría *${name}*. ¿La creo y lo guardo ahí?` : `¿Creo la categoría *${name}*?`;
+    await sendInteractiveButtons(from, q, [
+      { id: BUTTON_ID_CAT_NEW, title: "✅ Sí, crear" },
+      { id: BUTTON_ID_CAT_NO, title: "❌ No" },
+    ]);
+  }
+}
+
+/** "crea la categoría X": crea directo si es nueva; avisa si ya existe; pregunta si se parece a otra. */
+async function handleCreateCategoryRequest(userId: string, from: string, name: string): Promise<void> {
+  const found = await findSimilarCategory(userId, name);
+  if (found?.kind === "exact") {
+    if (found.category.isArchived) {
+      await createCustomCategory(userId, name);
+      await sendTextMessage(from, `♻️ La categoría *${found.category.name}* ya existía archivada; la reactivé.`);
+    } else {
+      await sendTextMessage(from, `Ya tienes la categoría *${found.category.name}*. Dime "anótalo en ${found.category.name}" para usarla.`);
+    }
+    return;
+  }
+  if (found?.kind === "similar") {
+    await askAboutNewCategory(userId, from, name);
+    return;
+  }
+  const created = await createCustomCategory(userId, name);
+  await sendTextMessage(
+    from,
+    `✅ Creé la categoría ${NEW_CATEGORY_ICON} *${created.name}*. Puedes cambiar su ícono y color en Configuración → Categorías. Dime "anótalo en ${created.name}" para usarla.`
+  );
+}
+
+async function resolvePendingCategory(
+  userId: string,
+  from: string,
+  petLabel: PetPersona | null,
+  state: PendingCategoryCreate,
+  decision: "use" | "new" | "no"
+): Promise<void> {
+  if (decision === "no") {
+    await sendTextMessage(from, "Listo, no hice cambios. 👍");
+    return;
+  }
+  let category: { id: string; name: string };
+  let prefix = "";
+  if (decision === "use" && state.similar) {
+    category = state.similar;
+  } else {
+    const c = await createCustomCategory(userId, state.name);
+    category = { id: c.id, name: c.name };
+    prefix = c.reactivated ? `♻️ Reactivé la categoría *${c.name}*.\n` : `✅ Creé la categoría ${NEW_CATEGORY_ICON} *${c.name}*.\n`;
+  }
+
+  if (!state.txnId) {
+    await sendTextMessage(from, `${prefix || `Listo, usaré *${category.name}*.`}`.trim());
+    return;
+  }
+  const txn = await prisma.transaction.findFirst({ where: { id: state.txnId, userId }, include: { category: true } });
+  if (!txn || txn.deletedAt) {
+    await sendTextMessage(from, `${prefix}No encontré el movimiento para asignarle la categoría.`.trim());
+    return;
+  }
+  if (prefix) await sendTextMessage(from, prefix.trim());
+  if (txn.status === "PENDING_CONFIRMATION" || txn.status === "REJECTED") {
+    const reply = await confirmTransaction(txn, userId, petLabel, category);
+    await sendTextMessage(from, reply);
+  } else {
+    await recategorizeConfirmedTransaction(txn, userId, from, category);
+  }
+}
+
 // Frases que indican que el usuario quiere crear una regla de
 // categorización automática, no confirmar/rechazar/consultar algo puntual.
 const CREATE_RULE_TRIGGER_PHRASES = [
@@ -2162,7 +2375,8 @@ async function handleFreeformDecision(
   userId: string,
   from: string,
   normalized: string,
-  petLabel: PetPersona | null
+  petLabel: PetPersona | null,
+  rawText?: string
 ): Promise<void> {
   if (detectConfirmWordIntent(normalized)) {
     const reply = await confirmTransaction(pending, userId, petLabel);
@@ -2181,6 +2395,13 @@ async function handleFreeformDecision(
   if (matchedCategory) {
     const reply = await confirmTransaction(pending, userId, petLabel, matchedCategory);
     await sendTextMessage(from, reply);
+    return;
+  }
+
+  // "guárdalo en Mascotas" y esa categoría no existe: ofrecemos crearla (o usar una parecida).
+  const requestedName = rawText ? extractRequestedCategoryName(rawText) : null;
+  if (requestedName) {
+    await askAboutNewCategory(userId, from, requestedName, pending.id);
     return;
   }
 
@@ -2248,6 +2469,28 @@ export async function handleIncomingMessage(
   if (detectGreetingIntent(normalized)) {
     console.log(`WhatsApp: SALUDO detectado de ${from}, respondiendo con menú de bienvenida.`);
     await sendTextMessage(from, buildGreetingReply(user.name, petLabel));
+    return;
+  }
+
+  // -0.4) Respuesta a "¿creo la categoría X?" / "¿uso la parecida?". Una respuesta que no tiene que ver
+  // descarta la pregunta y sigue el flujo normal (no se queda atrapado al usuario).
+  const pendingCat = pendingCategoryByUserId.get(user.id);
+  if (pendingCat) {
+    pendingCategoryByUserId.delete(user.id);
+    if (Date.now() - pendingCat.createdAt <= PENDING_CATEGORY_TTL_MS) {
+      const decision = detectCategoryDecision(normalized, !!pendingCat.similar, !!pendingCat.txnId);
+      if (decision) {
+        await resolvePendingCategory(user.id, from, petLabel, pendingCat, decision);
+        return;
+      }
+    }
+  }
+
+  // -0.3) "crea la categoría Mascotas"
+  const newCategoryName = extractNewCategoryName(text);
+  if (newCategoryName) {
+    console.log(`WhatsApp: intención de CREAR CATEGORÍA "${newCategoryName}" de ${from}.`);
+    await handleCreateCategoryRequest(user.id, from, newCategoryName);
     return;
   }
 
@@ -2871,7 +3114,7 @@ export async function handleIncomingMessage(
           return;
         }
         console.log(`WhatsApp: resolviendo confirmación explícita pendiente -> transacción ${pending.id}`);
-        await handleFreeformDecision(pending, user.id, from, normalized, petLabel);
+        await handleFreeformDecision(pending, user.id, from, normalized, petLabel, text);
         return;
       }
       console.log(`WhatsApp: la transacción del estado pendiente ya no existe.`);
@@ -2941,11 +3184,11 @@ export async function handleIncomingMessage(
       );
 
       if (byContext.status === "PENDING_CONFIRMATION") {
-        await handleFreeformDecision(byContext, user.id, from, normalized, petLabel);
+        await handleFreeformDecision(byContext, user.id, from, normalized, petLabel, text);
         return;
       }
 
-      if (byContext.status === "CONFIRMED" && byContext.deletedAt) {
+      if ((byContext.status === "CONFIRMED" || byContext.status === "AUTO_CONFIRMED") && byContext.deletedAt) {
         // Ya fue eliminado (soft-delete): ofrecemos restaurarlo, no eliminarlo de nuevo.
         const categories = await getCategories(user.id);
         const matchedCategory = resolveCategoryFromText(normalized, categories);
@@ -2965,7 +3208,7 @@ export async function handleIncomingMessage(
         return;
       }
 
-      if (byContext.status === "CONFIRMED") {
+      if (byContext.status === "CONFIRMED" || byContext.status === "AUTO_CONFIRMED") {
         if (detectDeleteConfirmedIntent(normalized)) {
           disambiguationByUserId.set(user.id, {
             transactionIds: [byContext.id],
@@ -2989,6 +3232,13 @@ export async function handleIncomingMessage(
         if (recategorizeTarget) {
           console.log(`WhatsApp: swipe-reply a CONFIRMED + categoría reconocida -> recategorizando ${byContext.id} a ${recategorizeTarget.name}.`);
           await recategorizeConfirmedTransaction(byContext, user.id, from, recategorizeTarget);
+          return;
+        }
+
+        // "guárdalo en Mascotas" y no existe: ofrecemos crearla (o usar una parecida) y recategorizar.
+        const requestedCategoryName = extractRequestedCategoryName(text);
+        if (requestedCategoryName) {
+          await askAboutNewCategory(user.id, from, requestedCategoryName, byContext.id);
           return;
         }
 
@@ -3221,7 +3471,7 @@ export async function handleIncomingMessage(
     // Con una sola pendiente no hay nada que adivinar: cualquier señal en
     // el texto (sí/no/categoría mencionada) solo puede referirse a ESA.
     console.log(`WhatsApp: FALLBACK (sin context.id ni detalles útiles) -> única pendiente ${allPendingForFallback[0].id}`);
-    await handleFreeformDecision(allPendingForFallback[0], user.id, from, normalized, petLabel);
+    await handleFreeformDecision(allPendingForFallback[0], user.id, from, normalized, petLabel, text);
     return;
   }
 
@@ -3247,7 +3497,7 @@ export async function handleIncomingMessage(
 
   const mostRecentPending = allPendingForFallback[0];
   console.log(`WhatsApp: FALLBACK (confirmación simple, varias pendientes) -> se usa la más reciente ${mostRecentPending.id}`);
-  await handleFreeformDecision(mostRecentPending, user.id, from, normalized, petLabel);
+  await handleFreeformDecision(mostRecentPending, user.id, from, normalized, petLabel, text);
 }
 
 /**
@@ -3475,6 +3725,9 @@ export function textForButtonReply(buttonId: string): string | null {
   if (buttonId === BUTTON_ID_IMAGE_EXPENSE) return "gasto";
   if (buttonId === BUTTON_ID_IMAGE_TRANSFER) return "traspaso";
   if (buttonId === BUTTON_ID_IMAGE_INCOME) return "ingreso";
+  if (buttonId === BUTTON_ID_CAT_USE) return "usar categoria existente";
+  if (buttonId === BUTTON_ID_CAT_NEW) return "crear categoria nueva";
+  if (buttonId === BUTTON_ID_CAT_NO) return "no crear";
   if (buttonId === "web_yes") return "sí";
   if (buttonId === "web_no") return "no";
   return null;
