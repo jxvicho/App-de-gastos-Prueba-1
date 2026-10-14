@@ -69,7 +69,7 @@ export async function sendDailyReportToUser(user: {
     await sendTextMessage(
       user.phoneNumber,
       `Hola ${n}, soy ${p}. Hoy registraste ${m} movimientos por ${t} y tu categoría con más gasto fue ${c}. ` +
-        `Pendientes por confirmar: ${pe}. Avisos: ${av}. Escríbeme si quieres ver el detalle.`,
+        `Pendientes por confirmar: ${pe}. Avisos: ${av}. Revisa el detalle en tu dashboard de Gastia.`,
       { kind: "daily_summary" }
     );
   } else {
