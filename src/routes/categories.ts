@@ -75,6 +75,46 @@ categoriesRouter.post(
   })
 );
 
+const updateCategorySchema = z
+  .object({
+    name: z.string().trim().min(1).max(50).optional(),
+    icon: z.string().min(1).max(16).optional(),
+    colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: "Nada que actualizar" });
+
+categoriesRouter.patch(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const parsed = updateCategorySchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(parsed.error.issues[0].message, 422);
+    }
+    const category = await prisma.category.findFirst({
+      where: { id: req.params.id, userId: req.userId, isArchived: false },
+    });
+    if (!category) throw new AppError("Categoría no encontrada", 404);
+
+    // Las categorías base conservan su nombre (el bot y los reportes las
+    // referencian); sí se permite cambiar ícono y color.
+    if (parsed.data.name && parsed.data.name !== category.name) {
+      if (category.isDefault) {
+        throw new AppError("Las categorías base no se pueden renombrar", 403);
+      }
+      const dup = await prisma.category.findFirst({
+        where: { userId: req.userId, name: parsed.data.name, id: { not: category.id } },
+      });
+      if (dup) throw new AppError("Ya tienes una categoría con ese nombre", 409);
+    }
+
+    const updated = await prisma.category.update({
+      where: { id: category.id },
+      data: parsed.data,
+    });
+    res.json(updated);
+  })
+);
+
 categoriesRouter.delete(
   "/:id",
   asyncHandler(async (req, res) => {
