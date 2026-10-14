@@ -1723,6 +1723,17 @@ function prettyBank(key){
   if(BANK_NAMES[k]) return BANK_NAMES[k];
   return k.replace(/_pe$/,"").split("_").map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ");
 }
+// Origen mostrado en "Cuenta": tarjeta/cuenta o banco si los hay; si no, de dónde se registró.
+function txnAccountLabel(t){
+  const named = (t.accountCard && t.accountCard.displayName) || prettyBank(t.bankKey);
+  if(named) return named;
+  switch(t.source){
+    case "WHATSAPP_MANUAL": return "Chat";
+    case "DASHBOARD_MANUAL": return "Manual";
+    case "CSV_IMPORT": return "Importado";
+    default: return "Correo";
+  }
+}
 function recomputeDateBounds(){
   const allDates = TXNS.map(t=>t.date).sort();
   MIN_DATE = allDates[0] || todayStr();
@@ -4075,7 +4086,7 @@ async function loadData(){
     desc: t.merchant || t.description || "Movimiento",
     amount: Number(t.amount),
     category: t.categoryId || fallbackCategoryId,
-    account: t.accountCard?.displayName || prettyBank(t.bankKey) || "Correo",
+    account: txnAccountLabel(t),
     type: t.type === "INCOME" ? "ingreso" : "egreso",
     currency: t.currency || "PEN",
   }));
@@ -4158,7 +4169,7 @@ async function refreshData(){
       desc: t.merchant || t.description || "Movimiento",
       amount: Number(t.amount),
       category: t.categoryId || fallbackCategoryId,
-      account: t.accountCard?.displayName || prettyBank(t.bankKey) || "Correo",
+      account: txnAccountLabel(t),
       type: t.type === "INCOME" ? "ingreso" : "egreso",
       currency: t.currency || "PEN",
     }));
@@ -4229,7 +4240,7 @@ async function loadReview(){
     list.innerHTML = shown.map(t=>{
       const catOptions = Object.keys(CAT_META).map(k=>`<option value="${k}" ${k===t.categoryId?"selected":""}>${CAT_META[k].icon} ${CAT_META[k].label}</option>`).join("");
       const isPend = t.status === "PENDING_CONFIRMATION";
-      const bank = prettyBank(t.bankKey) || "Correo";
+      const bank = txnAccountLabel(t);
       return `<div class="rv-row" data-id="${t.id}">
         <div class="rv-main"><b>${(t.merchant || t.description || "Movimiento")}<span class="rv-chip ${isPend?"pend":"auto"}">${isPend?"Pendiente":"Automático"}</span></b><span>${bank} · ${fmtReviewWhen(t.occurredAt, t.source)}</span></div>
         <div class="rv-amt">${t.type==="INCOME"?"+ ":""}${sym(t.currency)} ${Number(t.amount).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
