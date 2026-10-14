@@ -3982,11 +3982,12 @@ document.getElementById("createRuleBtn").addEventListener("click", async ()=>{
    EXPORT TO EXCEL
    ========================================================= */
 document.getElementById("exportBtn").addEventListener("click", ()=>{
-  const rows = getFiltered(true).sort((a,b)=> a.date < b.date ? -1 : 1);
+  const rows = getFiltered(true).sort((a,b)=>{ const ka=a.date+" "+(a.time||""), kb=b.date+" "+(b.time||""); return ka<kb?-1:ka>kb?1:0; });
   if(!rows.length){ alert("No hay movimientos que coincidan con los filtros actuales."); return; }
 
   const data = rows.map(t=>({
     "Fecha": t.date,
+    "Hora": t.time || "",
     "Descripción": t.desc,
     "Categoría": (CAT_META[t.category] ? CAT_META[t.category].label : t.category),
     "Cuenta": t.account,
@@ -3995,10 +3996,10 @@ document.getElementById("exportBtn").addEventListener("click", ()=>{
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
-  ws["!cols"] = [{wch:12},{wch:34},{wch:22},{wch:18},{wch:10},{wch:12}];
+  ws["!cols"] = [{wch:12},{wch:8},{wch:34},{wch:22},{wch:18},{wch:10},{wch:12}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Movimientos");
-  XLSX.writeFile(wb, "panorama_movimientos.xlsx");
+  XLSX.writeFile(wb, "gastia_movimientos.xlsx");
 });
 
 /* =========================================================
