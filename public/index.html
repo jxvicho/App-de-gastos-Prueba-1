@@ -4183,14 +4183,21 @@ async function refreshData(){
 let REVIEW_BUSY = false;
 let REVIEW_EXPANDED = false;
 const REVIEW_COLLAPSED_ROWS = 6;
-// "2026-10-13 · 15:02" en hora local. Si el movimiento solo trae fecha (medianoche UTC o de Lima), no se muestra hora.
-function fmtReviewWhen(iso){
+// "2026-10-13 · 15:02". Los movimientos que vienen del correo guardan la hora de Lima tal cual la dice el
+// banco (sin zona horaria), así que se muestran con los componentes UTC; los que se registran a mano o por
+// chat guardan el instante real, que se muestra en hora local. Sin hora (medianoche) solo se muestra la fecha.
+function fmtReviewWhen(iso, source){
   const d = new Date(iso);
   if(isNaN(d.getTime())) return String(iso).slice(0,10);
   const p = n => String(n).padStart(2,"0");
-  const day = d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
-  const dateOnly = /T(00|05):00:00(\.000)?Z?$/.test(String(iso));
-  return dateOnly ? day : day+" · "+p(d.getHours())+":"+p(d.getMinutes());
+  const fromMail = String(source||"").startsWith("EMAIL");
+  const Y = fromMail ? d.getUTCFullYear() : d.getFullYear();
+  const M = fromMail ? d.getUTCMonth() : d.getMonth();
+  const D = fromMail ? d.getUTCDate() : d.getDate();
+  const h = fromMail ? d.getUTCHours() : d.getHours();
+  const m = fromMail ? d.getUTCMinutes() : d.getMinutes();
+  const day = Y+"-"+p(M+1)+"-"+p(D);
+  return (h===0 && m===0) ? day : day+" · "+p(h)+":"+p(m);
 }
 async function loadReview(){
   if(REVIEW_BUSY) return;
@@ -4215,7 +4222,7 @@ async function loadReview(){
       const isPend = t.status === "PENDING_CONFIRMATION";
       const bank = prettyBank(t.bankKey) || "Correo";
       return `<div class="rv-row" data-id="${t.id}">
-        <div class="rv-main"><b>${(t.merchant || t.description || "Movimiento")}<span class="rv-chip ${isPend?"pend":"auto"}">${isPend?"Pendiente":"Automático"}</span></b><span>${bank} · ${fmtReviewWhen(t.occurredAt)}</span></div>
+        <div class="rv-main"><b>${(t.merchant || t.description || "Movimiento")}<span class="rv-chip ${isPend?"pend":"auto"}">${isPend?"Pendiente":"Automático"}</span></b><span>${bank} · ${fmtReviewWhen(t.occurredAt, t.source)}</span></div>
         <div class="rv-amt">${t.type==="INCOME"?"+ ":""}${sym(t.currency)} ${Number(t.amount).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
         <select class="rv-cat" aria-label="Categoría">${t.categoryId?"":'<option value="" selected>Sin categoría</option>'}${catOptions}</select>
         <div class="rv-actions">${isPend?`<button class="rv-btn ok" data-act="CONFIRMED">Confirmar</button>`:""}<button class="rv-btn no" data-act="REJECTED">Descartar</button></div>
