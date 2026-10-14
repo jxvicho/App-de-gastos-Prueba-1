@@ -4452,7 +4452,10 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
 .wc-btns button{border:1px solid var(--accent,#2472c8);background:var(--card);color:var(--accent,#2472c8);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;font-family:inherit;}
 .wc-btns button:disabled{opacity:.45;cursor:default;}
 .wc-form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line);}
-.wc-form input{flex:1 1 0;min-width:0;width:0;min-height:40px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-family:inherit;font-size:14px;background:var(--card);color:var(--ink);}
+.wc-form{align-items:flex-end;}
+.wc-form .wc-ic,.wc-form button#wcSend{min-height:40px;}
+.wc-form textarea{flex:1 1 0;min-width:0;width:0;height:40px;min-height:40px;max-height:140px;resize:none;border:1px solid var(--line);border-radius:12px;padding:10px 12px;line-height:20px;font-family:inherit;font-size:14px;background:var(--card);color:var(--ink);box-sizing:border-box;overflow-y:auto;}
+.wc-form textarea:focus{height:64px;}
 .wc-form button{flex:none;border:0;border-radius:12px;background:var(--accent,#2472c8);color:#fff;padding:0 16px;font-weight:700;cursor:pointer;}
 .wc-form button:disabled{opacity:.5;}
 .wc-form .wc-ic{background:var(--bg);border:1px solid var(--line);color:var(--ink);padding:0 10px;font-size:16px;}
@@ -4466,7 +4469,7 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
   <div class="wc-head"><div>Chat de Gastia<small id="wcSub">Pregúntame o registra un gasto</small></div><button type="button" id="wcClose" aria-label="Cerrar">×</button></div>
   <div id="wcMsgs"></div>
   <div id="wcReply"><span id="wcReplyTxt"></span><button type="button" id="wcReplyX" aria-label="Quitar respuesta">✕</button></div>
-  <form class="wc-form" id="wcForm"><button type="button" class="wc-ic" id="wcAttach" title="Adjuntar captura" aria-label="Adjuntar captura">📎</button><button type="button" class="wc-ic" id="wcMic" title="Nota de voz" aria-label="Grabar nota de voz">🎤</button><input type="file" id="wcFile" accept="image/jpeg,image/png,image/webp" hidden><input id="wcInput" maxlength="1000" autocomplete="off" placeholder="Escribe un mensaje…"><button id="wcSend" type="submit">Enviar</button></form>
+  <form class="wc-form" id="wcForm"><button type="button" class="wc-ic" id="wcAttach" title="Adjuntar captura" aria-label="Adjuntar captura">📎</button><button type="button" class="wc-ic" id="wcMic" title="Nota de voz" aria-label="Grabar nota de voz">🎤</button><input type="file" id="wcFile" accept="image/jpeg,image/png,image/webp" hidden><textarea id="wcInput" rows="1" maxlength="1000" autocomplete="off" placeholder="Escribe un mensaje…"></textarea><button id="wcSend" type="submit">Enviar</button></form>
 </div>
 <script>
 (function(){
@@ -4608,7 +4611,12 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
   setInterval(pollNew, 10000);
   fab.addEventListener("click",()=>{ panel.classList.toggle("open"); if(panel.classList.contains("open")){ unread=0; setBadge(); if(!loaded) loadHistory(); else scrollEnd(); if(!touchDevice) input.focus(); /* en celular no abrimos el teclado solos */ } });
   document.getElementById("wcClose").addEventListener("click",()=>panel.classList.remove("open"));
-  form.addEventListener("submit",e=>{ e.preventDefault(); const t=input.value.trim(); if(!t) return; input.value=""; disableOldButtons(); send({text:t}); });
+  function growInput(){ input.style.height="auto"; const base=(document.activeElement===input||input.value)?64:40; input.style.height=Math.min(Math.max(input.scrollHeight+2,base),140)+"px"; }
+  input.addEventListener("input",growInput);
+  input.addEventListener("focus",growInput);
+  input.addEventListener("blur",()=>{ if(!input.value) input.style.height=""; });
+  input.addEventListener("keydown",e=>{ if(e.key==="Enter" && !e.shiftKey && !touchDevice && !e.isComposing){ e.preventDefault(); form.requestSubmit(); } });
+  form.addEventListener("submit",e=>{ e.preventDefault(); const t=input.value.trim(); if(!t) return; input.value=""; input.style.height=""; disableOldButtons(); send({text:t}); });
   // El botón solo aparece si el backend tiene el chat web habilitado.
   api("/chat/config").then(c=>{ if(c && c.enabled){ fab.classList.add("show"); loadHistory(); } }).catch(()=>{});
 })();
