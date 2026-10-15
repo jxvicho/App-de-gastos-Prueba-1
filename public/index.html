@@ -1981,14 +1981,40 @@ function renderRanking(rows){
 /* =========================================================
    TREND (weekly / monthly, income + expense, Y axis)
    ========================================================= */
+const TREND_MONTHS = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+function ymdOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+// Semanas de lunes a domingo (igual que el resumen semanal). La clave semanal es la fecha del lunes.
 function bucketKey(dateStr, gran){
   const d = new Date(dateStr+"T00:00:00");
   if(gran === "month"){
     return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
   }
-  const jan1 = new Date(d.getFullYear(),0,1);
-  const week = Math.ceil((((d-jan1)/86400000) + jan1.getDay()+1)/7);
-  return d.getFullYear()+"-W"+String(week).padStart(2,"0");
+  const back = (d.getDay()+6)%7; // lunes=0 ... domingo=6
+  d.setDate(d.getDate()-back);
+  return ymdOf(d);
+}
+// Todas las claves entre la primera y la última (incluye periodos sin movimientos).
+function bucketRange(firstKey, lastKey, gran){
+  const keys = [];
+  if(gran === "month"){
+    let [y,m] = firstKey.split("-").map(Number);
+    const [ly,lm] = lastKey.split("-").map(Number);
+    while(y < ly || (y === ly && m <= lm)){
+      keys.push(y+"-"+String(m).padStart(2,"0"));
+      m++; if(m > 12){ m = 1; y++; }
+    }
+    return keys;
+  }
+  const d = new Date(firstKey+"T00:00:00"), end = new Date(lastKey+"T00:00:00");
+  while(d <= end){ keys.push(ymdOf(d)); d.setDate(d.getDate()+7); }
+  return keys;
+}
+// "6–12 oct" o "29 sep–5 oct" cuando la semana cruza de mes.
+function weekRangeLabel(mondayKey){
+  const a = new Date(mondayKey+"T00:00:00"), b = new Date(mondayKey+"T00:00:00");
+  b.setDate(b.getDate()+6);
+  if(a.getMonth() === b.getMonth()) return a.getDate()+"–"+b.getDate()+" "+TREND_MONTHS[b.getMonth()];
+  return a.getDate()+" "+TREND_MONTHS[a.getMonth()]+"–"+b.getDate()+" "+TREND_MONTHS[b.getMonth()];
 }
 
 function renderTrend(){
@@ -2009,8 +2035,9 @@ function renderTrend(){
     target[key].sum += t.amount;
     if(t.date < target[key].minDate) target[key].minDate = t.date;
   });
-  const allKeys = Array.from(new Set([...Object.keys(bucketsIn), ...Object.keys(bucketsEg)])).sort();
-  if(!allKeys.length) return;
+  const usedKeys = Array.from(new Set([...Object.keys(bucketsIn), ...Object.keys(bucketsEg)])).sort();
+  if(!usedKeys.length) return;
+  const allKeys = bucketRange(usedKeys[0], usedKeys[usedKeys.length-1], gran);
 
   const egVals = allKeys.map(k=> bucketsEg[k] ? bucketsEg[k].sum : 0);
   const inVals = allKeys.map(k=> bucketsIn[k] ? bucketsIn[k].sum : 0);
@@ -2049,7 +2076,11 @@ function renderTrend(){
   const slot = plotW / allKeys.length;
   const barW = Math.max(8, Math.min(24, slot * 0.28));
   const gap = 4;
-  function drawBar(x, value, color){
+  function tipPrefix(k){
+    if(gran === "month"){ const [y,m] = k.split("-"); return TREND_MONTHS[parseInt(m,10)-1]+" "+y+": "; }
+    return "Semana "+weekRangeLabel(k)+": ";
+  }
+  function drawBar(x, value, color, k){
     if(!(value > 0)) return;
     const h = Math.max(3, (value/maxVal) * plotH);
     const r = document.createElementNS(ns,"rect");
@@ -2057,14 +2088,14 @@ function renderTrend(){
     r.setAttribute("width", barW); r.setAttribute("height", h);
     r.setAttribute("rx", Math.min(6, barW/2)); r.setAttribute("fill", color);
     const tip = document.createElementNS(ns,"title");
-    tip.textContent = fmtShort(value, state.heroCurrency);
+    tip.textContent = tipPrefix(k) + fmtShort(value, state.heroCurrency);
     r.appendChild(tip);
     svg.appendChild(r);
   }
   allKeys.forEach((k,i)=>{
     const cx = padL + slot*(i+0.5);
-    drawBar(cx - barW - gap/2, egVals[i], "#2472c8");
-    drawBar(cx + gap/2, inVals[i], "#1a9e6c");
+    drawBar(cx - barW - gap/2, egVals[i], "#2472c8", k);
+    drawBar(cx + gap/2, inVals[i], "#1a9e6c", k);
   });
 
   if(showBudgetLine){
@@ -2085,20 +2116,23 @@ function renderTrend(){
     svg.appendChild(bLabel);
   }
 
-  // X labels
+  // X labels — semanal: rango lunes–domingo; si hay muchas, una de cada N para que no se pisen.
+  const step = Math.max(1, Math.ceil(allKeys.length / (gran === "month" ? 12 : 9)));
+  const curKey = bucketKey(todayStr(), gran);
   allKeys.forEach((k,i)=>{
+    const isCur = k === curKey;
+    if((allKeys.length-1-i) % step !== 0) return; // se cuenta desde el final: el periodo más reciente siempre lleva etiqueta
     const x = padL + slot*(i+0.5);
-    const src = bucketsEg[k] || bucketsIn[k];
     const t = document.createElementNS(ns,"text");
     t.setAttribute("x",x); t.setAttribute("y",H-10);
     t.setAttribute("text-anchor","middle");
-    t.setAttribute("font-size","10.5"); t.setAttribute("fill","#8b96a5");
+    t.setAttribute("font-size","10.5"); t.setAttribute("fill", isCur ? "#2472c8" : "#8b96a5");
+    if(isCur) t.setAttribute("font-weight","700");
     if(gran === "month"){
       const [y,m] = k.split("-");
-      const names = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-      t.textContent = names[parseInt(m,10)-1] + " " + y;
+      t.textContent = TREND_MONTHS[parseInt(m,10)-1] + " " + y;
     } else {
-      t.textContent = fmtDateShort(src.minDate);
+      t.textContent = weekRangeLabel(k);
     }
     svg.appendChild(t);
   });
