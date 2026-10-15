@@ -7,6 +7,7 @@ import { extractTransactionFromEmail } from "./gemini";
 import { resolveIngestStatus, afterEmailTransactionCreated } from "./emailIngest";
 import { normalizeText } from "../utils/text";
 import { findMatchingRuleCategory, sleep, stripHtml } from "./outlookSync";
+import { buildSenderIndex, searchTerms, matchSender, learnConfirmedSenders } from "./bankSenders";
 
 const FIRST_SYNC_LOOKBACK_DAYS = 7;
 
@@ -37,12 +38,6 @@ function header(msg: gmail_v1.Schema$Message, name: string): string {
   return msg.payload?.headers?.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? "";
 }
 
-/** "Banco X <alertas@banco.com>" -> "alertas@banco.com" */
-function parseAddress(from: string): string {
-  const m = from.match(/<([^>]+)>/);
-  return (m ? m[1] : from).trim().toLowerCase();
-}
-
 export async function syncGmailAccount(account: EmailAccountWithSenders): Promise<void> {
   if (account.bankSenders.length === 0) return;
 
@@ -51,11 +46,10 @@ export async function syncGmailAccount(account: EmailAccountWithSenders): Promis
   const since = account.lastSyncedAt ?? new Date(Date.now() - FIRST_SYNC_LOOKBACK_DAYS * 86_400_000);
   const afterEpoch = Math.floor(since.getTime() / 1000);
 
-  const senderToBank = new Map<string, BankSender>();
-  for (const bank of account.bankSenders) {
-    for (const senderEmail of bank.senderEmails) senderToBank.set(senderEmail.toLowerCase(), bank);
-  }
-  if (senderToBank.size === 0) return;
+  await learnConfirmedSenders(account.userId, account.bankSenders);
+  const senderIndex = buildSenderIndex(account.bankSenders);
+  const terms = searchTerms(senderIndex);
+  if (terms.length === 0) return;
 
   const categories = await prisma.category.findMany({
     where: { userId: account.userId, isArchived: false },
@@ -70,7 +64,7 @@ export async function syncGmailAccount(account: EmailAccountWithSenders): Promis
     orderBy: { createdAt: "desc" },
   });
 
-  const query = `from:(${[...senderToBank.keys()].join(" OR ")}) after:${afterEpoch}`;
+  const query = `from:(${terms.join(" OR ")}) after:${afterEpoch}`;
 
   let messageIds: string[] = [];
   try {
@@ -101,8 +95,9 @@ export async function syncGmailAccount(account: EmailAccountWithSenders): Promis
       continue;
     }
 
-    const bank = senderToBank.get(parseAddress(header(msg, "From")));
-    if (!bank) continue;
+    const match = matchSender(header(msg, "From"), header(msg, "Authentication-Results"), senderIndex);
+    if (!match) continue;
+    const bank = match.bank;
 
     const bodyText = extractBody(msg.payload);
     if (!bodyText) continue;
@@ -128,7 +123,8 @@ export async function syncGmailAccount(account: EmailAccountWithSenders): Promis
     const receivedAt = msg.internalDate ? new Date(Number(msg.internalDate)) : new Date();
 
     try {
-      const ingestStatus = await resolveIngestStatus(account.user);
+      // Remitente reconocido solo por dominio: siempre pendiente hasta que el usuario lo confirme.
+      const ingestStatus = match.viaDomain ? "PENDING_CONFIRMATION" : await resolveIngestStatus(account.user);
       const created = await prisma.transaction.create({
         data: {
           userId: account.userId,
@@ -143,7 +139,7 @@ export async function syncGmailAccount(account: EmailAccountWithSenders): Promis
           status: ingestStatus,
           occurredAt: extracted.occurredAt ? new Date(extracted.occurredAt) : receivedAt,
           rawEmailId,
-          extractionMeta: extracted as any,
+          extractionMeta: { ...extracted, senderAddress: match.address, matchedByDomain: match.viaDomain } as any,
         },
       });
       createdCount++;

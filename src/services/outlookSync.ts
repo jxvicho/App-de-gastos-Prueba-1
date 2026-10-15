@@ -6,6 +6,7 @@ import { getMicrosoftAccessToken } from "./microsoftOAuth";
 import { extractTransactionFromEmail } from "./gemini";
 import { resolveIngestStatus, afterEmailTransactionCreated } from "./emailIngest";
 import { normalizeText } from "../utils/text";
+import { buildSenderIndex, matchSender, learnConfirmedSenders } from "./bankSenders";
 
 type RuleWithCategory = CategoryRule & { category: { id: string; name: string } };
 
@@ -75,12 +76,8 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
   const since = account.lastSyncedAt ?? new Date(Date.now() - FIRST_SYNC_LOOKBACK_DAYS * 86_400_000);
   const sinceIso = since.toISOString();
 
-  const senderToBank = new Map<string, BankSender>();
-  for (const bank of account.bankSenders) {
-    for (const senderEmail of bank.senderEmails) {
-      senderToBank.set(senderEmail.toLowerCase(), bank);
-    }
-  }
+  await learnConfirmedSenders(account.userId, account.bankSenders);
+  const senderIndex = buildSenderIndex(account.bankSenders);
 
   // Categorías reales del usuario, para pedirle a Gemini que sugiera una y
   // para resolver el nombre que devuelva al id real (tolerante a mayúsculas/tildes).
@@ -107,7 +104,7 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
       .orderby("receivedDateTime desc")
       .count(true)
       .top(100)
-      .select("id,subject,body,receivedDateTime,from")
+      .select("id,subject,body,receivedDateTime,from,internetMessageHeaders")
       .get();
     allMessages = result.value ?? [];
   } catch (err) {
@@ -115,16 +112,22 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
     return;
   }
 
-  const matchedMessages = allMessages.filter((message) => {
-    const address = message.from?.emailAddress?.address?.toLowerCase();
-    return !!address && senderToBank.has(address);
-  });
+  const authOf = (message: any): string =>
+    ((message.internetMessageHeaders ?? []) as { name: string; value: string }[])
+      .filter((h) => h.name?.toLowerCase() === "authentication-results")
+      .map((h) => h.value)
+      .join("; ");
+  const matchedMessages = allMessages
+    .map((message) => ({
+      message,
+      match: matchSender(message.from?.emailAddress?.address ?? "", authOf(message), senderIndex),
+    }))
+    .filter((m) => !!m.match) as { message: any; match: NonNullable<ReturnType<typeof matchSender>> }[];
 
   let createdCount = 0;
 
-  for (const message of matchedMessages) {
-    const address = message.from.emailAddress.address.toLowerCase() as string;
-    const bank = senderToBank.get(address)!;
+  for (const { message, match } of matchedMessages) {
+    const bank = match.bank;
 
     const alreadyProcessed = await prisma.transaction.findFirst({
       where: { userId: account.userId, rawEmailId: message.id },
@@ -163,7 +166,8 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
     const matchedCategory = ruleCategory ?? geminiCategory;
 
     try {
-      const ingestStatus = await resolveIngestStatus(account.user);
+      // Remitente reconocido solo por dominio: siempre pendiente hasta que el usuario lo confirme.
+      const ingestStatus = match.viaDomain ? "PENDING_CONFIRMATION" : await resolveIngestStatus(account.user);
       const created = await prisma.transaction.create({
         data: {
           userId: account.userId,
@@ -180,7 +184,7 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
             ? new Date(extracted.occurredAt)
             : new Date(message.receivedDateTime),
           rawEmailId: message.id,
-          extractionMeta: extracted as any,
+          extractionMeta: { ...extracted, senderAddress: match.address, matchedByDomain: match.viaDomain } as any,
         },
       });
       createdCount++;
