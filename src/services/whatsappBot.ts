@@ -220,11 +220,29 @@ function textContainsAllWords(haystackText: string, words: string[]): boolean {
 }
 
 /**
+ * "Ahora" en hora de pared de Lima (UTC-5 fijo), representado como un Date cuyos
+ * getters locales (contenedor en UTC) dan la fecha/hora de Lima. Sin esto, desde
+ * las 7 pm de Lima "hoy" ya era el día siguiente.
+ */
+function limaNow(): Date {
+  return new Date(Date.now() - 5 * 3600_000);
+}
+const LIMA_OFFSET_MS = 5 * 3600_000;
+const COUNTED_STATUSES = ["CONFIRMED", "AUTO_CONFIRMED"] as const;
+/**
+ * Hora de pared de Lima de un movimiento: los de correo guardan la hora de Lima como
+ * si fuera UTC; los manuales/WhatsApp/chat guardan el instante real.
+ */
+function limaWallTime(t: { occurredAt: Date; source?: string | null }): Date {
+  return String(t.source ?? "").startsWith("EMAIL") ? t.occurredAt : new Date(t.occurredAt.getTime() - LIMA_OFFSET_MS);
+}
+
+/**
  * "hoy"/"ayer"/"anteayer" -> rango [inicio, fin) que cubre TODOS los días
  * mencionados (ej. "hoy y ayer" -> desde el inicio de ayer hasta el fin de hoy).
  */
 function extractDateRange(normalizedText: string): { start: Date; end: Date } | undefined {
-  const now = new Date();
+  const now = limaNow();
   const offsets: number[] = [];
   if (/\bhoy\b/.test(normalizedText)) offsets.push(0);
   if (/\bayer\b/.test(normalizedText)) offsets.push(1);
@@ -435,7 +453,7 @@ function hasExplicitSummaryPeriod(normalizedText: string): boolean {
 function extractSummaryDateRange(
   normalizedText: string
 ): { start: Date; end: Date; label: string; isMultiDay: boolean; isMonth?: boolean } {
-  const now = new Date();
+  const now = limaNow();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   if (/\bsemana\b/.test(normalizedText)) {
@@ -551,15 +569,21 @@ async function buildSummaryReply(
   const summaryType = summaryTypeOverride ?? detectSummaryType(normalizedText);
   const typeLabel = summaryType === "INCOME" ? "ingresos" : "gastos";
 
-  const transactions = await prisma.transaction.findMany({
+  // Ventana ampliada +5 h porque los movimientos manuales guardan el instante real
+  // (Lima = UTC-5); luego se filtra por hora de pared de Lima, según el origen.
+  const candidates = await prisma.transaction.findMany({
     where: {
       userId,
-      status: "CONFIRMED",
+      status: { in: [...COUNTED_STATUSES] },
       deletedAt: null,
       type: summaryType,
-      occurredAt: { gte: start, lt: end },
+      occurredAt: { gte: start, lt: new Date(end.getTime() + LIMA_OFFSET_MS) },
     },
     include: { category: true },
+  });
+  const transactions = candidates.filter((t) => {
+    const w = limaWallTime(t).getTime();
+    return w >= start.getTime() && w < end.getTime();
   });
 
   if (transactions.length === 0) {
@@ -666,7 +690,7 @@ async function buildMonthlySummaryReply(
     const agg = await prisma.transaction.aggregate({
       where: {
         userId,
-        status: "CONFIRMED",
+        status: { in: [...COUNTED_STATUSES] },
         deletedAt: null,
         type: summaryType,
         currency,
