@@ -125,6 +125,40 @@ export interface WebReply {
   text: string;
   buttons?: { id: string; title: string }[];
 }
+/**
+ * Movimiento "en curso" de la conversación actual: cuando el bot habla de una
+ * transacción puntual (confirmarla, recategorizarla, avisar que se registró),
+ * los mensajes que envíe a continuación se asocian a ella. Así, si el usuario
+ * responde (swipe-reply) a CUALQUIERA de esos mensajes, se sabe a cuál se refiere.
+ */
+const txnContextStore = new AsyncLocalStorage<{ txnId?: string }>();
+export function beginTxnContext(): void {
+  txnContextStore.enterWith({});
+}
+export function setCurrentTxn(txnId: string): void {
+  const store = txnContextStore.getStore();
+  if (store) store.txnId = txnId;
+}
+const TXN_CTX_PREFIX = "wa:txnctx:";
+const TXN_CTX_TTL_SECONDS = 30 * 24 * 3600;
+async function rememberTxnForMessage(wamid: string | undefined): Promise<void> {
+  const txnId = txnContextStore.getStore()?.txnId;
+  if (!wamid || !txnId || wamid === "web") return;
+  try {
+    await redisConnection.set(TXN_CTX_PREFIX + wamid, txnId, "EX", TXN_CTX_TTL_SECONDS);
+  } catch (err) {
+    console.error("No se pudo guardar el contexto del mensaje:", err);
+  }
+}
+/** id de la transacción a la que se asoció un mensaje enviado por el bot (si se recuerda). */
+export async function findTxnIdForMessage(wamid: string): Promise<string | null> {
+  try {
+    return await redisConnection.get(TXN_CTX_PREFIX + wamid);
+  } catch {
+    return null;
+  }
+}
+
 const webChannelStore = new AsyncLocalStorage<{ replies: WebReply[]; nextButtons?: { id: string; title: string }[] }>();
 
 /**
@@ -253,6 +287,7 @@ export async function sendTextMessage(to: string, body: string, opts: SendOpts =
     });
     const wamid = data.messages?.[0]?.id;
     await recordOutbound(auth.userId, wamid, kind, false);
+    await rememberTxnForMessage(wamid);
     return wamid;
   } catch (err) {
     console.error(`No se pudo enviar el mensaje de texto a ${to}:`, err);
@@ -307,6 +342,7 @@ export async function sendInteractiveButtons(
     });
     const wamid = data.messages?.[0]?.id;
     await recordOutbound(auth.userId, wamid, kind, false);
+    await rememberTxnForMessage(wamid);
     return wamid;
   } catch (err) {
     console.error(`No se pudieron enviar los botones a ${to}:`, err);

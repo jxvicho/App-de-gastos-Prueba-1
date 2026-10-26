@@ -1,6 +1,6 @@
 import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
-import { sendInteractiveButtons, sendTextMessage, isWebChannel, runInWebChannel, queueWebButtons, WebReply } from "./whatsapp";
+import { sendInteractiveButtons, sendTextMessage, isWebChannel, runInWebChannel, queueWebButtons, WebReply, beginTxnContext, setCurrentTxn, findTxnIdForMessage } from "./whatsapp";
 import { downloadWhatsappMedia } from "./whatsappMedia";
 import { recordWebBotMessage } from "./webChatNotify";
 import { findEquivalentRule } from "./ruleDedup";
@@ -2243,6 +2243,7 @@ async function confirmTransaction(
   petLabel: PetPersona | null,
   categoryOverride?: { id: string; name: string }
 ): Promise<string> {
+  setCurrentTxn(pending.id);
   await prisma.transaction.update({
     where: { id: pending.id },
     data: {
@@ -2282,6 +2283,7 @@ async function recategorizeConfirmedTransaction(
   from: string,
   category: { id: string; name: string }
 ): Promise<void> {
+  setCurrentTxn(pending.id);
   await prisma.transaction.update({
     where: { id: pending.id },
     data: { categoryId: category.id },
@@ -2447,6 +2449,7 @@ export async function handleIncomingMessage(
   text: string,
   contextMessageId?: string | null
 ): Promise<void> {
+  beginTxnContext();
   const user = await findUserByWhatsappNumber(from);
   if (!user) {
     console.log(`WhatsApp: mensaje de un número no registrado (${from}), se ignora.`);
@@ -3195,12 +3198,24 @@ export async function handleIncomingMessage(
   // mencionada, sin relación alguna con lo que el usuario quiso decir.
   let contextIdFailedToResolve = false;
   if (contextMessageId) {
-    const byContext = await prisma.transaction.findFirst({
+    let byContext = await prisma.transaction.findFirst({
       where: contextMessageId.startsWith("web:txn:")
         ? { userId: user.id, id: contextMessageId.slice("web:txn:".length) }
         : { userId: user.id, lastNotificationMessageId: contextMessageId },
       include: { category: true },
     });
+    // Respuesta a un mensaje del bot que no es la notificación original
+    // ("ya lo guardó", "Listo", aviso de registro automático…): buscamos a qué
+    // movimiento se asoció ese mensaje cuando lo enviamos.
+    if (!byContext && !contextMessageId.startsWith("web:txn:")) {
+      const linkedTxnId = await findTxnIdForMessage(contextMessageId);
+      if (linkedTxnId) {
+        byContext = await prisma.transaction.findFirst({
+          where: { userId: user.id, id: linkedTxnId },
+          include: { category: true },
+        });
+      }
+    }
 
     if (byContext) {
       console.log(
@@ -3735,6 +3750,8 @@ export async function notifyAutoRegisteredTransaction(
   if (!phoneNumber) return;
 
   const text = buildAutoRegisteredBody(transaction, petLabel);
+  beginTxnContext();
+  setCurrentTxn(transaction.id);
   await sendTextMessage(phoneNumber, text, { kind: "txn_notification" });
 }
 
