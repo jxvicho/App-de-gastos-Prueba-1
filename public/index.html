@@ -1342,6 +1342,7 @@ tbody tr:hover{background:#f7faff;}
           <div class="card-sub">Gastia lee solo los avisos de tus bancos para detectar tus movimientos automáticamente.</div>
           <div class="acc-list" id="connected-accounts-list"></div>
           <div class="cfg-actions">
+            <div id="email-limit-note" style="width:100%;font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;"></div>
             <button class="btn-save" id="connect-outlook-btn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Conectar Outlook</button>
             <button class="btn-soft" id="connect-gmail-btn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Conectar Gmail</button>
           </div>
@@ -2989,6 +2990,15 @@ async function loadEmailAccounts(){
     return;
   }
 
+  const full = EMAIL_ACCOUNTS.length >= 2;
+  ["connect-outlook-btn","connect-gmail-btn"].forEach(id=>{
+    const b = document.getElementById(id);
+    b.disabled = full;
+    b.title = full ? "Ya conectaste 2 correos. Desconecta uno para agregar otro." : "";
+  });
+  const cnt = document.getElementById("email-limit-note");
+  if(cnt) cnt.textContent = `${EMAIL_ACCOUNTS.length} de 2 correos conectados` + (full ? " · desconecta uno para agregar otro" : "");
+
   wrap.innerHTML = "";
   if(!EMAIL_ACCOUNTS.length){
     wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">Aún no conectaste ningún correo.</div>`;
@@ -3930,6 +3940,14 @@ document.getElementById("bank-search").addEventListener("input", e=>{
 
 function checkEmailConnectedRedirect(){
   const params = new URLSearchParams(window.location.search);
+  if(params.get("email_error")){
+    const code = params.get("email_error");
+    params.delete("email_error");
+    const rest0 = params.toString();
+    history.replaceState({}, "", window.location.pathname + (rest0 ? "?"+rest0 : "") + window.location.hash);
+    showView("config");
+    alert(code === "limit" ? "Puedes conectar hasta 2 correos. Desconecta uno para agregar otro." : "No se pudo conectar el correo (" + code + ").");
+  }
   if(params.get("email_connected") === "1"){
     params.delete("email_connected");
     const rest = params.toString();

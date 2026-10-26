@@ -12,6 +12,26 @@ import { getGoogleAuthUrl, exchangeGoogleCode, isGoogleConfigured } from "../ser
 
 export const emailAccountsRouter = Router();
 
+/** Máximo de correos conectados (activos) por usuario, en cualquier combinación Gmail/Outlook, para todos los planes. */
+export const MAX_EMAIL_ACCOUNTS = 2;
+const LIMIT_MESSAGE = `Puedes conectar hasta ${MAX_EMAIL_ACCOUNTS} correos. Desconecta uno para agregar otro.`;
+
+/**
+ * ¿Puede el usuario conectar este correo? Siempre si ya está activo (reconectar/renovar permisos);
+ * si es nuevo (o estaba desconectado), solo si le queda cupo. Sin email (antes del OAuth) solo mira el cupo.
+ */
+async function canConnectEmail(userId: string, emailAddress?: string): Promise<boolean> {
+  if (emailAddress) {
+    const existing = await prisma.emailAccount.findUnique({
+      where: { userId_emailAddress: { userId, emailAddress } },
+      select: { isActive: true },
+    });
+    if (existing?.isActive) return true;
+  }
+  const active = await prisma.emailAccount.count({ where: { userId, isActive: true } });
+  return active < MAX_EMAIL_ACCOUNTS;
+}
+
 emailAccountsRouter.get(
   "/",
   requireAuth,
@@ -103,6 +123,8 @@ emailAccountsRouter.get(
   "/auth/microsoft",
   requireAuth,
   asyncHandler(async (req, res) => {
+    // Con el cupo lleno no se inicia otra conexión (el callback también lo valida).
+    if (!(await canConnectEmail(req.userId!)) ) throw new AppError(LIMIT_MESSAGE, 409);
     const state = jwt.sign({ sub: req.userId }, env.JWT_SECRET, { expiresIn: "10m" });
     const url = await getMicrosoftAuthUrl(state);
     res.json({ url });
@@ -128,6 +150,9 @@ emailAccountsRouter.get(
     }
 
     const tokens = await exchangeMicrosoftCode(code);
+    if (!(await canConnectEmail(userId, tokens.email))) {
+      return res.redirect(`${env.APP_BASE_URL}/?email_error=${encodeURIComponent("limit")}`);
+    }
 
     await prisma.emailAccount.upsert({
       where: { userId_emailAddress: { userId, emailAddress: tokens.email } },
@@ -159,6 +184,7 @@ emailAccountsRouter.get(
     if (!isGoogleConfigured()) {
       throw new AppError("La conexión con Gmail aún no está configurada en el servidor", 503);
     }
+    if (!(await canConnectEmail(req.userId!))) throw new AppError(LIMIT_MESSAGE, 409);
     const state = jwt.sign({ sub: req.userId }, env.JWT_SECRET, { expiresIn: "10m" });
     res.json({ url: getGoogleAuthUrl(state) });
   })
@@ -183,6 +209,9 @@ emailAccountsRouter.get(
     }
 
     const tokens = await exchangeGoogleCode(code);
+    if (!(await canConnectEmail(userId, tokens.email))) {
+      return res.redirect(`${env.APP_BASE_URL}/?email_error=${encodeURIComponent("limit")}`);
+    }
 
     await prisma.emailAccount.upsert({
       where: { userId_emailAddress: { userId, emailAddress: tokens.email } },
