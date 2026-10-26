@@ -6,6 +6,7 @@ import { AppError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { limaDayStart } from "../services/plans";
+import { DAILY_HARD_CAP_PER_USER } from "../config/plans";
 import { handleWebMessage, handleWebMedia, textForButtonReply } from "../services/whatsappBot";
 
 /**
@@ -17,6 +18,8 @@ export const chatRouter = Router();
 chatRouter.use(requireAuth);
 
 const MAX_TEXT = 1000;
+/** Tope diario del chat web: el configurado, pero nunca más que el tope duro de seguridad por usuario. */
+const WEB_DAILY_CAP = Math.min(env.WEB_CHAT_DAILY_CAP, DAILY_HARD_CAP_PER_USER);
 
 function requireEnabled() {
   if (!env.WEB_CHAT_ENABLED) throw new AppError("El chat web no está habilitado", 404);
@@ -55,7 +58,7 @@ const AUDIO_TYPES = ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audi
 chatRouter.get(
   "/config",
   asyncHandler(async (_req, res) => {
-    res.json({ enabled: env.WEB_CHAT_ENABLED, dailyCap: env.WEB_CHAT_DAILY_CAP, media: true });
+    res.json({ enabled: env.WEB_CHAT_ENABLED, dailyCap: WEB_DAILY_CAP, media: true });
   })
 );
 
@@ -81,7 +84,7 @@ chatRouter.get(
       take: 60,
     });
     const used = await usedToday(session.id);
-    res.json({ messages: rows.reverse().map(serialize), remainingToday: Math.max(0, env.WEB_CHAT_DAILY_CAP - used) });
+    res.json({ messages: rows.reverse().map(serialize), remainingToday: Math.max(0, WEB_DAILY_CAP - used) });
   })
 );
 
@@ -118,7 +121,7 @@ chatRouter.post(
     const session = await getSession(userId);
 
     const used = await usedToday(session.id);
-    if (used >= env.WEB_CHAT_DAILY_CAP) {
+    if (used >= WEB_DAILY_CAP) {
       throw new AppError("Llegaste al límite de mensajes del chat por hoy. Mañana podrás seguir.", 429);
     }
 
@@ -150,7 +153,7 @@ chatRouter.post(
     }
     await prisma.whatsappSession.update({ where: { id: session.id }, data: { lastMessageAt: new Date() } });
 
-    res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, env.WEB_CHAT_DAILY_CAP - used - 1) });
+    res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, WEB_DAILY_CAP - used - 1) });
   })
 );
 
@@ -173,7 +176,7 @@ chatRouter.post(
     const userId = req.userId!;
     const session = await getSession(userId);
     const used = await usedToday(session.id);
-    if (used >= env.WEB_CHAT_DAILY_CAP) {
+    if (used >= WEB_DAILY_CAP) {
       throw new AppError("Llegaste al límite de mensajes del chat por hoy. Mañana podrás seguir.", 429);
     }
 
@@ -198,6 +201,6 @@ chatRouter.post(
       );
     }
     await prisma.whatsappSession.update({ where: { id: session.id }, data: { lastMessageAt: new Date() } });
-    res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, env.WEB_CHAT_DAILY_CAP - used - 1) });
+    res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, WEB_DAILY_CAP - used - 1) });
   })
 );
