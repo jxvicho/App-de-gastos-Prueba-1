@@ -19,6 +19,9 @@ export const COUNTED_MESSAGE_KINDS = ["reply", "alert", "txn_notification"] as c
 
 export const DAILY_HARD_CAP_PER_USER = 50;
 
+/** Tope duro de mensajes del chat web por usuario y día (Lima): no cuesta Meta, pero sí IA. Para todos los planes. */
+export const WEB_CHAT_HARD_CAP_PER_USER = 100;
+
 /** Tarifa de Meta (USD por mensaje entregado, Perú) usada cuando Meta no informa la categoría. */
 export const META_RATE_USD_PE = 0.03;
 

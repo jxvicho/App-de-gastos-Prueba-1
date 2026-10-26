@@ -6,7 +6,7 @@ import { AppError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { limaDayStart } from "../services/plans";
-import { DAILY_HARD_CAP_PER_USER } from "../config/plans";
+import { WEB_CHAT_HARD_CAP_PER_USER } from "../config/plans";
 import { handleWebMessage, handleWebMedia, textForButtonReply } from "../services/whatsappBot";
 
 /**
@@ -18,8 +18,8 @@ export const chatRouter = Router();
 chatRouter.use(requireAuth);
 
 const MAX_TEXT = 1000;
-/** Tope diario del chat web: el configurado, pero nunca más que el tope duro de seguridad por usuario. */
-const WEB_DAILY_CAP = Math.min(env.WEB_CHAT_DAILY_CAP, DAILY_HARD_CAP_PER_USER);
+/** Tope diario del chat web: fijo en código (no depende del .env), igual para todos los planes. */
+const WEB_DAILY_CAP = WEB_CHAT_HARD_CAP_PER_USER;
 
 function requireEnabled() {
   if (!env.WEB_CHAT_ENABLED) throw new AppError("El chat web no está habilitado", 404);
