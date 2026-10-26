@@ -711,6 +711,43 @@ tbody tr:hover{background:#f7faff;}
 .cat-item .prov{font-weight:500;font-size:12px;color:#5a6a80;}
 
 
+
+/* --- Administrar categorías (v2) --- */
+.modal-box.cat-modal{max-width:560px;padding:0;display:flex;flex-direction:column;max-height:90vh;max-height:90dvh;overflow:hidden;}
+.cm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 22px 8px;}
+.cm-head h4{font-size:18px;margin:0;}
+.cm-summary{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+.cm-x{border:0;background:#f1f4f9;width:34px;height:34px;border-radius:50%;font-size:20px;line-height:1;cursor:pointer;color:var(--ink-soft);flex:none;}
+.cm-x:hover{background:#e4e9f2;}
+.cm-tools{padding:6px 22px 10px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line);}
+.cm-tools input[type=search]{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;background:#f7f9fc;}
+.cm-seg{display:flex;gap:6px;}
+.cm-seg button{flex:1;border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 10px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+.cm-seg button.on{background:var(--accent,#2472c8);border-color:var(--accent,#2472c8);color:#fff;}
+.cm-body{flex:1;overflow-y:auto;padding:4px 22px 8px;min-height:120px;}
+.cm-hint{font-size:12px;color:var(--ink-faint);margin:10px 0 6px;}
+.cm-sec{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin:14px 0 2px;}
+.cm-empty{text-align:center;color:var(--ink-faint);font-size:13px;padding:28px 0;}
+.cat-item{gap:10px;padding:9px 6px;border-radius:12px;border-bottom:0;}
+.cat-item:hover{background:#f5f8fc;}
+.cat-item .ic{transition:transform .12s;}
+.cat-item .ic:hover{transform:scale(1.08);}
+.cat-item .nm{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.cat-item .nm .nm-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cat-item .nm .tag{font-size:10.5px;font-weight:700;color:#8a5a00;background:#fff3d6;border-radius:999px;padding:1px 8px;align-self:flex-start;}
+.cat-item .nm input{background:transparent;border-color:transparent;padding:5px 8px;margin:-5px -8px;}
+.cat-item .nm input:hover{border-color:var(--line);background:#fff;}
+.cat-item .nm input:focus{border-color:var(--accent,#2472c8);background:#fff;outline:0;}
+.cat-item .nm input.saved{border-color:#2e9d6a;}
+.cm-foot{border-top:1px solid var(--line);padding:12px 22px 18px;background:#fff;}
+.cm-foot .new-cat-toggle{margin-bottom:0;padding:6px 0;}
+.cm-foot .new-cat-form.open{margin-top:10px;max-height:40vh;overflow-y:auto;}
+@media (max-width:600px){
+  .modal-overlay#catModalOverlay{padding:0;align-items:stretch;}
+  .modal-box.cat-modal{max-width:none;max-height:none;height:100vh;height:100dvh;border-radius:0;}
+  .cm-head,.cm-tools,.cm-body,.cm-foot{padding-left:16px;padding-right:16px;}
+}
+
 /* --- Configuración (como la maqueta) --- */
 .cfg-title{margin:0;font-size:32px;font-weight:800;letter-spacing:-.025em;color:#0b2545;}
 .cfg-lead{margin:6px 0 0 0;font-size:15px;color:#4b5b70;}
@@ -1484,30 +1521,47 @@ tbody tr:hover{background:#f7faff;}
 </div>
 
 <div class="modal-overlay" id="catModalOverlay">
-  <div class="modal-box">
-    <h4>Categorías</h4>
-    <div class="modal-sub">Las predefinidas solo permiten cambiar el ícono. Las que tú creaste se pueden renombrar, cambiar de ícono o eliminar.</div>
-
-    <div class="modal-list" id="existingCatList"></div>
-
-    <div class="divider"></div>
-    <div class="new-cat-toggle" id="newCatToggle">＋ Crear nueva categoría</div>
-    <div class="new-cat-form" id="newCatForm">
-      <div class="modal-field">
-        <label>Nombre</label>
-        <input type="text" id="newCatName" placeholder="Ej. Educación, Mascotas, Ahorro…">
+  <div class="modal-box cat-modal" role="dialog" aria-label="Administrar categorías">
+    <div class="cm-head">
+      <div>
+        <h4>Categorías</h4>
+        <div class="cm-summary" id="catSummary"></div>
       </div>
-      <div class="modal-field">
-        <label>Ícono</label>
-        <div class="icon-grid" id="newCatIconGrid"></div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn-save" id="createCatBtn" style="flex:none;width:100%;">Crear categoría</button>
+      <button type="button" class="cm-x" id="closeCatModalX" aria-label="Cerrar">×</button>
+    </div>
+
+    <div class="cm-tools">
+      <input type="search" id="catSearch" placeholder="Buscar categoría…" autocomplete="off">
+      <div class="cm-seg" id="catFilter">
+        <button type="button" data-f="all" class="on">Todas</button>
+        <button type="button" data-f="own">Mías</button>
+        <button type="button" data-f="default">Predefinidas</button>
       </div>
     </div>
 
-    <div class="modal-actions" style="margin-top:16px;">
-      <button class="btn-cancel" id="closeCatModalBtn" style="width:100%;">Cerrar</button>
+    <div class="cm-body">
+      <div class="cm-hint">Toca el ícono para cambiarlo. En las tuyas también puedes renombrar (Enter para guardar) o eliminar.</div>
+      <div class="modal-list" id="existingCatList"></div>
+    </div>
+
+    <div class="cm-foot">
+      <div class="new-cat-toggle" id="newCatToggle">＋ Crear nueva categoría</div>
+      <div class="new-cat-form" id="newCatForm">
+        <div class="modal-field">
+          <label>Nombre</label>
+          <input type="text" id="newCatName" placeholder="Ej. Educación, Mascotas, Ahorro…" maxlength="40">
+        </div>
+        <div class="modal-field">
+          <label>Ícono</label>
+          <div class="icon-grid" id="newCatIconGrid"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-save" id="createCatBtn" style="flex:none;width:100%;">Crear categoría</button>
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top:10px;">
+        <button class="btn-cancel" id="closeCatModalBtn" style="width:100%;">Listo</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2703,68 +2757,110 @@ document.getElementById("calApplyBtn").addEventListener("click", ()=>{
 /* =========================================================
    CATEGORY MANAGER MODAL
    ========================================================= */
+let catFilterMode = "all";
 function renderExistingCats(){
   const wrap = document.getElementById("existingCatList");
   wrap.innerHTML = "";
-  Object.keys(CAT_META).forEach(key=>{
-    const meta = CAT_META[key];
-    const count = TXNS.filter(t=>t.category===key).length;
-    const row = document.createElement("div");
-    row.className = "cat-item";
+  const q = (document.getElementById("catSearch").value || "").trim().toLowerCase();
+  const keys = Object.keys(CAT_META);
+  const nOwn = keys.filter(k=>!CAT_META[k].locked).length;
+  document.getElementById("catSummary").textContent = `${keys.length-nOwn} predefinidas · ${nOwn} ${nOwn===1?"propia":"propias"}`;
 
-    const nameHtml = meta.locked
-      ? `<span class="nm">${meta.label}</span>`
-      : `<span class="nm"><input type="text" data-key="${key}" class="rename-input" value="${meta.label}"></span>`;
+  const counts = {};
+  TXNS.forEach(t=>{ counts[t.category] = (counts[t.category]||0) + 1; });
 
-    row.innerHTML = `
-      <div class="ic icon-trigger" data-key="${key}" style="background:${meta.color};color:#fff;cursor:pointer;" title="Cambiar ícono">${meta.icon}</div>
-      ${nameHtml}
-      <span class="count">${count} mov.</span>
-      ${meta.locked ? `<span class="lock" title="Categoría predefinida"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>` : `<button class="icon-btn danger del-cat-btn" data-key="${key}" title="Eliminar categoría" aria-label="Eliminar categoría"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>`}
-    `;
-    wrap.appendChild(row);
+  const visible = keys.filter(k=>{
+    const m = CAT_META[k];
+    if(catFilterMode==="own" && m.locked) return false;
+    if(catFilterMode==="default" && !m.locked) return false;
+    if(q && !m.label.toLowerCase().includes(q)) return false;
+    return true;
   });
 
-  wrap.querySelectorAll(".rename-input").forEach(inp=>{
+  if(!visible.length){
+    wrap.innerHTML = `<div class="cm-empty">${catFilterMode==="own" && !q ? "Aún no creaste categorías propias." : "No hay categorías que coincidan."}</div>`;
+    return;
+  }
+
+  const addSection = (title, list)=>{
+    if(!list.length) return;
+    if(catFilterMode==="all" && !q){
+      const h = document.createElement("div"); h.className = "cm-sec"; h.textContent = title; wrap.appendChild(h);
+    }
+    list.forEach(key=>wrap.appendChild(buildCatRow(key, counts[key]||0)));
+  };
+  addSection("Mis categorías", visible.filter(k=>!CAT_META[k].locked));
+  addSection("Predefinidas", visible.filter(k=>CAT_META[k].locked));
+}
+
+function buildCatRow(key, count){
+  const meta = CAT_META[key];
+  const row = document.createElement("div");
+  row.className = "cat-item";
+  const tag = meta.excluded ? `<span class="tag">No suma en totales</span>` : "";
+  const nameHtml = meta.locked
+    ? `<span class="nm"><span class="nm-t">${escHtml(meta.label)}</span>${tag}</span>`
+    : `<span class="nm"><input type="text" data-key="${key}" class="rename-input" value="${escHtml(meta.label)}" maxlength="40" aria-label="Nombre de la categoría">${tag}</span>`;
+  row.innerHTML = `
+    <div class="ic icon-trigger" data-key="${key}" style="background:${meta.color};color:#fff;cursor:pointer;" title="Cambiar ícono">${meta.icon}</div>
+    ${nameHtml}
+    <span class="count">${count} mov.</span>
+    ${meta.locked
+      ? `<span class="lock" title="Categoría predefinida: solo se puede cambiar el ícono"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>`
+      : `<button class="icon-btn danger del-cat-btn" data-key="${key}" title="Eliminar categoría" aria-label="Eliminar categoría"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>`}
+  `;
+
+  const inp = row.querySelector(".rename-input");
+  if(inp){
+    inp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); inp.blur(); } if(e.key==="Escape"){ inp.value = CAT_META[key].label; inp.blur(); } });
     inp.addEventListener("change", async function(){
-      const key = this.dataset.key;
       const val = this.value.trim();
       if(!val){ this.value = CAT_META[key].label; return; }
       const prev = CAT_META[key].label;
+      if(val === prev) return;
       CAT_META[key].label = val;
-      renderAll();
       try {
         await api(`/categories/${key}`, { method:"PATCH", body: JSON.stringify({ name: val }) });
+        this.classList.add("saved"); setTimeout(()=>this.classList.remove("saved"), 1200);
+        renderAll();
       } catch(err) {
         CAT_META[key].label = prev;
         this.value = prev;
-        renderAll();
         alert("No se pudo renombrar: " + err.message);
       }
     });
+  }
+  row.querySelector(".icon-trigger").addEventListener("click", e=> openIconPop(e.currentTarget, key));
+  const del = row.querySelector(".del-cat-btn");
+  if(del) del.addEventListener("click", async ()=>{
+    const label = CAT_META[key].label;
+    const n = count ? ` Sus ${count} movimientos pasarán a "Otros comercios".` : "";
+    if(!confirm(`¿Eliminar la categoría "${label}"?${n}`)) return;
+    try {
+      await api(`/categories/${key}`, { method:"DELETE" });
+      await loadData();
+      renderExistingCats();
+    } catch(err) {
+      alert("No se pudo eliminar: " + err.message);
+    }
   });
-
-  wrap.querySelectorAll(".icon-trigger").forEach(el=>{
-    el.addEventListener("click", (e)=> openIconPop(e.currentTarget, el.dataset.key));
-  });
-
-  wrap.querySelectorAll(".del-cat-btn").forEach(btn=>{
-    btn.addEventListener("click", async function(){
-      const key = this.dataset.key;
-      const label = CAT_META[key].label;
-      if(!confirm(`¿Eliminar la categoría "${label}"? Sus movimientos pasarán a "Otros comercios".`)) return;
-      try {
-        await api(`/categories/${key}`, { method:"DELETE" });
-        await loadData(); // recargamos todo: el backend ya reasignó los movimientos a "Otros comercios"
-        renderExistingCats();
-      } catch(err) {
-        alert("No se pudo eliminar: " + err.message);
-      }
-    });
-  });
+  return row;
 }
 
+document.getElementById("catSearch").addEventListener("input", renderExistingCats);
+document.querySelectorAll("#catFilter button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    catFilterMode = b.dataset.f;
+    document.querySelectorAll("#catFilter button").forEach(x=>x.classList.toggle("on", x===b));
+    renderExistingCats();
+  });
+});
+document.getElementById("closeCatModalX").addEventListener("click", ()=>closeCatModal());
+document.addEventListener("keydown", e=>{ if(e.key==="Escape" && document.getElementById("catModalOverlay").classList.contains("open") && !document.getElementById("iconPop").classList.contains("open")) closeCatModal(); });
+
 function openCatModal(){
+  catFilterMode = "all"; document.getElementById("catSearch").value = "";
+  document.querySelectorAll("#catFilter button").forEach(x=>x.classList.toggle("on", x.dataset.f==="all"));
   renderExistingCats();
   document.getElementById("newCatForm").classList.remove("open");
   renderNewCatPickers();
@@ -2783,6 +2879,7 @@ document.getElementById("catModalOverlay").addEventListener("click", e=>{
 
 document.getElementById("newCatToggle").addEventListener("click", ()=>{
   document.getElementById("newCatForm").classList.toggle("open");
+  if(document.getElementById("newCatForm").classList.contains("open")) document.getElementById("newCatName").focus();
 });
 
 function renderNewCatPickers(){
