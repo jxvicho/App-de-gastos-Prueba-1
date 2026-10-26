@@ -232,6 +232,7 @@ model Transaction {
   currency       String             @default("PEN")
   merchant       String? // "Comercio" en las capturas, ej. "AHORRAMASMARKET G"
   description    String? // ej. "Plin - Pago a Olga Huaman"
+  note           String? // nota libre del usuario, ej. "gaseosa"
   categoryId     String?
   category       Category?          @relation(fields: [categoryId], references: [id])
   accountCardId  String?

@@ -120,6 +120,21 @@ transactionsRouter.patch(
   })
 );
 
+const noteSchema = z.object({ note: z.string().max(200).nullable() });
+
+transactionsRouter.patch(
+  "/:id/note",
+  asyncHandler(async (req, res) => {
+    const parsed = noteSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError("Nota inválida (máximo 200 caracteres)", 422);
+    const tx = await prisma.transaction.findFirst({ where: { id: req.params.id, userId: req.userId, deletedAt: null } });
+    if (!tx) throw new AppError("Transacción no encontrada", 404);
+    const note = parsed.data.note?.trim() || null;
+    const updated = await prisma.transaction.update({ where: { id: tx.id }, data: { note } });
+    res.json({ id: updated.id, note: updated.note });
+  })
+);
+
 const changeCategorySchema = z.object({ categoryId: z.string().uuid() });
 
 transactionsRouter.patch(

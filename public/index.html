@@ -1822,7 +1822,7 @@ function getFiltered(forTable, ignoreType, skipNarrow, filterByHeroCurrency){
       if(state.currencyFilter !== "all" && t.currency !== state.currencyFilter) return false;
       if(!skipNarrow){
         if(state.category !== "all" && t.category !== state.category) return false;
-        if(state.search && !t.desc.toLowerCase().includes(state.search.toLowerCase())) return false;
+        if(state.search && !(t.desc+" "+(t.note||"")).toLowerCase().includes(state.search.toLowerCase())) return false;
       }
     }
     return true;
@@ -2346,6 +2346,18 @@ function showUndoToast(msg, onUndo){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>el.classList.remove("show"), 8000);
 }
+function escHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+async function editTxnNote(idx){
+  const t = TXNS[idx]; if(!t) return;
+  const val = prompt("Nota para este movimiento (ej. gaseosa). Déjala vacía para borrarla:", t.note || "");
+  if(val === null) return;
+  const note = val.trim().slice(0,200);
+  try {
+    await api(`/transactions/${t.id}/note`, {method:"PATCH", body: JSON.stringify({note: note || null})});
+  } catch(err){ alert("No se pudo guardar la nota: "+err.message); return; }
+  t.note = note;
+  renderAll();
+}
 async function deleteTxn(idx){
   const t = TXNS[idx]; if(!t) return;
   const label = `${t.type==="ingreso" ? "ingreso" : "gasto"} de ${fmt(t.amount, t.currency)} (${t.desc})`;
@@ -2407,13 +2419,17 @@ function renderTable(){
 
     tr.innerHTML = `
       <td>${dateStr}${t.time?`<small class="tm">${t.time}</small>`:""}</td>
-      <td>${t.desc}</td>
+      <td>${t.desc}<div class="txn-note-row"><button type="button" class="txn-note-btn" data-idx="${t.__idx}" title="${t.note?"Editar nota":"Agregar nota"}" aria-label="${t.note?"Editar nota":"Agregar nota"}">✏️</button>${t.note?`<span class="txn-note">${escHtml(t.note)}</span>`:""}</div></td>
       <td>${selectHtml}</td>
       <td>${t.account}</td>
       <td class="num ${t.type==='ingreso'?'ingreso':''}">${t.type==='ingreso' ? '+ ' : ''}${fmt(t.amount, t.currency)}</td>
       <td class="del-col"><button type="button" class="txn-del" data-idx="${t.__idx}" title="Eliminar movimiento" aria-label="Eliminar movimiento">🗑️</button></td>
     `;
     tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".txn-note-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>editTxnNote(Number(btn.dataset.idx)));
   });
 
   tbody.querySelectorAll(".txn-del").forEach(btn=>{
@@ -4023,6 +4039,7 @@ document.getElementById("exportBtn").addEventListener("click", ()=>{
     "Fecha": t.date,
     "Hora": t.time || "",
     "Descripción": t.desc,
+    "Nota": t.note || "",
     "Categoría": (CAT_META[t.category] ? CAT_META[t.category].label : t.category),
     "Cuenta": t.account,
     "Tipo": t.type === "ingreso" ? "Ingreso" : "Egreso",
@@ -4119,6 +4136,7 @@ async function loadData(){
     date: t.occurredAt.slice(0,10),
     time: txnTimeStr(t.occurredAt, t.source),
     desc: t.merchant || t.description || "Movimiento",
+    note: t.note || "",
     amount: Number(t.amount),
     category: t.categoryId || fallbackCategoryId,
     account: txnAccountLabel(t),
@@ -4202,6 +4220,7 @@ async function refreshData(){
       date: t.occurredAt.slice(0,10),
       time: txnTimeStr(t.occurredAt, t.source),
       desc: t.merchant || t.description || "Movimiento",
+      note: t.note || "",
       amount: Number(t.amount),
       category: t.categoryId || fallbackCategoryId,
       account: txnAccountLabel(t),
@@ -4471,6 +4490,7 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
 body.wc-big #wcFab{display:none !important;}
 @media (max-width:900px){#wcPanel.big{left:0;width:100vw;border-width:0;}}
 .wc-head .wc-tools{display:flex;align-items:center;gap:2px;}
+.txn-note-row{display:flex;align-items:center;gap:4px;margin-top:2px;}.txn-note-btn{border:0;background:none;cursor:pointer;font-size:12px;padding:0;opacity:.45;}.txn-note-btn:hover{opacity:1;}.txn-note{font-size:12px;color:var(--ink-soft);font-style:italic;}
 .wc-head button{border:0;background:none;font-size:20px;cursor:pointer;color:var(--ink-soft);}
 .wc-m .wc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:3px;font-size:10.5px;line-height:1;font-weight:400;}
 .wc-m .wc-t{opacity:.6;margin-left:auto;}

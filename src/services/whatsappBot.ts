@@ -3222,6 +3222,21 @@ export async function handleIncomingMessage(
         `WhatsApp: match EXACTO por context.id (${contextMessageId}) -> transacción ${byContext.id} (status actual: ${byContext.status})`
       );
 
+      // "nota: gaseosa" (o "borrar nota") respondiendo a un movimiento: guarda la nota libre.
+      const noteMatch = text.trim().match(/^(?:nota|detalle|etiqueta)\s*[:\-]\s*([\s\S]{1,200})$/i);
+      const clearNote = /^(?:borrar|quitar|eliminar)\s+(?:la\s+)?nota$/i.test(text.trim());
+      if (noteMatch || clearNote) {
+        setCurrentTxn(byContext.id);
+        const note = clearNote ? null : noteMatch![1].trim();
+        await prisma.transaction.update({ where: { id: byContext.id }, data: { note } });
+        const who = byContext.merchant || byContext.description || "el movimiento";
+        await sendTextMessage(
+          from,
+          note ? `📝 *Nota guardada* en ${who}: «${note}»` : `📝 Nota borrada de ${who}.`
+        );
+        return;
+      }
+
       if (byContext.status === "PENDING_CONFIRMATION") {
         await handleFreeformDecision(byContext, user.id, from, normalized, petLabel, text);
         return;
