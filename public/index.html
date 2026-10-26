@@ -4467,6 +4467,10 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
 #wcPanel.open{display:flex;}
 .wc-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;}
 .wc-head small{display:block;font-weight:500;color:var(--ink-faint);font-size:12px;}
+#wcPanel.big{right:0;top:0;bottom:0;left:auto;width:50vw;max-width:none;height:100vh;height:100dvh;border-radius:0;border-width:0 0 0 1px;z-index:60;}
+body.wc-big #wcFab{display:none !important;}
+@media (max-width:900px){#wcPanel.big{left:0;width:100vw;border-width:0;}}
+.wc-head .wc-tools{display:flex;align-items:center;gap:2px;}
 .wc-head button{border:0;background:none;font-size:20px;cursor:pointer;color:var(--ink-soft);}
 .wc-m .wc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:3px;font-size:10.5px;line-height:1;font-weight:400;}
 .wc-m .wc-t{opacity:.6;margin-left:auto;}
@@ -4500,7 +4504,7 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
 </style>
 <button id="wcFab" type="button" aria-label="Abrir chat de Gastia" title="Chat de Gastia">💬<span id="wcBadge"></span></button>
 <div id="wcPanel" role="dialog" aria-label="Chat de Gastia">
-  <div class="wc-head"><div>Chat de Gastia<small id="wcSub">Pregúntame o registra un gasto</small></div><button type="button" id="wcClose" aria-label="Cerrar">×</button></div>
+  <div class="wc-head"><div>Chat de Gastia<small id="wcSub">Pregúntame o registra un gasto</small></div><div class="wc-tools"><button type="button" id="wcExpand" aria-label="Ampliar chat" title="Ampliar">⤢</button><button type="button" id="wcClose" aria-label="Cerrar">×</button></div></div>
   <div id="wcMsgs"></div>
   <div id="wcReply"><span id="wcReplyTxt"></span><button type="button" id="wcReplyX" aria-label="Quitar respuesta">✕</button></div>
   <form class="wc-form" id="wcForm"><button type="button" class="wc-ic" id="wcAttach" title="Adjuntar captura" aria-label="Adjuntar captura">📎</button><button type="button" class="wc-ic" id="wcMic" title="Nota de voz" aria-label="Grabar nota de voz">🎤</button><input type="file" id="wcFile" accept="image/jpeg,image/png,image/webp" hidden><textarea id="wcInput" rows="1" maxlength="1000" autocomplete="off" placeholder="Escribe un mensaje…"></textarea><button id="wcSend" type="submit">Enviar</button></form>
@@ -4644,7 +4648,10 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
   }
   setInterval(pollNew, 10000);
   fab.addEventListener("click",()=>{ panel.classList.toggle("open"); if(panel.classList.contains("open")){ unread=0; setBadge(); if(!loaded) loadHistory(); else scrollEnd(); if(!touchDevice) input.focus(); /* en celular no abrimos el teclado solos */ } });
-  document.getElementById("wcClose").addEventListener("click",()=>panel.classList.remove("open"));
+  const expandBtn=document.getElementById("wcExpand");
+  function setBig(on){ panel.classList.toggle("big",on); document.body.classList.toggle("wc-big",on); expandBtn.textContent=on?"⤡":"⤢"; expandBtn.title=on?"Reducir":"Ampliar"; expandBtn.setAttribute("aria-label",on?"Reducir chat":"Ampliar chat"); scrollEnd(); }
+  expandBtn.addEventListener("click",()=>setBig(!panel.classList.contains("big")));
+  document.getElementById("wcClose").addEventListener("click",()=>{ panel.classList.remove("open"); setBig(false); });
   function growInput(){ input.style.height="auto"; const base=(document.activeElement===input||input.value)?64:40; input.style.height=Math.min(Math.max(input.scrollHeight+2,base),140)+"px"; }
   input.addEventListener("input",growInput);
   input.addEventListener("focus",growInput);
