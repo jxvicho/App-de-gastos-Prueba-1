@@ -17,7 +17,7 @@ export const PLAN_LIMITS: Record<Plan, { monthlyReplies: number | null }> = {
  */
 export const COUNTED_MESSAGE_KINDS = ["reply", "alert", "txn_notification"] as const;
 
-export const DAILY_HARD_CAP_PER_USER = 200;
+export const DAILY_HARD_CAP_PER_USER = 50;
 
 /** Tarifa de Meta (USD por mensaje entregado, Perú) usada cuando Meta no informa la categoría. */
 export const META_RATE_USD_PE = 0.03;
