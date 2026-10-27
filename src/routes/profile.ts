@@ -36,9 +36,7 @@ profileRouter.get(
       },
     });
     const eff = await getEffectivePlan(user);
-    const isUnlimited = eff.plan === "UNLIMITED";
-    // Solo el plan especial (UNLIMITED) puede apagar/encender estas dos funciones.
-    // En los demás planes van activas "por defecto del plan".
+    // Pro y Unlimited eligen registro automático/manual y pueden apagar el resumen diario; Básico es manual y sin diario.
     const { phoneNumber, passwordHash, plan: _p, planOverride: _o, planOverrideUntil: _u, alertThreshold, ...rest } = user;
     const whatsappPhone = phoneNumber
       ? `${phoneNumber.slice(0, 3)} ${phoneNumber.slice(3, 4)}•• ••• ${phoneNumber.slice(-3)}`
@@ -51,12 +49,12 @@ profileRouter.get(
       plan: eff.plan,
       planLabel: PLAN_LABELS[eff.plan],
       features: {
-        canToggleAutoRegister: isUnlimited,
-        canToggleDailySummary: isUnlimited,
+        canToggleAutoRegister: eff.plan !== "BASIC",
+        canToggleDailySummary: eff.plan !== "BASIC",
         canChangeDailyHour: false, // hora fija: 9:00 a. m. (Lima)
-        autoRegisterOn: isUnlimited ? user.autoRegister : true,
+        autoRegisterOn: eff.plan === "BASIC" ? false : user.autoRegister,
         dailySummaryAvailable: eff.plan !== "BASIC",
-        dailySummaryOn: eff.plan === "BASIC" ? false : isUnlimited ? user.dailySummaryEnabled : true,
+        dailySummaryOn: eff.plan === "BASIC" ? false : user.dailySummaryEnabled,
         alerts: eff.plan === "PRO" || isUnlimited,
         fullChat: eff.plan !== "BASIC",
       },
@@ -146,8 +144,8 @@ profileRouter.patch(
       where: { id: req.userId },
       select: { plan: true, planOverride: true, planOverrideUntil: true },
     });
-    if ((await getEffectivePlan(current)).plan !== "UNLIMITED") {
-      throw new AppError("El registro automático ya está activo para tu plan actual", 403);
+    if ((await getEffectivePlan(current)).plan === "BASIC") {
+      throw new AppError("Tu plan registra los movimientos de forma manual. Pasa al plan Pro para activar el registro automático.", 403);
     }
     const user = await prisma.user.update({
       where: { id: req.userId },
@@ -176,10 +174,7 @@ profileRouter.patch(
         select: { plan: true, planOverride: true, planOverrideUntil: true },
       });
       const plan = (await getEffectivePlan(current)).plan;
-      if (parsed.data.dailySummaryEnabled !== undefined && plan !== "UNLIMITED") {
-        throw new AppError("El resumen diario ya está activo para tu plan actual", 403);
-      }
-      if (parsed.data.dailySummaryHour !== undefined && plan === "BASIC") {
+      if (plan === "BASIC") {
         throw new AppError("El resumen diario está disponible desde el plan Pro", 403);
       }
     }

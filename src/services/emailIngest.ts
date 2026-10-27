@@ -8,13 +8,13 @@ export type IngestStatus = "AUTO_CONFIRMED" | "PENDING_CONFIRMATION";
 
 /**
  * Cómo se registra un consumo detectado en el correo, según el plan EFECTIVO:
- *  - BASIC / PRO: siempre automático (AUTO_CONFIRMED) y sin mensajes por consumo.
- *  - UNLIMITED: el comportamiento de siempre — pendiente con aviso y botones, o
- *    automático con aviso si el usuario activó el "registro automático".
+ *  - BASIC: siempre manual (PENDING_CONFIRMATION, se confirma desde el chat web o "Por revisar").
+ *  - PRO / UNLIMITED: el usuario elige con el "registro automático": manual (pendiente) o automático.
+ *  Los avisos por WhatsApp de cada consumo solo existen en UNLIMITED; en los demás el aviso va al chat web.
  */
 export async function resolveIngestStatus(user: User): Promise<IngestStatus> {
   const eff = await getEffectivePlan(user);
-  if (eff.plan !== "UNLIMITED") return "AUTO_CONFIRMED";
+  if (eff.plan === "BASIC") return "PENDING_CONFIRMATION";
   return user.autoRegister ? "AUTO_CONFIRMED" : "PENDING_CONFIRMATION";
 }
 

@@ -26,8 +26,8 @@ export const dailyReportWorker = new Worker(
         const eff = await getEffectivePlan(user);
         // El resumen diario es de Pro y Unlimited (Básico solo recibe el semanal).
         if (eff.plan === "BASIC") continue;
-        // Solo Unlimited puede apagarlo; en los demás planes va siempre activo.
-        if (eff.plan === "UNLIMITED" && !user.dailySummaryEnabled) continue;
+        // Pro y Unlimited pueden apagarlo.
+        if (!user.dailySummaryEnabled) continue;
         sent++;
         await sendDailyReportToUser(user);
       } catch (err) {

@@ -2,7 +2,7 @@ import type { Transaction, User } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { redisConnection } from "../queues/redisConnection";
 import { isWindowOpen, sendTextMessage } from "./whatsapp";
-import { limaMonthStart } from "./plans";
+import { limaMonthStart, getEffectivePlan } from "./plans";
 import { formatMoneyPlain } from "./weeklyReportData";
 
 const ALERT_KEY_TTL_SECONDS = 40 * 24 * 3600;
@@ -15,7 +15,9 @@ const PENDING_ALERTS_TTL_SECONDS = 3 * 24 * 3600;
  */
 async function deliverAlert(user: User, text: string): Promise<void> {
   if (!user.phoneNumber) return;
-  if (await isWindowOpen(user.phoneNumber)) {
+  // Planes sin respuestas del bot por WhatsApp (tope 0): la alerta va siempre en el resumen diario.
+  const canSendNow = (await getEffectivePlan(user)).monthlyReplies !== 0;
+  if (canSendNow && (await isWindowOpen(user.phoneNumber))) {
     await sendTextMessage(user.phoneNumber, text, { kind: "alert" });
     return;
   }

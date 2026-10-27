@@ -1361,9 +1361,9 @@ tbody tr:hover{background:#f7faff;}
             <span class="plan-fixed" id="autoFixed" style="display:none"></span>
           </div>
           <p class="auto-explain">
-            Cuando está activo, los gastos que llegan a tu correo se registran automáticamente en el dashboard,
-            sin pedirte confirmación. Si tienes WhatsApp vinculado, te avisamos de cada uno y puedes cambiar su
-            categoría desde la tabla. Si está desactivado, Gastia te pregunta antes de anotar cada movimiento.
+            Cuando está activo (plan Pro), los gastos que llegan a tu correo se registran automáticamente en el dashboard,
+            sin pedirte confirmación; puedes cambiar su categoría desde la tabla. Si está desactivado (modo manual),
+            Gastia te pregunta en el chat de tu dashboard antes de anotar cada movimiento.
           </p>
         </div>
 
@@ -3240,7 +3240,7 @@ function renderAutoRegister(){
   const fixed = document.getElementById("autoFixed");
   toggle.style.display = can ? "" : "none";
   fixed.style.display = can ? "none" : "";
-  fixed.textContent = on ? "Activado por defecto para tu plan actual." : "No incluido en tu plan actual.";
+  fixed.textContent = can ? "" : "Manual en tu plan Básico. Con el plan Pro puedes activar el registro automático.";
   toggle.classList.toggle("on", on);
   toggle.setAttribute("aria-checked", on ? "true" : "false");
   document.getElementById("autoRegisterLabel").textContent = on ? "Activado" : "Desactivado";

@@ -225,8 +225,8 @@ async function authorizeSend(to: string, kind: OutboundKind, isTemplate: boolean
             });
             if (already === 0) {
               const text =
-                eff.plan === "BASIC"
-                  ? "El chat de Gastia es parte del plan Pro. Tu resumen semanal te llega cada domingo y tus consumos se siguen registrando solos desde tu correo."
+                eff.monthlyReplies === 0
+                  ? "Tu plan no incluye respuestas por WhatsApp. Usa el chat de Gastia en tu dashboard; tus resúmenes te siguen llegando por aquí."
                   : "Llegaste a tu límite de mensajes del mes. Todo sigue registrándose en tu dashboard y tu cupo se renueva el día 1.";
               void sendTextMessage(to, text, { kind: "limit_notice" });
             }

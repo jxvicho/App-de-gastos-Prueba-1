@@ -5,8 +5,8 @@ import type { Plan } from "@prisma/client";
  * sueltos en la lógica). `null` = sin límite.
  */
 export const PLAN_LIMITS: Record<Plan, { monthlyReplies: number | null }> = {
-  BASIC: { monthlyReplies: 0 }, // el Básico no tiene chat: solo resumen semanal
-  PRO: { monthlyReplies: 20 },
+  BASIC: { monthlyReplies: 0 }, // sin respuestas del bot por WhatsApp (el chat web sí, en todos los planes)
+  PRO: { monthlyReplies: 0 }, // igual: el Pro suma registro automático opcional y resumen diario
   UNLIMITED: { monthlyReplies: null },
 };
 
@@ -49,9 +49,9 @@ export const PLAN_LABELS: Record<Plan, string> = {
 /** Precio mensual (S/) de los planes que se venden. null = no se vende. */
 export const PLAN_PRICE_PEN: Record<Plan, number | null> = {
   BASIC: 9.9,
-  PRO: 19.9,
+  PRO: 14.9,
   UNLIMITED: null,
 };
 
 /** Duración estándar del periodo de prueba (solo informativo; la fecha real vive en Subscription). */
-export const TRIAL_DAYS = 14;
+export const TRIAL_DAYS = 7;

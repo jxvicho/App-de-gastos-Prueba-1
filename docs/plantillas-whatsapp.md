@@ -8,9 +8,10 @@ Categoría: **Utilidad (Utility)**. Idioma: **Español (es)**. Los nombres deben
 (`WHATSAPP_TEMPLATE_WEEKLY`, `WHATSAPP_TEMPLATE_DAILY`, `WHATSAPP_TEMPLATE_LANG`; valores por defecto abajo).
 
 ## Qué plan recibe qué
-- **Básico:** solo el resumen semanal (domingo 8:00 p. m.). Sin chat (0 respuestas al mes).
-- **Pro:** resumen diario fijo a las 9:00 a. m. (Lima), con el día anterior completo + semanal. Hasta 20 mensajes al mes entre respuestas del chat y alertas.
-- **Unlimited:** igual que Pro, sin tope, y puede apagar el diario.
+- **Básico (S/ 9.90, prueba de 7 días):** resumen semanal (domingo 8:00 p. m.). Registro de consumos **manual** (se confirman en el chat web / "Por revisar"; no puede activar el automático). 0 respuestas del bot por WhatsApp.
+- **Pro (S/ 14.90, prueba de 7 días):** registro **manual o automático** a elección; resumen diario fijo a las 9:00 a. m. (Lima) que puede apagar + semanal. Las alertas van dentro del resumen diario (línea "Avisos"). 0 respuestas del bot por WhatsApp.
+- **Unlimited (oculto):** igual que Pro, sin tope de mensajes, y recibe aviso por WhatsApp de cada consumo.
+- El chat web del dashboard está disponible en todos los planes (tope de 100 mensajes al día).
 - No cuentan para el tope: resúmenes programados, código de verificación, bienvenida y el aviso de límite alcanzado.
 - `SUNDAY_MERGE_DAILY_INTO_WEEKLY=true` hace que el domingo solo salga el semanal.
 
