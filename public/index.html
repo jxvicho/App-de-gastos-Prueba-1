@@ -4603,6 +4603,10 @@ html,body{overflow-x:clip;max-width:100%;-webkit-text-size-adjust:100%;text-size
 .wc-head small{display:block;font-weight:500;color:var(--ink-faint);font-size:12px;}
 #wcPanel.big{right:0;top:0;bottom:0;left:auto;width:50vw;max-width:none;height:100vh;height:100dvh;border-radius:0;border-width:0 0 0 1px;z-index:60;}
 body.wc-big #wcFab{display:none !important;}
+body.wc-big{overflow:hidden;}
+#wcPanel.big .wc-form{padding-bottom:calc(10px + env(safe-area-inset-bottom));}
+#wcPanel.big .wc-head{padding-top:calc(12px + env(safe-area-inset-top));}
+#wcPanel{touch-action:manipulation;}
 @media (max-width:900px){#wcPanel.big{left:0;width:100vw;border-width:0;}}
 .wc-head .wc-tools{display:flex;align-items:center;gap:2px;}
 .txn-note-row{display:flex;align-items:center;gap:4px;margin-top:2px;}.txn-note-btn{border:0;background:none;cursor:pointer;font-size:12px;padding:0;opacity:.45;}.txn-note-btn:hover{opacity:1;}.txn-note{font-size:12px;color:var(--ink-soft);font-style:italic;}
@@ -4617,7 +4621,7 @@ body.wc-big #wcFab{display:none !important;}
 #wcReply span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #wcReply button{border:0;background:none;font-size:16px;cursor:pointer;color:var(--ink-soft);}
 .tm{display:block;margin-top:2px;font-size:11px;line-height:1.1;color:var(--ink-faint);font-weight:400;}
-#wcMsgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg);}
+#wcMsgs{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;-webkit-tap-highlight-color:transparent;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg);}
 .wc-m{max-width:85%;padding:8px 11px;border-radius:14px;font-size:14px;line-height:1.4;white-space:pre-wrap;word-break:break-word;}
 .wc-m.user{align-self:flex-end;background:var(--accent,#2472c8);color:#fff;border-bottom-right-radius:4px;}
 .wc-m.bot{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px;}
@@ -4659,7 +4663,7 @@ body.wc-big #wcFab{display:none !important;}
   // "Responder a" un movimiento: el siguiente texto se manda ligado a ese gasto (como el "responder" de WhatsApp).
   let replyTo=null; const replyBar=document.getElementById("wcReply"), replyTxt=document.getElementById("wcReplyTxt");
   function clearReply(){ replyTo=null; replyBar.classList.remove("show"); msgs.querySelectorAll(".replying").forEach(e=>e.classList.remove("replying")); }
-  function setReply(id,label,el){ clearReply(); replyTo={id}; replyTxt.textContent="↩ Respondiendo a: "+(label||"movimiento"); replyBar.classList.add("show"); if(el) el.classList.add("replying"); input.focus(); }
+  function setReply(id,label,el){ clearReply(); replyTo={id}; replyTxt.textContent="↩ Respondiendo a: "+(label||"movimiento"); replyBar.classList.add("show"); if(el) el.classList.add("replying"); if(!touchDevice) input.focus(); }
   document.getElementById("wcReplyX").addEventListener("click",clearReply);
   // Hora del mensaje: "14:32" si es de hoy, "11 oct 14:32" si es de otro día (hora del dispositivo).
   function fmtTime(iso){
@@ -4784,7 +4788,13 @@ body.wc-big #wcFab{display:none !important;}
   setInterval(pollNew, 10000);
   fab.addEventListener("click",()=>{ panel.classList.toggle("open"); if(panel.classList.contains("open")){ unread=0; setBadge(); if(!loaded) loadHistory(); else scrollEnd(); if(!touchDevice) input.focus(); /* en celular no abrimos el teclado solos */ } });
   const expandBtn=document.getElementById("wcExpand");
-  function setBig(on){ panel.classList.toggle("big",on); document.body.classList.toggle("wc-big",on); expandBtn.textContent=on?"⤡":"⤢"; expandBtn.title=on?"Reducir":"Ampliar"; expandBtn.setAttribute("aria-label",on?"Reducir chat":"Ampliar chat"); scrollEnd(); }
+  function fitViewport(){
+    const vv=window.visualViewport;
+    if(vv && panel.classList.contains("big")){ panel.style.height=vv.height+"px"; panel.style.top=vv.offsetTop+"px"; panel.style.bottom="auto"; }
+    else { panel.style.height=""; panel.style.top=""; panel.style.bottom=""; }
+  }
+  if(window.visualViewport){ window.visualViewport.addEventListener("resize",fitViewport); window.visualViewport.addEventListener("scroll",fitViewport); }
+  function setBig(on){ panel.classList.toggle("big",on); document.body.classList.toggle("wc-big",on); expandBtn.textContent=on?"⤡":"⤢"; expandBtn.title=on?"Reducir":"Ampliar"; expandBtn.setAttribute("aria-label",on?"Reducir chat":"Ampliar chat"); fitViewport(); scrollEnd(); }
   expandBtn.addEventListener("click",()=>setBig(!panel.classList.contains("big")));
   document.getElementById("wcClose").addEventListener("click",()=>{ panel.classList.remove("open"); setBig(false); });
   function growInput(){ input.style.height="auto"; const base=(document.activeElement===input||input.value)?64:40; input.style.height=Math.min(Math.max(input.scrollHeight+2,base),140)+"px"; }
