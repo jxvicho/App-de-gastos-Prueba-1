@@ -84,6 +84,20 @@ function detectConfirmWordIntent(normalizedText: string): boolean {
   return CONFIRM_INTENT_PATTERNS.some((pattern) => pattern.test(normalizedText));
 }
 
+/**
+ * "Sí" / "No" a secas para responder a una pregunta de confirmación DESTRUCTIVA (eliminar/restaurar).
+ * Más estricto a propósito que detectConfirmWordIntent: "anotar en transporte" NO es un sí a
+ * "¿Quieres eliminarlo?" (bug real: una pregunta vieja sin responder eliminó un gasto).
+ */
+function isPlainYes(normalizedText: string): boolean {
+  const t = normalizedText.trim();
+  if (/^(si|sí)[\s,.!]+(eliminalo|elimínalo|borralo|bórralo|eliminar|borrar|restauralo|restáuralo|restaurar)[\s.!]*$/.test(t)) return true;
+  return /^(si|sí|s|yes|ok|okay|dale|claro|eliminar|eliminalo|elimínalo|borrar|borralo|bórralo|restaurar|restauralo|restáuralo|confirmo)(\s+(lo|por favor|gracias))?[\s.!]*$/.test(t);
+}
+function isPlainNo(normalizedText: string): boolean {
+  return /^(no|nop|nel|cancelar|cancela|dejalo|déjalo|olvidalo|olvídalo|nada)(\s+(gracias|por favor))?[\s.!]*$/.test(normalizedText.trim());
+}
+
 const BUTTON_ID_CONFIRM = "txn_confirm";
 const BUTTON_ID_REJECT = "txn_reject";
 const BUTTON_ID_IMAGE_EXPENSE = "img_expense";
@@ -3105,6 +3119,7 @@ export async function handleIncomingMessage(
         where: { id: state.transactionIds[0], userId: user.id },
         include: { category: true },
       });
+      let discardState = false; // la pregunta pendiente quedó vieja: se ignora y se procesa el mensaje como nuevo
       if (pending) {
         if (state.intent?.action === "delete") {
           if (pending.status !== "CONFIRMED" || pending.deletedAt) {
@@ -3112,22 +3127,25 @@ export async function handleIncomingMessage(
             await sendTextMessage(from, "Ese movimiento ya cambió de estado, no hay nada que eliminar.");
             return;
           }
-          if (detectConfirmWordIntent(normalized)) {
+          if (isPlainYes(normalized)) {
             console.log(`WhatsApp: confirmación de ELIMINACIÓN recibida -> borrando transacción ${pending.id}`);
             await deleteConfirmedTransaction(pending, from);
-          } else {
+            return;
+          } else if (isPlainNo(normalized)) {
             console.log(`WhatsApp: no se confirmó la eliminación de ${pending.id}, se cancela.`);
             await sendTextMessage(from, "No se eliminó nada. El gasto sigue registrado.");
+            return;
           }
-          return;
+          console.log(`WhatsApp: la respuesta no es un sí/no a "¿eliminar?" (${pending.id}); se descarta la pregunta y se procesa como mensaje nuevo.`);
+          discardState = true;
         }
-        if (state.intent?.action === "restore") {
+        if (!discardState && state.intent?.action === "restore") {
           if (!pending.deletedAt) {
             console.log(`WhatsApp: se pidió confirmar restauración de ${pending.id}, pero ya no está eliminado.`);
             await sendTextMessage(from, "Ese movimiento ya está activo, no hay nada que restaurar.");
             return;
           }
-          if (detectConfirmWordIntent(normalized)) {
+          if (isPlainYes(normalized) || (detectConfirmWordIntent(normalized) && !isPlainNo(normalized) && /^(si|sí)\b/.test(normalized.trim()))) {
             // La categoría puede haberse mencionado en el mensaje original que
             // disparó la restauración (state.intent.category) o recién ahora,
             // en esta confirmación (ej. "sí, pero en transporte") — esta última gana.
@@ -3135,17 +3153,22 @@ export async function handleIncomingMessage(
             const matchedCategory = resolveCategoryFromText(normalized, categories);
             console.log(`WhatsApp: confirmación de RESTAURACIÓN recibida -> restaurando transacción ${pending.id}`);
             await restoreDeletedTransaction(pending, from, matchedCategory ?? state.intent.category);
-          } else {
+            return;
+          } else if (isPlainNo(normalized)) {
             console.log(`WhatsApp: no se confirmó la restauración de ${pending.id}, se cancela.`);
             await sendTextMessage(from, "No se restauró nada.");
+            return;
           }
+          console.log(`WhatsApp: la respuesta no es un sí/no a "¿restaurar?" (${pending.id}); se descarta la pregunta y se procesa como mensaje nuevo.`);
+          discardState = true;
+        }
+        if (!discardState) {
+          console.log(`WhatsApp: resolviendo confirmación explícita pendiente -> transacción ${pending.id}`);
+          await handleFreeformDecision(pending, user.id, from, normalized, petLabel, text);
           return;
         }
-        console.log(`WhatsApp: resolviendo confirmación explícita pendiente -> transacción ${pending.id}`);
-        await handleFreeformDecision(pending, user.id, from, normalized, petLabel, text);
-        return;
       }
-      console.log(`WhatsApp: la transacción del estado pendiente ya no existe.`);
+      if (!pending) console.log(`WhatsApp: la transacción del estado pendiente ya no existe.`);
     } else {
       const choice = /^\d+$/.test(normalized) ? parseInt(normalized, 10) : null;
       if (choice && choice >= 1 && choice <= state.transactionIds.length) {
