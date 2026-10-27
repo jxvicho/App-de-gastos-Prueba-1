@@ -53,7 +53,7 @@ profileRouter.get(
       features: {
         canToggleAutoRegister: isUnlimited,
         canToggleDailySummary: isUnlimited,
-        canChangeDailyHour: eff.plan !== "BASIC",
+        canChangeDailyHour: false, // hora fija: 9:00 a. m. (Lima)
         autoRegisterOn: isUnlimited ? user.autoRegister : true,
         dailySummaryAvailable: eff.plan !== "BASIC",
         dailySummaryOn: eff.plan === "BASIC" ? false : isUnlimited ? user.dailySummaryEnabled : true,
@@ -183,9 +183,11 @@ profileRouter.patch(
         throw new AppError("El resumen diario está disponible desde el plan Pro", 403);
       }
     }
+    // La hora del resumen diario es fija (9:00 a. m. Lima): se ignora cualquier valor enviado.
+    const { dailySummaryHour: _ignoredHour, ...allowedData } = parsed.data;
     const user = await prisma.user.update({
       where: { id: req.userId },
-      data: parsed.data,
+      data: allowedData,
       select: { whatsappOptIn: true, dailySummaryEnabled: true, dailySummaryHour: true },
     });
     res.json(user);

@@ -15,9 +15,9 @@ import { takePendingAlerts } from "./alerts";
 const CURRENCY_ORDER = ["PEN", "USD"];
 
 /**
- * Reporte diario: lo gastado HOY (desde las 00:00 de Lima hasta ahora) más
- * los movimientos pendientes de confirmar. Si hoy no hubo gastos ni hay
- * pendientes no se manda nada (cada plantilla enviada tiene costo).
+ * Reporte diario (se envía a las 9:00 de Lima): lo gastado AYER (día completo, de 00:00 a 00:00 de
+ * Lima) más los movimientos pendientes de confirmar. Si ayer no hubo movimientos no se manda nada
+ * (cada plantilla enviada tiene costo).
  * Dentro de la ventana de 24 h va como texto libre; fuera, como plantilla.
  */
 export async function sendDailyReportToUser(user: {
@@ -29,12 +29,13 @@ export async function sendDailyReportToUser(user: {
 }): Promise<boolean> {
   if (!user.phoneNumber) return false;
 
-  const dayStart = currentDayStart();
   const now = new Date();
-  const present = await getCurrenciesWithMovement(user.id, dayStart, now);
+  const dayEnd = currentDayStart(now); // hoy 00:00 Lima
+  const dayStart = new Date(dayEnd.getTime() - 24 * 3_600_000); // ayer 00:00 Lima
+  const present = await getCurrenciesWithMovement(user.id, dayStart, dayEnd);
   const currencies = CURRENCY_ORDER.filter((c) => present.includes(c));
   const pending = await countPendingTransactions(user.id);
-  // Solo se envía en días con movimientos (los pendientes por sí solos no alcanzan).
+  // Solo se envía si ayer hubo movimientos (los pendientes por sí solos no alcanzan).
   if (currencies.length === 0) return false;
 
   // Alertas que no pudieron salir en su momento (ventana de 24 h cerrada): van en este resumen.
@@ -44,14 +45,14 @@ export async function sendDailyReportToUser(user: {
       userId: user.id,
       status: { in: ["CONFIRMED", "AUTO_CONFIRMED"] },
       deletedAt: null,
-      occurredAt: { gte: dayStart, lt: now },
+      occurredAt: { gte: dayStart, lt: dayEnd },
     },
   });
 
   let totals: string[] = [];
   let topCategory: string | null = null;
   for (const currency of currencies) {
-    const data = await buildWeeklyReportData(user.id, user.name, dayStart, now, currency);
+    const data = await buildWeeklyReportData(user.id, user.name, dayStart, dayEnd, currency);
     if (data.totalExpense > 0) totals.push(formatMoneyPlain(data.totalExpense, currency));
     if (!topCategory && data.topCategory) topCategory = `${data.topCategory.icon} ${data.topCategory.name}`;
   }
@@ -68,7 +69,7 @@ export async function sendDailyReportToUser(user: {
     const [n, p, m, t, c, pe, av] = vars.map((v) => sanitizeTemplateParam(v));
     await sendTextMessage(
       user.phoneNumber,
-      `Hola ${n}, soy ${p}. Hoy registraste ${m} movimientos por ${t} y tu categoría con más gasto fue ${c}. ` +
+      `Hola ${n}, soy ${p}. Ayer registraste ${m} movimientos por ${t} y tu categoría con más gasto fue ${c}. ` +
         `Pendientes por confirmar: ${pe}. Avisos: ${av}. Revisa el detalle en tu dashboard de Gastia.`,
       { kind: "daily_summary" }
     );

@@ -1380,14 +1380,14 @@ tbody tr:hover{background:#f7faff;}
             <span class="plan-fixed" id="dailyFixed" style="display:none"></span>
           </div>
           <div class="daily-row">
-            <label for="dailyHour">Hora de envío (Lima)</label>
+            <label>Hora de envío</label>
             <select id="dailyHour" aria-label="Hora del reporte diario"></select>
             <span class="plan-fixed" id="dailyHourFixed" style="display:none;max-width:none;"></span>
           </div>
           <p class="daily-hint" id="dailyOptHint" style="display:none">Para recibirlo, acepta los mensajes por WhatsApp en “Tu perfil”.</p>
           <p class="auto-explain" id="dailyExplain">
-            Te escribimos por WhatsApp con lo que gastaste hoy, tu categoría con más gasto y cuántos movimientos
-            esperan tu confirmación. Si hoy no hubo gastos ni pendientes, no te enviamos nada.
+            Cada mañana te escribimos por WhatsApp con lo que gastaste ayer, tu categoría con más gasto y cuántos movimientos
+            esperan tu confirmación. Si ayer no hubo movimientos, no te enviamos nada.
           </p>
         </div>
 
@@ -3291,12 +3291,12 @@ function renderDaily(){
   sel.disabled = !on;
   const basic = f.dailySummaryAvailable === false;
   const fixedHour = document.getElementById("dailyHourFixed");
-  sel.style.display = basic ? "none" : "";
-  fixedHour.style.display = basic ? "" : "none";
-  fixedHour.textContent = "Tu resumen semanal llega los domingos a las 8:00 p. m.";
+  sel.style.display = "none"; // hora fija para todos
+  fixedHour.style.display = "";
+  fixedHour.textContent = basic ? "Tu resumen semanal llega los domingos a las 8:00 p. m." : "Todos los días a las 9:00 a. m. (hora de Lima)";
   document.getElementById("dailyExplain").textContent = basic
     ? "El resumen diario es parte del plan Pro. Con tu plan recibes cada domingo un resumen de la semana por WhatsApp: cuánto gastaste, tu categoría con más gasto y cuántos movimientos esperan tu confirmación."
-    : "Te escribimos por WhatsApp con lo que gastaste hoy, tu categoría con más gasto y cuántos movimientos esperan tu confirmación. Si hoy no hubo gastos ni pendientes, no te enviamos nada.";
+    : "Cada mañana te escribimos por WhatsApp con lo que gastaste ayer, tu categoría con más gasto y cuántos movimientos esperan tu confirmación. Si ayer no hubo movimientos, no te enviamos nada.";
   document.getElementById("dailyOptHint").style.display = ((on || basic) && !state.whatsappOptIn) ? "" : "none";
 }
 async function saveDaily(next){

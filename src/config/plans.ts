@@ -19,6 +19,9 @@ export const COUNTED_MESSAGE_KINDS = ["reply", "alert", "txn_notification"] as c
 
 export const DAILY_HARD_CAP_PER_USER = 50;
 
+/** Hora fija (Lima) del resumen diario: todos los días a esa hora se envía el resumen del día anterior completo. */
+export const DAILY_SUMMARY_HOUR_LIMA = 9;
+
 /** Tope duro de mensajes del chat web por usuario y día (Lima): no cuesta Meta, pero sí IA. Para todos los planes. */
 export const WEB_CHAT_HARD_CAP_PER_USER = 100;
 

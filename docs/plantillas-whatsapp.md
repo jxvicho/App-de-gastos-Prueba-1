@@ -9,7 +9,7 @@ Categoría: **Utilidad (Utility)**. Idioma: **Español (es)**. Los nombres deben
 
 ## Qué plan recibe qué
 - **Básico:** solo el resumen semanal (domingo 8:00 p. m.). Sin chat (0 respuestas al mes).
-- **Pro:** resumen diario a la hora que elija + semanal. Hasta 20 mensajes al mes entre respuestas del chat y alertas.
+- **Pro:** resumen diario fijo a las 9:00 a. m. (Lima), con el día anterior completo + semanal. Hasta 20 mensajes al mes entre respuestas del chat y alertas.
 - **Unlimited:** igual que Pro, sin tope, y puede apagar el diario.
 - No cuentan para el tope: resúmenes programados, código de verificación, bienvenida y el aviso de límite alcanzado.
 - `SUNDAY_MERGE_DAILY_INTO_WEEKLY=true` hace que el domingo solo salga el semanal.
@@ -30,7 +30,7 @@ Hola {{1}}, soy {{2}}. Este es tu resumen semanal ({{3}}): gastaste {{4}} y tu c
 - **Cuerpo**:
 
 ```
-Hola {{1}}, soy {{2}}. Hoy registraste {{3}} movimientos por {{4}} y tu categoría con más gasto fue {{5}}. Pendientes por confirmar: {{6}}. Avisos: {{7}}. Revisa el detalle en tu dashboard de Gastia.
+Hola {{1}}, soy {{2}}. Ayer registraste {{3}} movimientos por {{4}} y tu categoría con más gasto fue {{5}}. Pendientes por confirmar: {{6}}. Avisos: {{7}}. Revisa el detalle en tu dashboard de Gastia.
 ```
 - **Botones**: ninguno por ahora. Pendiente: cuando exista el dominio definitivo, agregar un botón de enlace `Ver pendientes` que abra el dashboard en "Por revisar" (mismo criterio que el `Ver en Gastia` del semanal).
 - **Ejemplos de variables**: {{1}} Javier · {{2}} Pipo 🐶, tu mascota de Gastia · {{3}} 5 · {{4}} S/ 120.00 · {{5}} Alimentación · {{6}} 2 · {{7}} presupuesto de Alimentación al 80 %

@@ -5,11 +5,14 @@ import { env } from "../config/env";
 import { sendDailyReportToUser } from "../services/dailyReportSender";
 import { currentLimaHour } from "../services/weeklyReportData";
 import { getEffectivePlan } from "../services/plans";
+import { DAILY_SUMMARY_HOUR_LIMA } from "../config/plans";
 
 export const dailyReportWorker = new Worker(
   "daily-report",
   async () => {
     const hour = currentLimaHour();
+    // Hora fija para todos: solo a las 9:00 (Lima) sale el resumen del día anterior.
+    if (hour !== DAILY_SUMMARY_HOUR_LIMA) return;
     // Domingo: si está activada la fusión, el semanal (20:00) reemplaza al diario.
     const isSundayLima = new Date().toLocaleDateString("en-US", { timeZone: "America/Lima", weekday: "short" }) === "Sun";
     if (isSundayLima && env.SUNDAY_MERGE_DAILY_INTO_WEEKLY) return;
@@ -21,8 +24,8 @@ export const dailyReportWorker = new Worker(
     for (const user of candidates) {
       try {
         const eff = await getEffectivePlan(user);
-        // El resumen diario es de Pro y Unlimited (Básico solo recibe el semanal), a la hora que eligieron.
-        if (eff.plan === "BASIC" || user.dailySummaryHour !== hour) continue;
+        // El resumen diario es de Pro y Unlimited (Básico solo recibe el semanal).
+        if (eff.plan === "BASIC") continue;
         // Solo Unlimited puede apagarlo; en los demás planes va siempre activo.
         if (eff.plan === "UNLIMITED" && !user.dailySummaryEnabled) continue;
         sent++;
