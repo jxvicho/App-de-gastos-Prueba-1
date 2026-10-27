@@ -55,7 +55,7 @@ profileRouter.get(
         autoRegisterOn: eff.plan === "BASIC" ? false : user.autoRegister,
         dailySummaryAvailable: eff.plan !== "BASIC",
         dailySummaryOn: eff.plan === "BASIC" ? false : user.dailySummaryEnabled,
-        alerts: eff.plan === "PRO" || isUnlimited,
+        alerts: eff.plan !== "BASIC",
         fullChat: eff.plan !== "BASIC",
       },
     });
