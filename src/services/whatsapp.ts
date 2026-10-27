@@ -434,6 +434,8 @@ function bodyComponent(bodyParams: string[]) {
 export interface TemplateOpts extends SendOpts {
   /** Parte variable de un botón CTA URL (lo que va al final de la URL base registrada en la plantilla). */
   urlButtonSuffix?: string;
+  /** Payloads de los botones de respuesta rápida de la plantilla, en orden (índice 0, 1, 2). */
+  quickReplyPayloads?: string[];
 }
 
 function urlButtonComponent(suffix: string) {
@@ -468,6 +470,9 @@ export async function sendTemplateMessage(
     }
     if (bodyParams.length) components.push(bodyComponent(bodyParams));
     if (opts.urlButtonSuffix !== undefined) components.push(urlButtonComponent(opts.urlButtonSuffix));
+    (opts.quickReplyPayloads ?? []).forEach((payload, index) => {
+      components.push({ type: "button", sub_type: "quick_reply", index: String(index), parameters: [{ type: "payload", payload }] });
+    });
 
     const data = await postToGraph({
       messaging_product: "whatsapp",
@@ -481,6 +486,7 @@ export async function sendTemplateMessage(
     });
     const wamid = data.messages?.[0]?.id;
     await recordOutbound(auth.userId, wamid, kind, true);
+    await rememberTxnForMessage(wamid);
     return wamid;
   } catch (err) {
     console.error(`No se pudo enviar la plantilla "${templateName}" a ${to}:`, err);

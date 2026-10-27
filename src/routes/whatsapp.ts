@@ -167,7 +167,14 @@ whatsappRouter.post("/webhook", (req, res) => {
         if (message.type === "button") {
           const label = String(message.button?.text ?? message.button?.payload ?? "").trim().toLowerCase();
           console.log(`📩 WhatsApp de ${from}: botón de plantilla "${label}"`);
-          const equivalentText = label.includes("pendiente") ? "mostrar pendientes" : label.includes("mes") ? "resumen" : null;
+          const payload = String(message.button?.payload ?? "");
+          const equivalentText =
+            textForButtonReply(payload) ??
+            (label.includes("pendiente") ? "mostrar pendientes"
+              : label.includes("mes") ? "resumen"
+              : label.includes("anotar") ? "confirmar"
+              : label.includes("descartar") ? "no"
+              : null);
           if (equivalentText) await handleIncomingMessage(from, equivalentText, contextMessageId);
           continue;
         }

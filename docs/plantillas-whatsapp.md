@@ -55,3 +55,10 @@ si ese día no hubo gastos ni pendientes.
 1. Crea y espera la aprobación de las 2 plantillas (suele tardar minutos).
 2. Activa el reporte diario en Configuración y elige una hora.
 3. Para probar la plantilla sin esperar: no escribas al bot durante 24 h (o borra la clave `wa:window:<número>` en Redis) y pide "resumen semanal".
+
+## 3. `notificacion_nuevo_gasto` (aviso por consumo, solo cuando la ventana de 24 h está cerrada)
+- Idioma: **Español (PER)** → código `es_PE` (`WHATSAPP_TEMPLATE_TXN_LANG`). Nombre en `WHATSAPP_TEMPLATE_TXN`.
+- Cuerpo: `🧾 *Nuevo movimiento detectado*` + Comercio `{{1}}`, Monto `{{2}}`, Categoría `{{3}}`, Fecha `{{4}}`, Banco `{{5}}` + `¿Lo registramos?`
+- Botones de respuesta rápida: **Anotar** y **Descartar** (el código envía los payloads `txn_confirm` y `txn_reject`).
+- Se usa solo para quien recibe aviso por consumo con botones (plan Unlimited sin registro automático). Con la ventana abierta se manda el mensaje normal con botones.
+- Al tocar un botón, el webhook (`type: "button"`) lo traduce a confirmar/descartar usando el id del mensaje (`context.id`).

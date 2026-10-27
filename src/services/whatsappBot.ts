@@ -1,6 +1,7 @@
 import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
-import { sendInteractiveButtons, sendTextMessage, isWebChannel, runInWebChannel, queueWebButtons, WebReply, beginTxnContext, setCurrentTxn, findTxnIdForMessage } from "./whatsapp";
+import { env } from "../config/env";
+import { sendInteractiveButtons, sendTextMessage, sendTemplateMessage, isWindowOpen, isWebChannel, runInWebChannel, queueWebButtons, WebReply, beginTxnContext, setCurrentTxn, findTxnIdForMessage } from "./whatsapp";
 import { downloadWhatsappMedia } from "./whatsappMedia";
 import { recordWebBotMessage } from "./webChatNotify";
 import { findEquivalentRule } from "./ruleDedup";
@@ -3719,10 +3720,30 @@ export async function notifyPendingTransaction(
 ): Promise<void> {
   if (!phoneNumber) return;
 
-  const messageId = await sendInteractiveButtons(phoneNumber, buildNotificationBody(transaction, petLabel), [
-    { id: BUTTON_ID_CONFIRM, title: "✅ Anotar" },
-    { id: BUTTON_ID_REJECT, title: "🗑️ Descartar" },
-  ], { kind: "txn_notification" });
+  let messageId: string | undefined;
+  if (await isWindowOpen(phoneNumber)) {
+    messageId = await sendInteractiveButtons(phoneNumber, buildNotificationBody(transaction, petLabel), [
+      { id: BUTTON_ID_CONFIRM, title: "✅ Anotar" },
+      { id: BUTTON_ID_REJECT, title: "🗑️ Descartar" },
+    ], { kind: "txn_notification" });
+  } else {
+    // Ventana de 24 h cerrada: solo se puede enviar la plantilla aprobada (mismos datos y botones).
+    beginTxnContext();
+    setCurrentTxn(transaction.id);
+    messageId = await sendTemplateMessage(
+      phoneNumber,
+      env.WHATSAPP_TEMPLATE_TXN,
+      env.WHATSAPP_TEMPLATE_TXN_LANG,
+      [
+        transaction.merchant || transaction.description || "Sin nombre",
+        formatAmount(transaction),
+        transaction.category?.name ?? "Sin categoría",
+        formatShortDate(transaction.occurredAt),
+        transaction.bankKey ? formatBankLabel(transaction.bankKey) : "-",
+      ],
+      { kind: "txn_notification", quickReplyPayloads: [BUTTON_ID_CONFIRM, BUTTON_ID_REJECT] }
+    );
+  }
 
   if (messageId) {
     await prisma.transaction.update({

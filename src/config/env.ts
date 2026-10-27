@@ -42,6 +42,9 @@ const envSchema = z.object({
   WHATSAPP_TEMPLATE_WEEKLY: z.string().default("gastia_resumen_semanal"),
   WHATSAPP_TEMPLATE_DAILY: z.string().default("gastia_resumen_diario"),
   WHATSAPP_TEMPLATE_LANG: z.string().default("es"),
+  // Aviso por consumo (ventana de 24 h cerrada): 5 variables + botones "Anotar" / "Descartar".
+  WHATSAPP_TEMPLATE_TXN: z.string().default("notificacion_nuevo_gasto"),
+  WHATSAPP_TEMPLATE_TXN_LANG: z.string().default("es_PE"),
   // true: el domingo solo se envía el reporte semanal (se omite el diario ese día).
   SUNDAY_MERGE_DAILY_INTO_WEEKLY: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   // Chat web dentro del dashboard (misma lógica que el bot de WhatsApp). Apagado por defecto.
