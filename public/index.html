@@ -4192,7 +4192,7 @@ async function api(path, options = {}) {
   let data = {};
   try { data = await res.json(); }
   catch { throw new Error(`Respuesta inesperada del servidor (código ${res.status})`); }
-  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+  if (!res.ok) { const err = new Error(data.error || `Error ${res.status}`); err.status = res.status; err.path = path; throw err; }
   return data;
 }
 
@@ -4210,8 +4210,20 @@ async function enterApp(){
     loadReview();
     startLiveUpdates();
   } catch(err) {
-    // Token inválido o vencido: regresamos al login
-    logout();
+    // Solo una sesión inválida (401) manda al login. Cualquier otro fallo se muestra
+    // en pantalla (antes volvía al login sin decir nada y parecía que la clave estaba mal).
+    if (err && err.status === 401) { logout(); return; }
+    const box = document.createElement("div");
+    box.style.cssText = "position:fixed;inset:0;z-index:999;background:rgba(11,37,69,.55);display:flex;align-items:center;justify-content:center;padding:20px;";
+    box.innerHTML = `<div style="background:#fff;border-radius:18px;padding:24px;max-width:460px;width:100%;font-family:inherit;">
+      <h3 style="margin:0 0 8px;">No pudimos cargar tus datos</h3>
+      <p style="margin:0 0 6px;color:#5a6a80;font-size:14px;">Tu sesión es válida, pero el servidor devolvió un error. Puedes reintentar en unos segundos.</p>
+      <p style="margin:0 0 16px;font-size:12.5px;color:#8b96a5;word-break:break-word;">Detalle: ${escHtml((err && (err.path ? err.path + " — " : "") + err.message) || "error desconocido")}</p>
+      <div style="display:flex;gap:10px;"><button id="retryLoadBtn" style="flex:1;border:0;border-radius:12px;padding:11px;background:#1a5da8;color:#fff;font-weight:700;cursor:pointer;">Reintentar</button>
+      <button id="logoutLoadBtn" style="flex:1;border:0;border-radius:12px;padding:11px;background:#f1f4f9;color:#33455c;font-weight:700;cursor:pointer;">Cerrar sesión</button></div></div>`;
+    document.body.appendChild(box);
+    document.getElementById("retryLoadBtn").onclick = ()=>location.reload();
+    document.getElementById("logoutLoadBtn").onclick = logout;
   }
 }
 
