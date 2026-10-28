@@ -3754,8 +3754,10 @@ export async function notifyPendingTransaction(
   let messageId: string | undefined;
   if (await isWindowOpen(phoneNumber)) {
     messageId = await sendInteractiveButtons(phoneNumber, buildNotificationBody(transaction, petLabel), [
-      { id: BUTTON_ID_CONFIRM, title: "✅ Anotar" },
-      { id: BUTTON_ID_REJECT, title: "🗑️ Descartar" },
+      // En el chat web los botones van ligados a ESTE movimiento (web_ok/web_no:<id>); con varios
+      // pendientes, un "no" genérico no sabría a cuál se refiere.
+      { id: isWebChannel() ? `web_ok:${transaction.id}` : BUTTON_ID_CONFIRM, title: "✅ Anotar" },
+      { id: isWebChannel() ? `web_no:${transaction.id}` : BUTTON_ID_REJECT, title: "🗑️ Descartar" },
     ], { kind: "txn_notification" });
   } else {
     // Ventana de 24 h cerrada: solo se puede enviar la plantilla aprobada (mismos datos y botones).
