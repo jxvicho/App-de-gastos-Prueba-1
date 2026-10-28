@@ -944,14 +944,14 @@ function buildDisambiguationMessage(candidates: PendingTransaction[]): string {
   const lines = ["Encontré más de un movimiento que podría ser ese. ¿Cuál es? Responde con el número:", ""];
   candidates.forEach((t, i) => {
     const who = t.merchant || t.description || "Movimiento";
-    lines.push(`${i + 1}. ${who} — ${formatAmount(t)} (${formatShortDate(t.occurredAt)})`);
+    lines.push(`${i + 1}. ${who} — ${formatAmount(t)} (${formatTxnDate(t)})`);
   });
   return lines.join("\n");
 }
 
 function buildConfirmPrompt(t: PendingTransaction): string {
   const who = t.merchant || t.description || "el movimiento";
-  return `Encontré esta transacción: ${formatAmount(t)} en ${who} (${formatShortDate(t.occurredAt)}). ¿La confirmamos? Responde *Sí* o *No*.`;
+  return `Encontré esta transacción: ${formatAmount(t)} en ${who} (${formatTxnDate(t)}). ¿La confirmamos? Responde *Sí* o *No*.`;
 }
 
 const WEB_YES_NO = [
@@ -966,7 +966,7 @@ function buildDeleteConfirmPrompt(t: PendingTransaction): string {
   const kind = t.type === "INCOME" ? "ingreso" : "gasto";
   return (
     `⚠️ ¿Confirmas que quieres *eliminar* este ${kind} ya registrado? ` +
-    `${formatAmount(t)} en ${who} (${formatShortDate(t.occurredAt)}). Responde *Sí* para eliminarlo.`
+    `${formatAmount(t)} en ${who} (${formatTxnDate(t)}). Responde *Sí* para eliminarlo.`
   );
 }
 
@@ -975,7 +975,7 @@ function buildAlreadyConfirmedPrompt(t: PendingTransaction): string {
   queueWebButtons(WEB_YES_NO);
   const who = t.merchant || t.description || "el movimiento";
   return (
-    `Este movimiento ya está *confirmado*: ${formatAmount(t)} en ${who} (${formatShortDate(t.occurredAt)}). ` +
+    `Este movimiento ya está *confirmado*: ${formatAmount(t)} en ${who} (${formatTxnDate(t)}). ` +
     `¿Quieres eliminarlo? Responde *Sí* para eliminarlo.`
   );
 }
@@ -984,7 +984,7 @@ function buildAlreadyConfirmedPrompt(t: PendingTransaction): string {
 function buildAlreadyRejectedPrompt(t: PendingTransaction): string {
   const who = t.merchant || t.description || "el movimiento";
   return (
-    `Este movimiento fue *descartado* anteriormente: ${formatAmount(t)} en ${who} (${formatShortDate(t.occurredAt)}). ` +
+    `Este movimiento fue *descartado* anteriormente: ${formatAmount(t)} en ${who} (${formatTxnDate(t)}). ` +
     `¿Quieres anotarlo ahora? Responde *Sí* para registrarlo.`
   );
 }
@@ -993,7 +993,7 @@ function buildAlreadyRejectedPrompt(t: PendingTransaction): string {
 function buildRestorePrompt(t: PendingTransaction): string {
   const who = t.merchant || t.description || "el movimiento";
   return (
-    `Este movimiento fue *eliminado* anteriormente: ${formatAmount(t)} en ${who} (${formatShortDate(t.occurredAt)}). ` +
+    `Este movimiento fue *eliminado* anteriormente: ${formatAmount(t)} en ${who} (${formatTxnDate(t)}). ` +
     `¿Quieres restaurarlo? Responde *Sí* para restaurarlo.`
   );
 }
@@ -1427,6 +1427,9 @@ function detectManualTransactionIntent(normalizedText: string): { type: "EXPENSE
   if (MANUAL_TXN_VERB_REGEX.test(normalizedText)) {
     if (/\bgastos?\b/.test(normalizedText)) return { type: "EXPENSE" };
     if (/\bingresos?\b/.test(normalizedText)) return { type: "INCOME" };
+    // "anota 5 soles de pan": verbo + monto sin decir "gasto" -> es un gasto.
+    // Sin cifra ("anota en transporte") NO: puede ser la respuesta a una pendiente.
+    if (/\d/.test(normalizedText)) return { type: "EXPENSE" };
     return null;
   }
 
@@ -1754,7 +1757,7 @@ function buildCategoryItemizedReply(category: { name: string }, transactions: Co
   const lines = [`${icon} *Gastos de ${category.name}*`, ""];
   shown.forEach((t) => {
     const who = t.merchant || t.description || "Movimiento";
-    lines.push(`• ${formatShortDate(t.occurredAt)} · ${formatAmount(t)} · ${who}`);
+    lines.push(`• ${formatTxnDate(t)} · ${formatAmount(t)} · ${who}`);
   });
   if (transactions.length > shown.length) {
     lines.push("", `...y ${transactions.length - shown.length} más.`);
@@ -1821,7 +1824,7 @@ function buildMerchantQueryReply(
     );
     shown.forEach((t) => {
       const detail = t.description ? ` — ${t.description}` : "";
-      lines.push(`• ${formatShortDate(t.occurredAt)} · ${formatAmount(t)}${detail}`);
+      lines.push(`• ${formatTxnDate(t)} · ${formatAmount(t)}${detail}`);
     });
     if (confirmed.length > shown.length) {
       lines.push(
@@ -1844,7 +1847,7 @@ function buildMerchantQueryReply(
     );
     pending.forEach((t) => {
       const detail = t.description ? ` — ${t.description}` : "";
-      lines.push(`• ${formatShortDate(t.occurredAt)} · ${formatAmount(t)}${detail}`);
+      lines.push(`• ${formatTxnDate(t)} · ${formatAmount(t)}${detail}`);
     });
   }
 
@@ -1915,7 +1918,7 @@ function formatPendingLine(t: ConfirmedTxWithCategory, index: number): string {
   const catLine = t.category
     ? ` · ${CATEGORY_ICON_BY_NAME.get(t.category.name) ?? FALLBACK_CATEGORY_ICON} ${t.category.name}`
     : " · sin categoría sugerida";
-  return `${index}. ${formatShortDate(t.occurredAt)} · ${formatAmount(t)} · ${who}${catLine}`;
+  return `${index}. ${formatTxnDate(t)} · ${formatAmount(t)} · ${who}${catLine}`;
 }
 
 /**
@@ -2193,6 +2196,11 @@ function formatShortDate(d: Date): string {
   return `${String(d.getDate()).padStart(2, "0")} ${MONTH_NAMES_ES[d.getMonth()]}`;
 }
 
+/** Fecha corta de un movimiento en hora de Lima (el contenedor corre en UTC). */
+function formatTxnDate(t: { occurredAt: Date; source?: string | null }): string {
+  return formatShortDate(limaWallTime(t));
+}
+
 function formatBankLabel(bankKey: string): string {
   return bankKey.replace(/_/g, " ").toUpperCase();
 }
@@ -2218,7 +2226,7 @@ function buildNotificationBody(
     lines.push(`${icon} *Categoría:* ${t.category.name}`);
   }
 
-  lines.push(`🗓️ *Fecha:* ${formatShortDate(t.occurredAt)}`);
+  lines.push(`🗓️ *Fecha:* ${formatTxnDate(t)}`);
   if (t.bankKey) lines.push(`🏛️ *Banco:* ${formatBankLabel(t.bankKey)}`);
 
   lines.push("", "¿Lo registramos?");
@@ -2962,7 +2970,7 @@ export async function handleIncomingMessage(
         const lines = [`🔎 *Resto de gastos hacia ${ctx.merchant}*`, ""];
         remaining.forEach((t) => {
           const detail = t.description ? ` — ${t.description}` : "";
-          lines.push(`• ${formatShortDate(t.occurredAt)} · ${formatAmount(t)}${detail}`);
+          lines.push(`• ${formatTxnDate(t)} · ${formatAmount(t)}${detail}`);
         });
         await sendTextMessage(from, lines.join("\n"));
         return;
@@ -3761,7 +3769,7 @@ export async function notifyPendingTransaction(
         transaction.merchant || transaction.description || "Sin nombre",
         formatAmount(transaction),
         transaction.category?.name ?? "Sin categoría",
-        formatShortDate(transaction.occurredAt),
+        formatTxnDate(transaction),
         transaction.bankKey ? formatBankLabel(transaction.bankKey) : "-",
       ],
       { kind: "txn_notification", quickReplyPayloads: [BUTTON_ID_CONFIRM, BUTTON_ID_REJECT] }
@@ -3790,7 +3798,7 @@ function buildAutoRegisteredBody(
     const icon = CATEGORY_ICON_BY_NAME.get(transaction.category.name) ?? FALLBACK_CATEGORY_ICON;
     lines.push(`${icon} *Categoría:* ${transaction.category.name}`);
   }
-  lines.push(`🗓️ *Fecha:* ${formatShortDate(transaction.occurredAt)}`);
+  lines.push(`🗓️ *Fecha:* ${formatTxnDate(transaction)}`);
   if (transaction.bankKey) lines.push(`🏛️ *Banco:* ${formatBankLabel(transaction.bankKey)}`);
   lines.push("", "Ya quedó anotado en tu dashboard. 👍");
 
