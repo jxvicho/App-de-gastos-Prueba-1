@@ -48,8 +48,8 @@ export const PLAN_LABELS: Record<Plan, string> = {
 
 /** Precio mensual (S/) de los planes que se venden. null = no se vende. */
 export const PLAN_PRICE_PEN: Record<Plan, number | null> = {
-  BASIC: 9.9,
-  PRO: 14.9,
+  BASIC: 14.9,
+  PRO: 19.9,
   UNLIMITED: null,
 };
 
