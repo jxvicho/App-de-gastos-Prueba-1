@@ -53,5 +53,15 @@ export const PLAN_PRICE_PEN: Record<Plan, number | null> = {
   UNLIMITED: null,
 };
 
+/** Periodos de facturación y precio (S/) por periodo. Definidos el 29-oct-2026; aún no los usa ninguna ruta (falta la pasarela). */
+export type BillingPeriod = "MONTHLY" | "QUARTERLY" | "ANNUAL";
+export const PLAN_PRICE_BY_PERIOD_PEN: Record<"BASIC" | "PRO", Record<BillingPeriod, number>> = {
+  BASIC: { MONTHLY: 14.9, QUARTERLY: 39.9, ANNUAL: 149.9 },
+  PRO: { MONTHLY: 19.9, QUARTERLY: 54.9, ANNUAL: 199.9 },
+};
+
+/** Plan anual: días tras el cobro en los que se devuelve el monto completo si el usuario lo pide. */
+export const ANNUAL_REFUND_DAYS = 7;
+
 /** Duración estándar del periodo de prueba (solo informativo; la fecha real vive en Subscription). */
 export const TRIAL_DAYS = 7;
