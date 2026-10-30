@@ -77,7 +77,7 @@ async function postToGraph(payload: Record<string, unknown>): Promise<GraphSendR
 /** Tipos de mensaje saliente. Cuentan para el tope mensual: reply, alert y txn_notification (ver COUNTED_MESSAGE_KINDS). */
 export type OutboundKind =
   | "reply" | "txn_notification" | "alert" | "daily_summary" | "weekly_report"
-  | "limit_notice" | "verification" | "welcome";
+  | "limit_notice" | "verification" | "welcome" | "billing";
 export interface SendOpts {
   kind?: OutboundKind;
 }

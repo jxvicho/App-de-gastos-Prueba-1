@@ -971,6 +971,24 @@ tbody tr:hover{background:#f7faff;}
 .pf-check input{margin-top:3px;}
 .form-err{color:#c0352b;font-size:12.5px;min-height:16px;margin:4px 0 8px 0;}
 .pm-box{display:flex;align-items:center;gap:12px;background:#f4f8fd;border:1px solid #e1e9f4;border-radius:14px;padding:12px 14px;font-size:13.5px;color:#33455c;}
+
+.pay-sec{margin-top:6px;}
+.pay-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0;}
+.pay-opts.two{grid-template-columns:repeat(2,1fr);}
+.pay-opt{border:1.5px solid #d9e2ef;border-radius:12px;padding:10px 8px;text-align:center;cursor:pointer;background:#fff;font-size:12.5px;color:#33455c;line-height:1.35;}
+.pay-opt b{display:block;font-size:14px;color:#164b8a;}
+.pay-opt.sel{border-color:#164b8a;background:#f1f6fd;box-shadow:0 0 0 2px #164b8a1f;}
+.pay-opt small{display:block;color:#5b6675;font-size:11.5px;}
+.pay-note{font-size:12.5px;color:#5b6675;line-height:1.5;margin:8px 0;}
+.pay-warn{background:#fff4f2;border:1px solid #f3c6bf;color:#8a2a1c;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5;margin:8px 0;}
+.pay-terms{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:#33455c;margin:10px 0;}
+.pay-btn{display:block;width:100%;border:0;border-radius:12px;background:#164b8a;color:#fff;font-weight:700;font-size:14px;padding:12px;cursor:pointer;}
+.pay-btn:disabled{opacity:.55;cursor:default;}
+.pay-btn.ghost{background:#fff;color:#164b8a;border:1.5px solid #164b8a;margin-top:8px;}
+.pay-btn.danger{background:#fff;color:#b42318;border:1.5px solid #f0b8b1;margin-top:8px;}
+.pay-err{color:#b42318;font-size:12.5px;min-height:16px;margin-top:6px;}
+#restrictedBanner{position:sticky;top:0;z-index:50;background:#b42318;color:#fff;font-size:13.5px;padding:10px 16px;text-align:center;}
+#restrictedBanner button{margin-left:10px;background:#fff;color:#b42318;border:0;border-radius:8px;padding:4px 10px;font-weight:700;cursor:pointer;}
 @media(max-width:640px){.bill-grid{grid-template-columns:1fr;}.rec-row{flex-wrap:wrap;}}
 .debt-grid{display:flex;flex-wrap:wrap;gap:18px;margin-top:10px;}
 .debt-col{flex:1 1 380px;min-width:0;}
@@ -3798,7 +3816,9 @@ let SUB = null;
 const SUB_STATUS = { TRIALING:"En periodo de prueba", ACTIVE:"Activa", PAST_DUE:"Pago pendiente", CANCELED:"Cancelada" };
 async function loadSubscription(){
   try { SUB = await api("/subscription"); } catch(e){ SUB = null; }
+  await loadPayCatalog();
   renderPlan();
+  renderRestrictedBanner();
 }
 function trialHtml(s){
   if(!s.trial) return "";
@@ -3817,7 +3837,7 @@ function renderPlan(){
   document.getElementById("planChip").textContent = s.planLabel;
   const next = s.billing && s.billing.nextBillingDate;
   body.innerHTML = `
-    <div class="plan-price">${s.priceMonthly ? sbMoney(s.priceMonthly, s.currency) : "Incluido"} <small>${s.priceMonthly ? "/ mes" : ""}</small></div>
+    <div class="plan-price">${s.price ? sbMoney(s.price, s.currency) : (s.priceMonthly ? sbMoney(s.priceMonthly, s.currency) : "Incluido")} <small>${s.price ? "/ " + sbEsc((s.periodLabel||"").toLowerCase()) : (s.priceMonthly ? "/ mes" : "")}</small></div>
     ${trialHtml(s)}
     <div class="plan-line"><span>Estado</span><b>${sbEsc(SUB_STATUS[s.status] || "Activa")}</b></div>
     <div class="plan-line"><span>Próximo cobro</span><b>${next ? sbDate(next) : "—"}</b></div>`;
@@ -3830,13 +3850,13 @@ function openSubModal(){
     <div class="sub-sec" style="border-top:none;padding-top:0;margin-top:0;">
       <h5>Plan actual</h5>
       <div class="plan-line"><span>Plan</span><b>${sbEsc(s.planLabel)}</b></div>
-      <div class="plan-line"><span>Precio</span><b>${s.priceMonthly ? sbMoney(s.priceMonthly, s.currency) + " / mes" : "Incluido"}</b></div>
+      <div class="plan-line"><span>Precio</span><b>${s.price ? sbMoney(s.price, s.currency) + " / " + sbEsc((s.periodLabel||"").toLowerCase()) : (s.priceMonthly ? sbMoney(s.priceMonthly, s.currency) + " / mes" : "Incluido")}</b></div>
       <div class="plan-line"><span>Estado</span><b>${sbEsc(SUB_STATUS[s.status] || "Activa")}</b></div>
       ${trialHtml(s)}
     </div>
     <div class="sub-sec">
       <h5>Facturación</h5>
-      <div class="plan-line"><span>Día de facturación</span><b>${s.billing && s.billing.billingDay ? "Día " + s.billing.billingDay + " de cada mes" : "—"}</b></div>
+      <div class="plan-line"><span>Día de facturación</span><b>${s.billing && s.billing.billingDay ? "Día " + s.billing.billingDay + (s.period === "MONTHLY" || !s.period ? " de cada mes" : "") : "—"}</b></div>
       <div class="plan-line"><span>Próximo cobro</span><b>${next ? sbDate(next) : "—"}</b></div>
       ${s.billing && s.billing.cancelAtPeriodEnd ? `<div class="plan-line"><span>Renovación</span><b>Se cancela al final del periodo</b></div>` : ""}
     </div>
@@ -3852,10 +3872,154 @@ function openSubModal(){
   document.getElementById("bfEmail").value = b.email || "";
   document.getElementById("bfAddress").value = b.address || "";
   document.getElementById("bfErr").textContent = "";
+  document.getElementById("subBody").insertAdjacentHTML("beforeend", payActionsHtml(s));
+  wirePayActions(s);
   document.getElementById("subModalOverlay").classList.add("open");
 }
 const closeSubModal = ()=> document.getElementById("subModalOverlay").classList.remove("open");
-document.getElementById("manageSubBtn").addEventListener("click", async ()=>{ if(!SUB) await loadSubscription(); openSubModal(); });
+
+/* ---------- Suscribirse con tarjeta (Culqi) ---------- */
+const PAY = { catalog:null, plan:"PRO", period:"QUARTERLY", busy:false };
+const PAY_MONTHS = { MONTHLY:1, QUARTERLY:3, ANNUAL:12 };
+async function loadPayCatalog(){
+  if(PAY.catalog) return PAY.catalog;
+  try { PAY.catalog = await api("/subscription/plans"); } catch(e){ PAY.catalog = null; }
+  if(PAY.catalog && PAY.catalog.paymentsEnabled && !window.CulqiCheckout && !document.getElementById("culqiJs")){
+    const sc = document.createElement("script"); sc.id = "culqiJs"; sc.src = "https://js.culqi.com/checkout-js"; sc.async = true;
+    document.head.appendChild(sc);
+  }
+  return PAY.catalog;
+}
+function culqiCaptureCard(email){
+  return new Promise((resolve, reject)=>{
+    if(!window.CulqiCheckout || !PAY.catalog || !PAY.catalog.publicKey){ reject(new Error("No se pudo cargar el formulario de pago. Revisa tu conexión e inténtalo de nuevo.")); return; }
+    // amount 0: el formulario solo captura la tarjeta (no cobra); el cobro lo hace la suscripción.
+    const cfg = {
+      settings:{ title:"Gastia", currency:"PEN", amount:0 },
+      client:{ email: email || "" },
+      options:{ lang:"es", installments:false, paymentMethods:{ tarjeta:true, yape:false, billetera:false, bancaMovil:false, agente:false, cuotealo:false } },
+      appearance:{ theme:"default" }
+    };
+    const C = new window.CulqiCheckout(PAY.catalog.publicKey, cfg);
+    let done = false;
+    const handler = ()=>{
+      if(done) return; done = true;
+      if(C.token){ const id = C.token.id; try{ C.close(); }catch(e){} resolve(id); }
+      else { reject(new Error((C.error && (C.error.user_message || C.error.merchant_message)) || "No se pudo validar la tarjeta.")); }
+    };
+    C.culqi = handler; window.culqi = handler;
+    C.open();
+  });
+}
+function payPriceLine(period, price){
+  const m = PAY_MONTHS[period];
+  return m === 1 ? sbMoney(price,"PEN") + " al mes" : sbMoney(price,"PEN") + " · " + sbMoney(price/m,"PEN") + " al mes";
+}
+function paySummary(){
+  const c = PAY.catalog; const plan = c.plans.find(p=>p.id===PAY.plan); const price = plan.prices[PAY.period];
+  const periodLabel = (c.periods.find(p=>p.id===PAY.period)||{}).label || "";
+  let t;
+  if(c.trialAvailable){
+    const d = new Date(Date.now() + c.trialDays*86400000);
+    t = `Hoy no pagas nada. Tu primer cobro de <b>${sbMoney(price,"PEN")}</b> (${sbEsc(plan.label)} ${sbEsc(periodLabel.toLowerCase())}) será el <b>${sbDate(d)}</b>. Puedes cancelar antes y no se te cobra.`;
+  } else {
+    t = `Se te cobrará <b>${sbMoney(price,"PEN")}</b> (${sbEsc(plan.label)} ${sbEsc(periodLabel.toLowerCase())}) al suscribirte.`;
+  }
+  if(PAY.period === "ANNUAL") t += ` Si pides el reembolso dentro de los ${c.annualRefundDays} días posteriores al cobro, te devolvemos el monto completo.`;
+  return t;
+}
+function payChooserHtml(){
+  const c = PAY.catalog;
+  const planOpts = c.plans.map(p=>`<div class="pay-opt ${PAY.plan===p.id?"sel":""}" data-plan="${p.id}"><b>${sbEsc(p.label)}</b></div>`).join("");
+  const plan = c.plans.find(p=>p.id===PAY.plan);
+  const perOpts = c.periods.map(p=>`<div class="pay-opt ${PAY.period===p.id?"sel":""}" data-period="${p.id}"><b>${sbEsc(p.label)}</b>${sbMoney(plan.prices[p.id],"PEN")}<small>${PAY_MONTHS[p.id]===1?"al mes":sbMoney(plan.prices[p.id]/PAY_MONTHS[p.id],"PEN")+" al mes"}</small></div>`).join("");
+  return `
+    <div class="pay-opts two" id="payPlans">${planOpts}</div>
+    <div class="pay-opts" id="payPeriods">${perOpts}</div>
+    <div class="pay-note" id="paySummary">${paySummary()}</div>
+    <label class="pay-terms"><input type="checkbox" id="payTyc"> <span>Acepto los términos y condiciones y autorizo el cobro automático y recurrente a mi tarjeta según el plan elegido.</span></label>
+    <button class="pay-btn" id="paySubscribe" disabled>${c.trialAvailable ? "Probar " + c.trialDays + " días gratis" : "Suscribirme"}</button>`;
+}
+function payActionsHtml(s){
+  const c = PAY.catalog;
+  if(!c || !c.paymentsEnabled) return "";
+  const hasSub = s.billing && s.billing.hasSubscription && s.status !== "CANCELED";
+  let h = `<div class="sub-sec pay-sec"><h5>Suscripción</h5>`;
+  if(s.accessRestricted || (s.billing && s.billing.pastDue)){
+    h += `<div class="pay-warn">${s.accessRestricted ? "Tu acceso está en modo solo lectura por un pago pendiente. " : "No pudimos cobrar tu suscripción. "}Actualiza tu tarjeta y reintentamos el cobro al instante.</div>
+      <button class="pay-btn" id="payUpdateCard">Actualizar tarjeta y reintentar</button>`;
+  } else if(hasSub){
+    h += `<div class="pay-note">Tu suscripción se renueva automáticamente${s.period ? " (" + sbEsc((s.periodLabel||"").toLowerCase()) + ")" : ""}. Puedes cancelarla cuando quieras; conservas el acceso hasta el final del periodo ya pagado.</div>
+      <button class="pay-btn danger" id="payCancel">Cancelar suscripción</button>`;
+    if(s.refund && s.refund.available) h += `<button class="pay-btn ghost" id="payRefund">Pedir reembolso del plan anual</button><div class="pay-note">Disponible hasta el ${sbDate(s.refund.until)}.</div>`;
+  } else {
+    h += payChooserHtml();
+  }
+  h += `<div class="pay-err" id="paySubErr"></div></div>`;
+  return h;
+}
+function wirePayActions(s){
+  const body = document.getElementById("subBody");
+  const err = ()=> document.getElementById("paySubErr");
+  const reload = async ()=>{ await loadSubscription(); openSubModal(); };
+  const run = async (btn, fn)=>{
+    if(PAY.busy) return; PAY.busy = true; const old = btn.textContent; btn.disabled = true; if(err()) err().textContent = "";
+    try { await fn(); } catch(e){ if(err()) err().textContent = e.message; btn.disabled = false; btn.textContent = old; }
+    PAY.busy = false;
+  };
+  const email = (s.billingInfo && s.billingInfo.email) || "";
+  const bindChooser = ()=>{
+    body.querySelectorAll("#payPlans .pay-opt").forEach(el=>el.addEventListener("click", ()=>{ PAY.plan = el.dataset.plan; refreshChooser(); }));
+    body.querySelectorAll("#payPeriods .pay-opt").forEach(el=>el.addEventListener("click", ()=>{ PAY.period = el.dataset.period; refreshChooser(); }));
+    const tyc = document.getElementById("payTyc"), sb = document.getElementById("paySubscribe");
+    if(tyc && sb){ tyc.addEventListener("change", ()=>{ sb.disabled = !tyc.checked; });
+      sb.addEventListener("click", ()=> run(sb, async ()=>{
+        const tokenId = await culqiCaptureCard(email);
+        sb.textContent = "Procesando…";
+        await api("/subscription/checkout", { method:"POST", body: JSON.stringify({ plan: PAY.plan, period: PAY.period, tokenId, tyc: true }) });
+        await reload();
+      })); }
+  };
+  function refreshChooser(){
+    const sec = body.querySelector(".pay-sec"); if(!sec) return;
+    const checked = (document.getElementById("payTyc")||{}).checked;
+    const holder = document.createElement("div"); holder.innerHTML = payChooserHtml();
+    // Reemplaza todo lo que va entre el título y el mensaje de error.
+    const errEl = sec.querySelector("#paySubErr");
+    [...sec.children].forEach(ch=>{ if(ch !== sec.querySelector("h5") && ch !== errEl) ch.remove(); });
+    [...holder.children].reverse().forEach(ch=> sec.querySelector("h5").after(ch));
+    const tyc = document.getElementById("payTyc"); if(tyc){ tyc.checked = !!checked; document.getElementById("paySubscribe").disabled = !checked; }
+    bindChooser();
+  }
+  bindChooser();
+  const uc = document.getElementById("payUpdateCard");
+  if(uc) uc.addEventListener("click", ()=> run(uc, async ()=>{
+    const tokenId = await culqiCaptureCard(email);
+    uc.textContent = "Procesando…";
+    await api("/subscription/update-card", { method:"POST", body: JSON.stringify({ tokenId }) });
+    await reload();
+  }));
+  const cn = document.getElementById("payCancel");
+  if(cn) cn.addEventListener("click", ()=>{
+    if(!confirm("¿Cancelar tu suscripción? Conservarás el acceso hasta el final del periodo ya pagado y no se te cobrará de nuevo.")) return;
+    run(cn, async ()=>{ await api("/subscription/cancel", { method:"POST" }); await reload(); });
+  });
+  const rf = document.getElementById("payRefund");
+  if(rf) rf.addEventListener("click", ()=>{
+    if(!confirm("¿Pedir el reembolso completo de tu plan anual? Se cancelará tu suscripción y perderás el acceso de inmediato.")) return;
+    run(rf, async ()=>{ await api("/subscription/refund", { method:"POST" }); await reload(); });
+  });
+}
+function renderRestrictedBanner(){
+  let el = document.getElementById("restrictedBanner");
+  const on = SUB && SUB.accessRestricted;
+  if(!on){ if(el) el.remove(); return; }
+  if(!el){ el = document.createElement("div"); el.id = "restrictedBanner"; document.body.prepend(el); }
+  el.innerHTML = `Tu acceso está en modo solo lectura por un pago pendiente. <button id="restrictedBannerBtn">Actualizar tarjeta</button>`;
+  document.getElementById("restrictedBannerBtn").addEventListener("click", async ()=>{ await loadPayCatalog(); openSubModal(); });
+}
+
+document.getElementById("manageSubBtn").addEventListener("click", async ()=>{ await loadSubscription(); openSubModal(); });
 document.getElementById("subClose").addEventListener("click", closeSubModal);
 document.getElementById("subModalOverlay").addEventListener("click", e=>{ if(e.target.id === "subModalOverlay") closeSubModal(); });
 document.getElementById("bfSave").addEventListener("click", async ()=>{
@@ -4208,6 +4372,7 @@ async function enterApp(){
     checkEmailConnectedRedirect();
     loadReview();
     startLiveUpdates();
+    loadSubscription().catch(()=>{}); // aviso de "solo lectura" si hay un cobro pendiente
   } catch(err) {
     // Solo una sesión inválida (401) manda al login. Cualquier otro fallo se muestra
     // en pantalla (antes volvía al login sin decir nada y parecía que la clave estaba mal).

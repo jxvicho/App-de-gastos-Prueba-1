@@ -67,6 +67,7 @@ model User {
   outboundMessages  OutboundMessage[]
   categoryGoals     CategoryGoal[]
   subscription      Subscription?
+  billingCharges    BillingCharge[]
   debts             Debt[]
   onboarding        OnboardingState?
 
@@ -503,10 +504,69 @@ model Subscription {
   billingDocNumber   String?
   billingEmail       String?
   billingAddress     String?
+  // Pasarela (Culqi). Solo se llenan cuando el usuario carga una tarjeta y se suscribe.
+  billingPeriod       BillingPeriod?
+  culqiCustomerId     String?
+  culqiCardId         String?
+  culqiSubscriptionId String?            @unique
+  failedAttempts      Int                @default(0) // cobros fallidos consecutivos (Culqi reintenta hasta 4, uno por día)
+  restrictedAt        DateTime? // acceso limitado (solo lectura) desde el 3.er intento fallido
+  canceledAt          DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
   @@map("subscriptions")
+}
+
+enum BillingPeriod {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+// Plan de Culqi para cada combinación plan × periodo × (con/sin prueba). Se crean una sola vez (scripts/culqiSetup.ts).
+model BillingPlan {
+  id          String        @id @default(uuid())
+  plan        Plan
+  period      BillingPeriod
+  withTrial   Boolean
+  culqiPlanId String
+  amountCents Int
+  createdAt   DateTime      @default(now())
+
+  @@unique([plan, period, withTrial])
+  @@map("billing_plans")
+}
+
+// Cada cobro (exitoso o fallido) recibido de Culqi. Sirve para reembolsos, reintentos y, después, comprobantes.
+model BillingCharge {
+  id                  String    @id @default(uuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  culqiChargeId       String    @unique
+  culqiSubscriptionId String?
+  status              String // PAID | FAILED | REFUNDED
+  amountCents         Int
+  currency            String    @default("PEN")
+  period              BillingPeriod?
+  failureMessage      String?
+  refundedAt          DateTime?
+  culqiRefundId       String?
+  // Comprobante electrónico (boleta/factura) pendiente de emitir con el facturador. Ver checklist.
+  receiptStatus       String    @default("PENDING")
+  createdAt           DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@map("billing_charges")
+}
+
+// Eventos de webhook ya procesados (idempotencia: Culqi puede repetir el envío).
+model BillingEvent {
+  id          String   @id // id del evento de Culqi (evt_...)
+  type        String
+  processedAt DateTime @default(now())
+
+  @@map("billing_events")
 }
 
 // ------------------------------------------------------------

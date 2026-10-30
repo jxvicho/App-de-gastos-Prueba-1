@@ -57,6 +57,16 @@ const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional().default(""),
   GEMINI_MODEL_EXTRACTION: z.string().default("gemini-2.5-flash"),
 
+  // Pagos con Culqi (suscripciones). Sin CULQI_SECRET_KEY o con PAYMENTS_ENABLED=false el cobro queda apagado.
+  PAYMENTS_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  CULQI_PUBLIC_KEY: z.string().optional().default(""),
+  CULQI_SECRET_KEY: z.string().optional().default(""),
+  CULQI_API_BASE: z.string().default("https://api.culqi.com/v2"),
+  // Secreto que va en la URL del webhook (Culqi no firma los eventos): /api/billing/culqi-webhook/<secreto>
+  CULQI_WEBHOOK_SECRET: z.string().optional().default(""),
+  // Plantilla de WhatsApp (aprobada por Meta) para avisar de un cobro fallido fuera de la ventana de 24 h.
+  WHATSAPP_TEMPLATE_BILLING: z.string().default("gastia_cobro_fallido"),
+
   // Envío de correos transaccionales (recuperación de contraseña, etc.)
   RESEND_API_KEY: z.string().optional().default(""),
   EMAIL_FROM: z.string().default("Gastia <onboarding@resend.dev>"),

@@ -63,3 +63,18 @@ si ese día no hubo gastos ni pendientes.
 - Botones de respuesta rápida: **Anotar** y **Descartar** (el código envía los payloads `txn_confirm` y `txn_reject`).
 - Se usa solo para quien recibe aviso por consumo con botones (plan Unlimited sin registro automático). Con la ventana abierta se manda el mensaje normal con botones.
 - Al tocar un botón, el webhook (`type: "button"`) lo traduce a confirmar/descartar usando el id del mensaje (`context.id`).
+
+## 4. `gastia_cobro_fallido` (aviso de cobro fallido, solo cuando la ventana de 24 h está cerrada)
+- Categoría sugerida: **Utilidad** (aviso transaccional de su suscripción; sin promociones). Idioma: **Español** → código `es` (`WHATSAPP_TEMPLATE_LANG`). Nombre en `WHATSAPP_TEMPLATE_BILLING`.
+- Cuerpo: `Hola {{1}}, {{2}}. Gestiona tu suscripción desde tu dashboard de Gastia.`
+- Ejemplos: {{1}} Javier · {{2}} el segundo intento de cobro falló; si falla otra vez tu acceso quedará en solo lectura. Actualiza tu tarjeta en Configuración > Plan y suscripción
+- Sin botones. Ninguna variable al inicio ni al final del texto (ya cumple la regla de Meta).
+- Se manda en el 2.º cobro fallido, al pasar a solo lectura (3.er fallo), al cancelarse la suscripción y al recuperar el pago. Con la ventana abierta va como texto normal.
+
+## Suscripciones (Culqi): configuración y prueba en sandbox
+Variables en el `.env` (NUNCA se suben a git): `PAYMENTS_ENABLED`, `CULQI_PUBLIC_KEY` (pk_test_…), `CULQI_SECRET_KEY` (sk_test_…) y `CULQI_WEBHOOK_SECRET` (una cadena larga aleatoria que inventes).
+1. `docker compose up --build -d` (aplica la migración `20261030150000_billing_culqi`).
+2. `docker compose exec backend npm run culqi:setup` crea los 12 planes en Culqi y los lista. Verifica en el CulqiPanel (modo integración) que cada uno tenga la frecuencia y los 7 días de prueba correctos.
+3. En el CulqiPanel > Eventos > Webhooks, registra `https://<tu-dominio-ngrok>/api/billing/culqi-webhook/<CULQI_WEBHOOK_SECRET>` para los eventos de cargos (charge.creation.succeeded, charge.failed) y suscripciones.
+4. En el dashboard: Configuración > Plan y suscripción > elige plan y periodo > tarjeta de prueba de Culqi (4111 1111 1111 1111, cualquier fecha futura y CVV 123).
+5. Para ver un cobro fallido usa las tarjetas de prueba de rechazo de Culqi; tras 3 fallos el dashboard queda en solo lectura.

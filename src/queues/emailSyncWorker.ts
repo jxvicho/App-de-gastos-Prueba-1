@@ -3,6 +3,7 @@ import { redisConnection } from "./redisConnection";
 import { prisma } from "../config/prisma";
 import { syncOutlookAccount } from "../services/outlookSync";
 import { syncGmailAccount } from "../services/gmailSync";
+import { isAccessRestricted } from "../services/billing";
 
 export const emailSyncWorker = new Worker(
   "email-sync",
@@ -14,8 +15,12 @@ export const emailSyncWorker = new Worker(
 
     console.log(`📬 Sincronizando ${accounts.length} cuenta(s) de correo...`);
 
+    // Usuarios en modo solo lectura (cobro pendiente): no se registran movimientos nuevos desde el correo.
+    const restricted = new Map<string, boolean>();
     for (const account of accounts) {
       try {
+        if (!restricted.has(account.userId)) restricted.set(account.userId, await isAccessRestricted(account.userId));
+        if (restricted.get(account.userId)) continue;
         if (account.provider === "GMAIL") await syncGmailAccount(account);
         else await syncOutlookAccount(account);
       } catch (err) {

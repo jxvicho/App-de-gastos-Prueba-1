@@ -24,8 +24,11 @@ app.use(
         "font-src": ["'self'", "https://fonts.gstatic.com"],
         // Logos de bancos (ícono oficial del sitio de cada banco) en Configuración
         "img-src": ["'self'", "data:", "https://www.google.com", "https://*.gstatic.com"],
-        "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        "script-src": ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+        "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://*.culqi.com"],
+        // Culqi Checkout (formulario de tarjeta de la suscripción): script, iframe y llamadas a su API.
+        "script-src": ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://js.culqi.com", "https://*.culqi.com"],
+        "frame-src": ["'self'", "https://*.culqi.com", "https://js.culqi.com"],
+        "connect-src": ["'self'", "https://*.culqi.com", "https://api.culqi.com"],
       },
     },
   })

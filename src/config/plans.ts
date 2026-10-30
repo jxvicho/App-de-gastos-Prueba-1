@@ -1,4 +1,4 @@
-import type { Plan } from "@prisma/client";
+import type { Plan, BillingPeriod } from "@prisma/client";
 
 /**
  * Límites por plan. Todo lo que dependa del plan lee de aquí (nunca números
@@ -54,7 +54,7 @@ export const PLAN_PRICE_PEN: Record<Plan, number | null> = {
 };
 
 /** Periodos de facturación y precio (S/) por periodo. Definidos el 29-oct-2026; aún no los usa ninguna ruta (falta la pasarela). */
-export type BillingPeriod = "MONTHLY" | "QUARTERLY" | "ANNUAL";
+export type { BillingPeriod } from "@prisma/client";
 export const PLAN_PRICE_BY_PERIOD_PEN: Record<"BASIC" | "PRO", Record<BillingPeriod, number>> = {
   BASIC: { MONTHLY: 14.9, QUARTERLY: 39.9, ANNUAL: 149.9 },
   PRO: { MONTHLY: 19.9, QUARTERLY: 54.9, ANNUAL: 199.9 },
@@ -65,3 +65,26 @@ export const ANNUAL_REFUND_DAYS = 7;
 
 /** Duración estándar del periodo de prueba (solo informativo; la fecha real vive en Subscription). */
 export const TRIAL_DAYS = 7;
+
+export const BILLING_PERIODS: BillingPeriod[] = ["MONTHLY", "QUARTERLY", "ANNUAL"];
+
+export const BILLING_PERIOD_LABELS: Record<BillingPeriod, string> = {
+  MONTHLY: "Mensual",
+  QUARTERLY: "Trimestral",
+  ANNUAL: "Anual",
+};
+
+/** Cada cuántos meses se cobra cada periodo. */
+export const BILLING_PERIOD_MONTHS: Record<BillingPeriod, number> = { MONTHLY: 1, QUARTERLY: 3, ANNUAL: 12 };
+
+/** Planes que se venden (el resto, como UNLIMITED, no tienen pasarela). */
+export type SellablePlan = "BASIC" | "PRO";
+export const SELLABLE_PLANS: SellablePlan[] = ["BASIC", "PRO"];
+
+/** Cobros fallidos consecutivos: avisos y limitación de acceso (política definida el 30-oct-2026). */
+export const DUNNING = {
+  /** Cobro inicial + 4 reintentos diarios de Culqi = 5 intentos; al 5.º fallo la suscripción se cancela. */
+  MAX_ATTEMPTS: 5,
+  /** Desde este intento fallido el acceso pasa a solo lectura. */
+  RESTRICT_AT_ATTEMPT: 3,
+};

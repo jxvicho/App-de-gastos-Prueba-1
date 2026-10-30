@@ -13,7 +13,8 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:reset-test-user": "tsx prisma/resetTestUser.ts",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "culqi:setup": "tsx scripts/culqiSetup.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

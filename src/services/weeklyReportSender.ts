@@ -1,3 +1,4 @@
+import { isAccessRestricted } from "./billing";
 import { PetType } from "@prisma/client";
 import { env } from "../config/env";
 import { isWindowOpen, sendImageMessage, sendTemplateWithImage, sanitizeTemplateParam } from "./whatsapp";
@@ -46,6 +47,7 @@ export async function sendWeeklyReportToUser(
   weekEnd: Date
 ): Promise<void> {
   if (!user.phoneNumber) return;
+  if (await isAccessRestricted(user.id)) return; // cobro pendiente: sin resumen
 
   const currenciesPresent = await getCurrenciesWithMovement(user.id, weekStart, weekEnd);
 

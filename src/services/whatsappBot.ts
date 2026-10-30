@@ -1,3 +1,4 @@
+import { isAccessRestricted } from "./billing";
 import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { env } from "../config/env";
@@ -2467,6 +2468,16 @@ async function handleFreeformDecision(
  * (ej. "anotar el gasto de ayer de 4 soles a Virgilio", que identifica Y
  * confirma en el mismo mensaje). Se llama desde POST /webhook.
  */
+/** Cobro pendiente (modo solo lectura): el bot no registra nada y avisa una vez en la conversación. */
+async function blockedByBilling(userId: string, from: string): Promise<boolean> {
+  if (!(await isAccessRestricted(userId))) return false;
+  await sendTextMessage(
+    from,
+    "Tu acceso está en modo solo lectura por un pago pendiente, así que no puedo registrar movimientos. Actualiza tu tarjeta en Configuración > Plan y suscripción de tu dashboard y todo vuelve a funcionar."
+  );
+  return true;
+}
+
 export async function handleIncomingMessage(
   from: string,
   text: string,
@@ -2478,6 +2489,7 @@ export async function handleIncomingMessage(
     console.log(`WhatsApp: mensaje de un número no registrado (${from}), se ignora.`);
     return;
   }
+  if (await blockedByBilling(user.id, from)) return;
   const petLabel = getPetLabel(user.petType, user.petName);
 
   const normalized = normalizeText(text);
@@ -3605,6 +3617,7 @@ export async function handleIncomingImage(
     console.log(`WhatsApp: imagen de un número no registrado (${from}), se ignora.`);
     return;
   }
+  if (await blockedByBilling(user.id, from)) return;
 
   const media = preloaded ?? (await downloadWhatsappMedia(mediaId));
   if (!media) {
@@ -3712,6 +3725,7 @@ export async function handleIncomingAudio(
     console.log(`WhatsApp: nota de voz de un número no registrado (${from}), se ignora.`);
     return;
   }
+  if (await blockedByBilling(user.id, from)) return;
 
   const media = preloaded ?? (await downloadWhatsappMedia(mediaId));
   if (!media) {

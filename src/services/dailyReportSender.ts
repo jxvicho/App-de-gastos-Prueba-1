@@ -1,3 +1,4 @@
+import { isAccessRestricted } from "./billing";
 import { PetType } from "@prisma/client";
 import { env } from "../config/env";
 import { isWindowOpen, sendTemplateMessage, sendTextMessage, sanitizeTemplateParam } from "./whatsapp";
@@ -28,6 +29,7 @@ export async function sendDailyReportToUser(user: {
   petName: string | null;
 }): Promise<boolean> {
   if (!user.phoneNumber) return false;
+  if (await isAccessRestricted(user.id)) return false; // cobro pendiente: sin resumen
 
   const now = new Date();
   const dayEnd = currentDayStart(now); // hoy 00:00 Lima

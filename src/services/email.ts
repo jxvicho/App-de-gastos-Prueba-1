@@ -50,3 +50,22 @@ export async function sendPasswordResetEmail(to: string, name: string, resetUrl:
     throw new Error("No se pudo enviar el correo de recuperación");
   }
 }
+
+/** Correo transaccional genérico (avisos de cobro). Sin RESEND_API_KEY solo lo deja en el log. Nunca lanza. */
+export async function sendHtmlEmail(to: string, subject: string, html: string): Promise<boolean> {
+  if (!resend) {
+    console.log(`✉️  [dev] Sin RESEND_API_KEY. Correo para ${to}: ${subject}`);
+    return false;
+  }
+  try {
+    const { error } = await resend.emails.send({ from: env.EMAIL_FROM, to, subject, html });
+    if (error) {
+      console.error("❌ Error enviando correo (Resend):", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("❌ Error enviando correo (Resend):", err);
+    return false;
+  }
+}
