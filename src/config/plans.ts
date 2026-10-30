@@ -60,10 +60,13 @@ export const PLAN_PRICE_BY_PERIOD_PEN: Record<"BASIC" | "PRO", Record<BillingPer
   PRO: { MONTHLY: 19.9, QUARTERLY: 54.9, ANNUAL: 199.9 },
 };
 
-/** Plan anual: días tras el cobro en los que se devuelve el monto completo si el usuario lo pide. */
-export const ANNUAL_REFUND_DAYS = 7;
+/**
+ * Días de prueba sin cobro por periodo (definido el 30-oct-2026): 7 en mensual y trimestral, 14 en anual.
+ * El plan anual NO tiene reembolso: la prueba más larga ocupa su lugar. Cancelando antes de que termine no se cobra nada.
+ */
+export const TRIAL_DAYS_BY_PERIOD: Record<BillingPeriod, number> = { MONTHLY: 7, QUARTERLY: 7, ANNUAL: 14 };
 
-/** Duración estándar del periodo de prueba (solo informativo; la fecha real vive en Subscription). */
+/** Duración estándar del periodo de prueba (mensual/trimestral). La real de cada usuario vive en Subscription. */
 export const TRIAL_DAYS = 7;
 
 export const BILLING_PERIODS: BillingPeriod[] = ["MONTHLY", "QUARTERLY", "ANNUAL"];

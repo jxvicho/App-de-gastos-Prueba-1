@@ -6,7 +6,6 @@ import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { env } from "../config/env";
 import {
-  ANNUAL_REFUND_DAYS,
   BILLING_PERIODS,
   BILLING_PERIOD_LABELS,
   PLAN_LABELS,
@@ -14,14 +13,13 @@ import {
   PLAN_PRICE_PEN,
   SELLABLE_PLANS,
   TRIAL_DAYS,
+  TRIAL_DAYS_BY_PERIOD,
 } from "../config/plans";
 import { getEffectivePlan } from "../services/plans";
 import {
   cancelUserSubscription,
-  getRefundableCharge,
   isAccessRestricted,
   paymentsAvailable,
-  refundAnnual,
   startSubscription,
   updateCardAndRetry,
 } from "../services/billing";
@@ -53,7 +51,6 @@ subscriptionRouter.get(
       sub?.trialStartedAt && trialEnds ? Math.max(1, Math.round((trialEnds.getTime() - sub.trialStartedAt.getTime()) / DAY_MS)) : TRIAL_DAYS;
 
     const next = sub?.currentPeriodEnd ?? (trialActive ? trialEnds : null);
-    const refundable = await getRefundableCharge(req.userId!);
     const restricted = await isAccessRestricted(req.userId!);
     const period = sub?.billingPeriod ?? null;
     const sellable = eff.plan === "BASIC" || eff.plan === "PRO" ? eff.plan : null;
@@ -82,7 +79,6 @@ subscriptionRouter.get(
       },
       // Modo solo lectura por cobro pendiente (desde el 3.er intento fallido).
       accessRestricted: restricted,
-      refund: refundable ? { available: true, until: refundable.until, days: ANNUAL_REFUND_DAYS } : { available: false },
       paymentMethod: sub?.paymentLast4
         ? { brand: sub.paymentBrand, last4: sub.paymentLast4, expMonth: sub.paymentExpMonth, expYear: sub.paymentExpYear }
         : null,
@@ -143,9 +139,8 @@ subscriptionRouter.get(
     res.json({
       paymentsEnabled: paymentsAvailable(),
       publicKey: paymentsAvailable() ? env.CULQI_PUBLIC_KEY : null,
-      trialDays: TRIAL_DAYS,
+      trialDaysByPeriod: TRIAL_DAYS_BY_PERIOD,
       trialAvailable: !sub?.trialStartedAt,
-      annualRefundDays: ANNUAL_REFUND_DAYS,
       currency: "PEN",
       periods: BILLING_PERIODS.map((p) => ({ id: p, label: BILLING_PERIOD_LABELS[p] })),
       plans: SELLABLE_PLANS.map((plan) => ({ id: plan, label: PLAN_LABELS[plan], prices: PLAN_PRICE_BY_PERIOD_PEN[plan] })),
@@ -175,14 +170,6 @@ subscriptionRouter.post(
   "/cancel",
   asyncHandler(async (req, res) => {
     const result = await cancelUserSubscription(req.userId!);
-    res.json({ ok: true, ...result });
-  })
-);
-
-subscriptionRouter.post(
-  "/refund",
-  asyncHandler(async (req, res) => {
-    const result = await refundAnnual(req.userId!);
     res.json({ ok: true, ...result });
   })
 );

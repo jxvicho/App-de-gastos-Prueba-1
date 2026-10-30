@@ -3918,14 +3918,15 @@ function payPriceLine(period, price){
 function paySummary(){
   const c = PAY.catalog; const plan = c.plans.find(p=>p.id===PAY.plan); const price = plan.prices[PAY.period];
   const periodLabel = (c.periods.find(p=>p.id===PAY.period)||{}).label || "";
+  const trialN = c.trialDaysByPeriod[PAY.period];
   let t;
   if(c.trialAvailable){
-    const d = new Date(Date.now() + c.trialDays*86400000);
-    t = `Hoy no pagas nada. Tu primer cobro de <b>${sbMoney(price,"PEN")}</b> (${sbEsc(plan.label)} ${sbEsc(periodLabel.toLowerCase())}) será el <b>${sbDate(d)}</b>. Puedes cancelar antes y no se te cobra.`;
+    const d = new Date(Date.now() + trialN*86400000);
+    t = `Hoy no pagas nada. Tu primer cobro de <b>${sbMoney(price,"PEN")}</b> (${sbEsc(plan.label)} ${sbEsc(periodLabel.toLowerCase())}) será el <b>${sbDate(d)}</b>, tras ${trialN} días de prueba. Puedes cancelar antes y no se te cobra.`;
   } else {
     t = `Se te cobrará <b>${sbMoney(price,"PEN")}</b> (${sbEsc(plan.label)} ${sbEsc(periodLabel.toLowerCase())}) al suscribirte.`;
   }
-  if(PAY.period === "ANNUAL") t += ` Si pides el reembolso dentro de los ${c.annualRefundDays} días posteriores al cobro, te devolvemos el monto completo.`;
+  if(PAY.period === "ANNUAL") t += " El plan anual no tiene reembolso después del cobro: por eso tienes más días de prueba para decidir, y te avisaremos por correo antes del primer cobro.";
   return t;
 }
 function payChooserHtml(){
@@ -3938,7 +3939,7 @@ function payChooserHtml(){
     <div class="pay-opts" id="payPeriods">${perOpts}</div>
     <div class="pay-note" id="paySummary">${paySummary()}</div>
     <label class="pay-terms"><input type="checkbox" id="payTyc"> <span>Acepto los términos y condiciones y autorizo el cobro automático y recurrente a mi tarjeta según el plan elegido.</span></label>
-    <button class="pay-btn" id="paySubscribe" disabled>${c.trialAvailable ? "Probar " + c.trialDays + " días gratis" : "Suscribirme"}</button>`;
+    <button class="pay-btn" id="paySubscribe" disabled>${c.trialAvailable ? "Probar " + c.trialDaysByPeriod[PAY.period] + " días gratis" : "Suscribirme"}</button>`;
 }
 function payActionsHtml(s){
   const c = PAY.catalog;
@@ -3951,7 +3952,6 @@ function payActionsHtml(s){
   } else if(hasSub){
     h += `<div class="pay-note">Tu suscripción se renueva automáticamente${s.period ? " (" + sbEsc((s.periodLabel||"").toLowerCase()) + ")" : ""}. Puedes cancelarla cuando quieras; conservas el acceso hasta el final del periodo ya pagado.</div>
       <button class="pay-btn danger" id="payCancel">Cancelar suscripción</button>`;
-    if(s.refund && s.refund.available) h += `<button class="pay-btn ghost" id="payRefund">Pedir reembolso del plan anual</button><div class="pay-note">Disponible hasta el ${sbDate(s.refund.until)}.</div>`;
   } else {
     h += payChooserHtml();
   }
@@ -4003,11 +4003,6 @@ function wirePayActions(s){
   if(cn) cn.addEventListener("click", ()=>{
     if(!confirm("¿Cancelar tu suscripción? Conservarás el acceso hasta el final del periodo ya pagado y no se te cobrará de nuevo.")) return;
     run(cn, async ()=>{ await api("/subscription/cancel", { method:"POST" }); await reload(); });
-  });
-  const rf = document.getElementById("payRefund");
-  if(rf) rf.addEventListener("click", ()=>{
-    if(!confirm("¿Pedir el reembolso completo de tu plan anual? Se cancelará tu suscripción y perderás el acceso de inmediato.")) return;
-    run(rf, async ()=>{ await api("/subscription/refund", { method:"POST" }); await reload(); });
   });
 }
 function renderRestrictedBanner(){

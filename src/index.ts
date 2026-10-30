@@ -12,6 +12,7 @@ import { scheduleWeeklyReportRepeatable } from "./queues/weeklyReportQueue";
 import { dailyReportWorker } from "./queues/dailyReportWorker";
 import { scheduleDailyReportRepeatable } from "./queues/dailyReportQueue";
 import { keepDatabaseAwake } from "./config/keepAlive";
+import { sendPreChargeNotices } from "./services/billing";
 
 const app = express();
 
@@ -84,6 +85,13 @@ setInterval(() => {
   });
 }, KEEP_ALIVE_INTERVAL_MS);
 console.log("🔄 Keep-alive de base de datos activo");
+
+// Aviso por correo, 2 días antes, del primer cobro del plan anual (solo con pagos activos).
+if (env.PAYMENTS_ENABLED) {
+  const runPreCharge = () => sendPreChargeNotices().catch((err) => console.error("❌ Error enviando avisos previos de cobro:", err));
+  setTimeout(runPreCharge, 60_000);
+  setInterval(runPreCharge, 3_600_000);
+}
 
 scheduleEmailSyncRepeatable().catch((err) => {
   console.error("❌ No se pudo programar la sincronización de correo:", err);

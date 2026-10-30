@@ -8,7 +8,7 @@ import { isWindowOpen, sendTemplateMessage, sendTextMessage } from "./whatsapp";
  *  - Cancelación tras agotar los reintentos: correo + WhatsApp.
  * WhatsApp fuera de la ventana de 24 h solo admite la plantilla aprobada (WHATSAPP_TEMPLATE_BILLING).
  */
-export type BillingNoticeKind = "FAILED_1" | "FAILED_2" | "RESTRICTED" | "CANCELED_AUTO" | "RECOVERED" | "REFUNDED";
+export type BillingNoticeKind = "FAILED_1" | "FAILED_2" | "RESTRICTED" | "CANCELED_AUTO" | "RECOVERED" | "PRECHARGE_ANNUAL";
 
 export interface NoticeUser {
   name: string;
@@ -18,9 +18,14 @@ export interface NoticeUser {
   whatsappOptIn: boolean;
 }
 
+export interface NoticeExtra {
+  amount?: string;
+  date?: string;
+}
+
 const WHATSAPP_KINDS: BillingNoticeKind[] = ["FAILED_2", "RESTRICTED", "CANCELED_AUTO", "RECOVERED"];
 
-function copy(kind: BillingNoticeKind, firstName: string, extra?: { refund?: string }): { subject: string; text: string; short: string } {
+function copy(kind: BillingNoticeKind, firstName: string, extra?: NoticeExtra): { subject: string; text: string; short: string } {
   switch (kind) {
     case "FAILED_1":
       return {
@@ -46,17 +51,17 @@ function copy(kind: BillingNoticeKind, firstName: string, extra?: { refund?: str
         text: `Hola ${firstName}, como no logramos cobrar tu suscripción después de varios intentos, la cancelamos. Tus datos se conservan por un tiempo: puedes volver cuando quieras creando una nueva suscripción en Configuración > Plan y suscripción.`,
         short: "cancelamos tu suscripción tras varios cobros fallidos. Tus datos se conservan; puedes volver creando una nueva suscripción en tu dashboard",
       };
+    case "PRECHARGE_ANNUAL":
+      return {
+        subject: `Tu plan anual de Gastia se cobrará el ${extra?.date ?? "pronto"}`,
+        text: `Hola ${firstName}, tu prueba de Gastia termina el ${extra?.date ?? "pronto"}. Ese día cobraremos ${extra?.amount ?? "el monto de tu plan anual"} a tu tarjeta. Recuerda que el plan anual no tiene reembolso después del cobro. Si no quieres continuar, cancela antes desde Configuración > Plan y suscripción y no se te cobrará nada.`,
+        short: "tu prueba termina pronto",
+      };
     case "RECOVERED":
       return {
         subject: "Recibimos tu pago: tu acceso a Gastia está activo",
         text: `Hola ${firstName}, recibimos tu pago y tu acceso completo a Gastia está activo de nuevo. ¡Gracias!`,
         short: "recibimos tu pago y tu acceso a Gastia está activo de nuevo. ¡Gracias!",
-      };
-    case "REFUNDED":
-      return {
-        subject: "Tu reembolso de Gastia fue procesado",
-        text: `Hola ${firstName}, procesamos el reembolso${extra?.refund ? ` de ${extra.refund}` : ""} de tu plan anual y cancelamos tu suscripción. El banco puede tardar algunos días hábiles en reflejarlo en tu tarjeta.`,
-        short: "procesamos tu reembolso",
       };
   }
 }
@@ -76,7 +81,7 @@ function emailHtml(text: string): string {
 }
 
 /** Envía el aviso por los canales que correspondan. Nunca lanza: un fallo de aviso no debe romper el webhook. */
-export async function sendBillingNotice(user: NoticeUser, kind: BillingNoticeKind, extra?: { refund?: string }): Promise<void> {
+export async function sendBillingNotice(user: NoticeUser, kind: BillingNoticeKind, extra?: NoticeExtra): Promise<void> {
   const firstName = user.name.trim().split(/\s+/)[0] || "Hola";
   const c = copy(kind, firstName, extra);
 

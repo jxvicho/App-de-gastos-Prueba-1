@@ -3,17 +3,17 @@ import { env } from "../config/env";
 import { prisma } from "../config/prisma";
 import { AppError } from "../middleware/errorHandler";
 import {
-  ANNUAL_REFUND_DAYS,
   BILLING_PERIOD_LABELS,
   BILLING_PERIOD_MONTHS,
   DUNNING,
   PLAN_LABELS,
   PLAN_PRICE_BY_PERIOD_PEN,
-  TRIAL_DAYS,
+  TRIAL_DAYS_BY_PERIOD,
   type SellablePlan,
 } from "../config/plans";
 import * as culqi from "./culqi";
 import { sendBillingNotice } from "./billingNotify";
+import { redisConnection } from "../queues/redisConnection";
 
 const DAY_MS = 86_400_000;
 
@@ -66,12 +66,12 @@ export async function ensureBillingPlan(plan: SellablePlan, period: BillingPerio
 
   const amountCents = priceCents(plan, period);
   const created = await culqi.createPlan({
-    name: `Gastia ${PLAN_LABELS[plan]} ${BILLING_PERIOD_LABELS[period]}${withTrial ? ` (${TRIAL_DAYS} días de prueba)` : ""}`,
-    shortName: `gastia-${plan.toLowerCase()}-${period.toLowerCase()}-${withTrial ? `t${TRIAL_DAYS}` : "nt"}`,
+    name: `Gastia ${PLAN_LABELS[plan]} ${BILLING_PERIOD_LABELS[period]}${withTrial ? ` (${TRIAL_DAYS_BY_PERIOD[period]} días de prueba)` : ""}`,
+    shortName: `gastia-${plan.toLowerCase()}-${period.toLowerCase()}-${withTrial ? `t${TRIAL_DAYS_BY_PERIOD[period]}` : "nt"}`,
     description: `Suscripción ${PLAN_LABELS[plan]} ${BILLING_PERIOD_LABELS[period].toLowerCase()} de Gastia`,
     amountCents,
     months: BILLING_PERIOD_MONTHS[period],
-    trialDays: withTrial ? TRIAL_DAYS : 0,
+    trialDays: withTrial ? TRIAL_DAYS_BY_PERIOD[period] : 0,
   });
   try {
     return await prisma.billingPlan.create({ data: { plan: plan as Plan, period, withTrial, culqiPlanId: created.id, amountCents } });
@@ -131,7 +131,7 @@ export async function startSubscription(input: { userId: string; plan: SellableP
     const sub = await culqi.createSubscription(card.id, billingPlan.culqiPlanId, { user_id: user.id, plan: input.plan, period: input.period });
 
     const now = new Date();
-    const trialEndsAt = withTrial ? new Date(now.getTime() + TRIAL_DAYS * DAY_MS) : null;
+    const trialEndsAt = withTrial ? new Date(now.getTime() + TRIAL_DAYS_BY_PERIOD[input.period] * DAY_MS) : null;
     const periodEnd = withTrial ? null : addMonths(now, BILLING_PERIOD_MONTHS[input.period]);
     const brand = card.source?.iin?.card_brand?.toLowerCase() ?? null;
     const last4 = card.source?.last_four ?? card.source?.card_number?.slice(-4) ?? null;
@@ -171,7 +171,7 @@ export async function startSubscription(input: { userId: string; plan: SellableP
 }
 
 /* ---------------------------------------------------------------
-   Cancelar y reembolsar (plan anual)
+   Cancelar
    --------------------------------------------------------------- */
 
 /** Cancela el cobro automático. El usuario conserva el acceso hasta el fin del periodo ya pagado (o de la prueba). */
@@ -186,44 +186,6 @@ export async function cancelUserSubscription(userId: string) {
     data: { status: "CANCELED", cancelAtPeriodEnd: true, canceledAt: new Date(), currentPeriodEnd: accessUntil },
   });
   return { accessUntil };
-}
-
-/** Último cobro anual pagado que todavía está dentro de los días de reembolso. */
-export async function getRefundableCharge(userId: string) {
-  const charge = await prisma.billingCharge.findFirst({
-    where: { userId, status: "PAID", period: "ANNUAL", refundedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
-  if (!charge) return null;
-  const until = new Date(charge.createdAt.getTime() + ANNUAL_REFUND_DAYS * DAY_MS);
-  return until.getTime() > Date.now() ? { charge, until } : null;
-}
-
-/** Reembolso completo del plan anual dentro de los 7 días del cobro. Culqi no devuelve su comisión. */
-export async function refundAnnual(userId: string) {
-  const eligible = await getRefundableCharge(userId);
-  if (!eligible) throw new AppError(`El reembolso solo está disponible durante los ${ANNUAL_REFUND_DAYS} días siguientes al cobro del plan anual`, 409);
-  const { charge } = eligible;
-
-  const refund = await culqi.refundCharge(charge.culqiChargeId, charge.amountCents);
-  await prisma.billingCharge.update({ where: { id: charge.id }, data: { status: "REFUNDED", refundedAt: new Date(), culqiRefundId: refund.id } });
-
-  const sub = await prisma.subscription.findUnique({ where: { userId }, include: { user: true } });
-  if (sub?.culqiSubscriptionId && sub.status !== "CANCELED") {
-    try {
-      await culqi.cancelSubscription(sub.culqiSubscriptionId);
-    } catch (err) {
-      console.error("Reembolso hecho, pero no se pudo cancelar la suscripción en Culqi (revisar a mano):", err);
-    }
-  }
-  if (sub) {
-    await prisma.subscription.update({
-      where: { id: sub.id },
-      data: { status: "CANCELED", cancelAtPeriodEnd: false, canceledAt: new Date(), currentPeriodEnd: new Date() },
-    });
-    await sendBillingNotice(sub.user, "REFUNDED", { refund: `S/ ${(charge.amountCents / 100).toFixed(2)}` });
-  }
-  return { refundedCents: charge.amountCents };
 }
 
 /* ---------------------------------------------------------------
@@ -439,4 +401,38 @@ export async function updateCardAndRetry(userId: string, tokenId: string) {
   } finally {
     inFlight.delete(userId);
   }
+}
+
+/* ---------------------------------------------------------------
+   Aviso previo al primer cobro del plan anual (no tiene reembolso)
+   --------------------------------------------------------------- */
+
+/**
+ * Corre cada hora: a quien está en prueba del plan ANUAL y le faltan 2 días o menos para el primer cobro, se le avisa por
+ * correo el monto y la fecha. Una sola vez por suscripción (marca en Redis).
+ */
+export async function sendPreChargeNotices(): Promise<number> {
+  if (!paymentsAvailable()) return 0;
+  const now = new Date();
+  const subs = await prisma.subscription.findMany({
+    where: {
+      status: "TRIALING",
+      billingPeriod: "ANNUAL",
+      culqiSubscriptionId: { not: null },
+      trialEndsAt: { gt: now, lte: new Date(now.getTime() + 2 * DAY_MS) },
+    },
+    include: { user: true },
+  });
+  let sent = 0;
+  for (const sub of subs) {
+    const first = await redisConnection.set(`billing:precharge:${sub.id}`, "1", "EX", 7 * DAY_MS / 1000, "NX");
+    if (!first) continue;
+    const plan: SellablePlan = sub.user.plan === "PRO" ? "PRO" : "BASIC";
+    await sendBillingNotice(sub.user, "PRECHARGE_ANNUAL", {
+      amount: `S/ ${(priceCents(plan, "ANNUAL") / 100).toFixed(2)}`,
+      date: sub.trialEndsAt!.toLocaleDateString("es-PE", { timeZone: "America/Lima", day: "numeric", month: "long" }),
+    });
+    sent++;
+  }
+  return sent;
 }
