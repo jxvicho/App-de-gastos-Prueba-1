@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Gastia · Administración</title>
+<link rel="icon" href="/icons/logo-gastia.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--accent:#2472c8;--ink:#0f1b2d;--muted:#5d6b80;--line:#dbe4f0;--surface:#fff;--bg:#f4f8fd;
+  --ok:#12806c;--ok-bg:#e0f5ef;--warn:#b45309;--warn-bg:#fdf0d9;--bad:#b3261e;--bad-bg:#fde7e4;--info-bg:#e3effc}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Figtree","Inter","Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45}
+header.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.bar{max-width:1180px;margin:0 auto;padding:12px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px}
+.brand img{width:30px;height:30px}
+.brand small{font-weight:600;color:var(--muted);font-size:13px}
+.who{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:var(--muted)}
+.who a{color:var(--accent);font-weight:600;text-decoration:none}
+nav.tabs{max-width:1180px;margin:0 auto;padding:0 16px;display:flex;gap:4px;overflow-x:auto}
+nav.tabs button{font:inherit;font-weight:600;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:10px 14px;cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+main{max-width:1180px;margin:0 auto;padding:22px 16px 60px;display:flex;flex-direction:column;gap:18px}
+h2{font-size:20px;margin:0}
+h3{font-size:15px;margin:0 0 8px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.env{display:flex;gap:10px;flex-wrap:wrap}
+.pill{display:inline-block;font-size:12px;font-weight:700;border-radius:99px;padding:3px 10px;background:var(--info-bg);color:var(--accent);white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.warn{background:var(--warn-bg);color:var(--warn)} .pill.bad{background:var(--bad-bg);color:var(--bad)} .pill.gray{background:#eef1f5;color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.tile .k{font-size:13px;color:var(--muted)} .tile .v{font-size:28px;font-weight:800;line-height:1.2;font-variant-numeric:tabular-nums} .tile .s{font-size:13px;color:var(--muted)}
+.filters{display:flex;gap:10px;flex-wrap:wrap}
+input,select{font:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);min-width:0}
+input[type=checkbox]{min-width:0;padding:0}
+button.btn{font:inherit;font-weight:700;border:0;border-radius:10px;padding:9px 15px;cursor:pointer;background:var(--accent);color:#fff}
+button.btn.sec{background:#eaf1fb;color:var(--accent)} button.btn.danger{background:var(--bad-bg);color:var(--bad)} button.btn:disabled{opacity:.5;cursor:not-allowed}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
+th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+tbody tr.row{cursor:pointer} tbody tr.row:hover{background:#f5f9ff}
+td small{display:block;color:var(--muted)}
+.pager{display:flex;gap:10px;align-items:center;justify-content:flex-end;font-size:13px;color:var(--muted);margin-top:10px}
+.drawer-bg{position:fixed;inset:0;background:rgba(15,27,45,.4);display:none;z-index:20}
+.drawer-bg.open{display:block}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--bg);overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;box-shadow:-8px 0 30px rgba(15,27,45,.15)}
+.drawer .head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;font-size:14px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;overflow-wrap:anywhere}
+.row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.help{font-size:13px;color:var(--muted);margin:6px 0 0}
+.note{font-size:13px;border-radius:10px;padding:9px 12px;background:var(--warn-bg);color:#7a3b05}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:12px;font-weight:600;z-index:40;max-width:90vw;display:none}
+.toast.bad{background:var(--bad)}
+.denied{max-width:520px;margin:80px auto;text-align:center}
+.promo-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end}
+.promo-form label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
+.checks{display:flex;gap:12px;align-items:center;font-size:14px;color:var(--ink);font-weight:500}
+.checks label{flex-direction:row;align-items:center;gap:5px;color:var(--ink)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.hide{display:none!important}
+@media (max-width:640px){.kv{grid-template-columns:1fr}.who{margin-left:0}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <div class="brand"><img src="/icons/logo-gastia.svg" alt=""><span>Gastia <small>Administración</small></span></div>
+    <div class="who"><span id="whoEmail"></span><a href="/">Ir al dashboard</a></div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Secciones">
+    <button role="tab" aria-selected="true" data-tab="resumen">Resumen</button>
+    <button role="tab" aria-selected="false" data-tab="usuarios">Usuarios</button>
+    <button role="tab" aria-selected="false" data-tab="promos">Promociones</button>
+    <button role="tab" aria-selected="false" data-tab="registro">Registro</button>
+  </nav>
+</header>
+
+<main id="denied" class="hide"><div class="card denied"><h2>No tienes acceso a esta sección</h2><p class="help">Tu correo no está en la lista de administradores. Si eres el dueño, agrega tu correo a <b>ADMIN_EMAILS</b> en el archivo .env y reinicia el servicio.</p><p style="margin-top:14px"><a href="/">Volver al dashboard</a></p></div></main>
+
+<main id="app">
+  <section id="tab-resumen">
+    <div class="env" id="env" style="margin-bottom:14px"></div>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section id="tab-usuarios" class="hide">
+    <div class="card">
+      <div class="filters" style="margin-bottom:12px">
+        <input id="q" type="search" placeholder="Buscar por nombre, correo o teléfono" style="flex:1;min-width:220px" aria-label="Buscar">
+        <select id="fPlan" aria-label="Plan"><option value="">Todos los planes</option><option value="BASIC">Básico</option><option value="PRO">Pro</option><option value="UNLIMITED">Unlimited</option></select>
+        <select id="fStatus" aria-label="Estado de suscripción"><option value="">Todas las suscripciones</option><option value="TRIALING">En prueba</option><option value="ACTIVE">Activa</option><option value="PAST_DUE">Cobro pendiente</option><option value="CANCELED">Cancelada</option><option value="NONE">Sin suscripción</option></select>
+      </div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Usuario</th><th>Plan</th><th>Suscripción</th><th>Registrado</th><th>Movimientos</th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table></div>
+      <div class="pager"><span id="pagerInfo"></span><button class="btn sec" id="prev">Anterior</button><button class="btn sec" id="next">Siguiente</button></div>
+    </div>
+  </section>
+
+  <section id="tab-promos" class="hide">
+    <div class="card" style="margin-bottom:16px">
+      <h3>Nueva promoción</h3>
+      <p class="help" style="margin:0 0 12px">Mientras esté vigente y tenga presupuesto, los usuarios de los planes elegidos usan funciones del plan que otorga. El presupuesto en dólares limita el costo de WhatsApp que puede consumir.</p>
+      <form id="promoForm" class="promo-form">
+        <label>Nombre<input id="pName" required minlength="2" maxlength="80" placeholder="Ej. Lanzamiento noviembre"></label>
+        <label>Desde<input id="pStart" type="date" required></label>
+        <label>Hasta<input id="pEnd" type="date" required></label>
+        <label>Otorga el plan<select id="pGrants"><option value="PRO">Pro</option><option value="UNLIMITED">Unlimited</option><option value="BASIC">Básico</option></select></label>
+        <label>Presupuesto (US$)<input id="pBudget" type="number" min="0" step="1" value="50" required></label>
+        <label>Aplica a<span class="checks"><label><input type="checkbox" class="pApplies" value="BASIC" checked> Básico</label><label><input type="checkbox" class="pApplies" value="PRO"> Pro</label></span></label>
+        <label>Respuestas del bot<span class="checks"><label><input type="checkbox" id="pUncapped" checked> Sin tope</label></span></label>
+        <button class="btn" type="submit">Crear promoción</button>
+      </form>
+    </div>
+    <div class="card"><div class="tablewrap"><table>
+      <thead><tr><th>Promoción</th><th>Vigencia</th><th>Aplica a</th><th>Otorga</th><th>Presupuesto</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="promosBody"></tbody></table></div></div>
+  </section>
+
+  <section id="tab-registro" class="hide">
+    <div class="card"><div class="tablewrap"><table>
+      <thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Usuario</th><th>Detalle</th></tr></thead>
+      <tbody id="auditBody"></tbody></table></div></div>
+  </section>
+</main>
+
+<div class="drawer-bg" id="dbg"><aside class="drawer" id="drawer" role="dialog" aria-label="Detalle del usuario"></aside></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  var token=null; try{token=localStorage.getItem("token")}catch(e){}
+  if(!token){location.href="/login.html";return}
+  var $=function(i){return document.getElementById(i)};
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]})}
+  var PLAN={BASIC:"Básico",PRO:"Pro",UNLIMITED:"Unlimited"}, STATUS={TRIALING:"En prueba",ACTIVE:"Activa",PAST_DUE:"Cobro pendiente",CANCELED:"Cancelada"}, PERIOD={MONTHLY:"Mensual",QUARTERLY:"Trimestral",ANNUAL:"Anual"};
+  var ST_CLASS={TRIALING:"",ACTIVE:"ok",PAST_DUE:"bad",CANCELED:"gray"};
+  function dt(v,withTime){if(!v)return "—";var o={timeZone:"America/Lima",day:"2-digit",month:"short",year:"numeric"};if(withTime){o.hour="2-digit";o.minute="2-digit"}return new Date(v).toLocaleString("es-PE",o)}
+  function pen(v){return "S/ "+Number(v).toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2})}
+  var toastT;function toast(m,bad){var t=$("toast");t.textContent=m;t.className="toast"+(bad?" bad":"");t.style.display="block";clearTimeout(toastT);toastT=setTimeout(function(){t.style.display="none"},4500)}
+
+  function api(path,opt){
+    opt=opt||{};
+    return fetch("/api/admin"+path,{method:opt.method||"GET",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:opt.body?JSON.stringify(opt.body):undefined})
+      .then(function(r){
+        if(r.status===401){location.href="/login.html";throw new Error("401")}
+        return r.json().catch(function(){return{}}).then(function(j){if(!r.ok){var e=new Error(j.error||"Error "+r.status);e.status=r.status;throw e}return j})
+      });
+  }
+  function act(p,opt,okMsg,after){return api(p,opt).then(function(j){toast(j.message||okMsg||"Listo");if(after)return after(j)}).catch(function(e){toast(e.message,true)})}
+
+  /* ---------- pestañas ---------- */
+  var tabs=["resumen","usuarios","promos","registro"], loaded={};
+  function showTab(n){
+    tabs.forEach(function(t){$("tab-"+t).classList.toggle("hide",t!==n)});
+    document.querySelectorAll("nav.tabs button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===n?"true":"false")});
+    if(n==="resumen")loadSummary(); if(n==="usuarios")loadUsers(); if(n==="promos")loadPromos(); if(n==="registro")loadAudit();
+  }
+  document.querySelectorAll("nav.tabs button").forEach(function(b){b.addEventListener("click",function(){showTab(b.dataset.tab)})});
+
+  /* ---------- resumen ---------- */
+  var ME=null;
+  function loadSummary(){
+    api("/summary").then(function(s){
+      var bp=s.users.byPlan||{};
+      function tile(k,v,sub){return '<div class="tile"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="s">'+sub+'</div></div>'}
+      $("tiles").innerHTML=
+        tile("Usuarios",s.users.total,"+"+s.users.last7d+" en 7 días · +"+s.users.last30d+" en 30 días")+
+        tile("En prueba gratis",s.subscriptions.TRIALING,"Suscripciones activas: "+s.subscriptions.ACTIVE)+
+        tile("Cobro pendiente",s.subscriptions.PAST_DUE,s.subscriptions.restricted+" en solo lectura · "+s.subscriptions.CANCELED+" canceladas")+
+        tile("Ingreso mensual estimado",pen(s.mrrPen),"Solo suscripciones reales activas")+
+        tile("Cobros (30 días)",pen(s.charges30d.paidPen),s.charges30d.paidCount+" cobrados · "+s.charges30d.failedCount+" fallidos")+
+        tile("WhatsApp este mes",s.whatsappThisMonth.messages,"Costo Meta: US$ "+s.whatsappThisMonth.costUsd.toFixed(2))+
+        tile("Planes",(bp.BASIC||0)+" / "+(bp.PRO||0)+" / "+(bp.UNLIMITED||0),"Básico / Pro / Unlimited · "+s.users.withTemporaryPlan+" con plan temporal")+
+        tile("Promociones activas",s.activePromos,"Vigentes hoy");
+    }).catch(function(e){toast(e.message,true)});
+  }
+
+  /* ---------- usuarios ---------- */
+  var U={offset:0,limit:25,total:0,timer:null};
+  function loadUsers(){
+    var qs="?limit="+U.limit+"&offset="+U.offset;
+    if($("q").value.trim())qs+="&q="+encodeURIComponent($("q").value.trim());
+    if($("fPlan").value)qs+="&plan="+$("fPlan").value;
+    if($("fStatus").value)qs+="&status="+$("fStatus").value;
+    api("/users"+qs).then(function(j){
+      U.total=j.total;
+      $("usersBody").innerHTML=j.users.length?j.users.map(function(u){
+        var s=u.subscription, sub="<span class='pill gray'>Sin suscripción</span>";
+        if(s){sub="<span class='pill "+(ST_CLASS[s.status]||"")+"'>"+esc(STATUS[s.status]||s.status)+"</span>"+(s.billingPeriod?"<small>"+esc(PERIOD[s.billingPeriod])+"</small>":"")+(s.status==="TRIALING"&&s.trialEndsAt?"<small>Prueba hasta "+dt(s.trialEndsAt)+"</small>":"")+(s.restrictedAt?"<small><span class='pill bad'>Solo lectura</span></small>":"")+(s.simulated?"<small><span class='pill warn'>Simulada</span></small>":"")}
+        var tmp=u.planOverride&&(!u.planOverrideUntil||new Date(u.planOverrideUntil)>new Date())?"<small><span class='pill warn'>Temporal: "+esc(PLAN[u.planOverride])+(u.planOverrideUntil?" hasta "+dt(u.planOverrideUntil):"")+"</span></small>":"";
+        return '<tr class="row" tabindex="0" data-id="'+esc(u.id)+'"><td><b>'+esc(u.name)+'</b><small>'+esc(u.email)+'</small>'+(u.phoneNumber?'<small>'+esc(u.phoneNumber)+'</small>':'')+'</td><td>'+esc(PLAN[u.plan])+tmp+'</td><td>'+sub+'</td><td>'+dt(u.createdAt)+'</td><td>'+u._count.transactions+'</td></tr>'
+      }).join(""):'<tr><td colspan="5" class="help">No hay usuarios con esos filtros.</td></tr>';
+      var from=j.total?U.offset+1:0, to=Math.min(U.offset+U.limit,j.total);
+      $("pagerInfo").textContent=from+"–"+to+" de "+j.total;
+      $("prev").disabled=U.offset===0; $("next").disabled=U.offset+U.limit>=j.total;
+    }).catch(function(e){toast(e.message,true)});
+  }
+  $("q").addEventListener("input",function(){clearTimeout(U.timer);U.timer=setTimeout(function(){U.offset=0;loadUsers()},300)});
+  ["fPlan","fStatus"].forEach(function(i){$(i).addEventListener("change",function(){U.offset=0;loadUsers()})});
+  $("prev").addEventListener("click",function(){U.offset=Math.max(0,U.offset-U.limit);loadUsers()});
+  $("next").addEventListener("click",function(){U.offset+=U.limit;loadUsers()});
+  $("usersBody").addEventListener("click",function(e){var tr=e.target.closest("tr.row");if(tr)openUser(tr.dataset.id)});
+  $("usersBody").addEventListener("keydown",function(e){if(e.key==="Enter"){var tr=e.target.closest("tr.row");if(tr)openUser(tr.dataset.id)}});
+
+  /* ---------- detalle ---------- */
+  var cur=null;
+  function closeDrawer(){$("dbg").classList.remove("open")}
+  $("dbg").addEventListener("click",function(e){if(e.target===$("dbg"))closeDrawer()});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape")closeDrawer()});
+  function planOptions(sel){return ["BASIC","PRO","UNLIMITED"].map(function(p){return '<option value="'+p+'"'+(p===sel?" selected":"")+'>'+PLAN[p]+'</option>'}).join("")}
+  function openUser(id){
+    api("/users/"+id).then(function(d){cur=d;renderUser(d);$("dbg").classList.add("open")}).catch(function(e){toast(e.message,true)});
+  }
+  function renderUser(d){
+    var u=d.user,s=d.subscription,eff=d.effectivePlan,srcTxt={override:"plan temporal",promo:"promoción",plan:"plan base"}[eff.source]||eff.source;
+    var charges=d.charges.length?d.charges.map(function(c){return '<tr><td>'+dt(c.createdAt,true)+'</td><td>'+pen(c.amountCents/100)+'</td><td><span class="pill '+(c.status==="PAID"?"ok":c.status==="FAILED"?"bad":"gray")+'">'+esc({PAID:"Cobrado",FAILED:"Fallido",REFUNDED:"Reembolsado"}[c.status]||c.status)+'</span>'+(String(c.culqiChargeId).indexOf("sim_")===0?' <span class="pill warn">Simulado</span>':"")+'</td></tr>'}).join(""):'<tr><td colspan="3" class="help">Sin cobros.</td></tr>';
+    var subTxt=s?('<span class="pill '+(ST_CLASS[s.status]||"")+'">'+esc(STATUS[s.status]||s.status)+'</span> '+(s.billingPeriod?esc(PERIOD[s.billingPeriod]):"")+(s.simulated?' <span class="pill warn">Simulada</span>':"")):'<span class="pill gray">Sin suscripción</span>';
+    var hasTmp=!!u.planOverride;
+    var html='<div class="head"><div><h2>'+esc(u.name)+'</h2><div class="help" style="margin:2px 0 0">'+esc(u.email)+'</div></div><button class="btn sec" id="dClose">Cerrar</button></div>'+
+    '<div class="card"><dl class="kv">'+
+      '<dt>Plan efectivo</dt><dd><b>'+esc(PLAN[eff.plan])+'</b> <span class="pill">'+esc(srcTxt)+'</span></dd>'+
+      '<dt>Suscripción</dt><dd>'+subTxt+'</dd>'+
+      (s&&s.trialEndsAt?'<dt>Fin de la prueba</dt><dd>'+dt(s.trialEndsAt)+'</dd>':'')+
+      (s&&s.currentPeriodEnd?'<dt>Próximo cobro</dt><dd>'+dt(s.currentPeriodEnd)+'</dd>':'')+
+      (s?'<dt>Cobros fallidos</dt><dd>'+s.failedAttempts+(d.accessRestricted?' <span class="pill bad">Solo lectura</span>':'')+'</dd>':'')+
+      '<dt>Teléfono</dt><dd>'+esc(u.phoneNumber||"—")+(u.whatsappOptIn?' <span class="pill ok">Acepta WhatsApp</span>':'')+'</dd>'+
+      '<dt>Registrado</dt><dd>'+dt(u.createdAt,true)+'</dd>'+
+      '<dt>Último mensaje</dt><dd>'+dt(u.lastInboundAt,true)+'</dd>'+
+      '<dt>Movimientos</dt><dd>'+u._count.transactions+'</dd>'+
+      '<dt>Correos conectados</dt><dd>'+(u.emailAccounts.length?u.emailAccounts.map(function(a){return esc(a.emailAddress)}).join(", "):"Ninguno")+'</dd>'+
+      '<dt>WhatsApp este mes</dt><dd>'+d.whatsappMessagesThisMonth+' mensajes enviados</dd>'+
+    '</dl></div>'+
+    '<div class="card"><h3>Plan base</h3><div class="row2"><select id="dPlan">'+planOptions(u.plan)+'</select><button class="btn" id="dPlanSave">Guardar</button></div><p class="help">Es el plan que tiene el usuario cuando no hay plan temporal ni promoción.</p></div>'+
+    '<div class="card"><h3>Plan temporal (equipo, testers, cortesías)</h3>'+
+      (hasTmp?'<p style="margin:0 0 8px">Ahora: <b>'+esc(PLAN[u.planOverride])+'</b>'+(u.planOverrideUntil?' hasta '+dt(u.planOverrideUntil):' sin fecha de fin')+'</p>':'')+
+      '<div class="row2"><select id="dOvPlan">'+planOptions(u.planOverride||"PRO")+'</select><input id="dOvDays" type="number" min="1" max="730" placeholder="Días (vacío = sin fin)" style="width:190px"><button class="btn" id="dOvSave">Aplicar</button>'+(hasTmp?'<button class="btn danger" id="dOvClear">Quitar</button>':'')+'</div>'+
+      '<p class="help">Sirve para probar funciones de otro plan sin cobrar.</p></div>'+
+    '<div class="card"><h3>Prueba gratis</h3><div class="row2"><input id="dTrialDays" type="number" min="1" max="90" value="7" style="width:90px"><span>días desde hoy</span><button class="btn" id="dTrialSave"'+(s&&s.hasGateway&&!s.simulated?' disabled':'')+'>Dar prueba</button></div>'+
+      (s&&s.hasGateway&&!s.simulated?'<p class="help">Tiene suscripción real en Culqi: su prueba la maneja la pasarela.</p>':'<p class="help">Fija el fin de la prueba a hoy más esos días y deja la suscripción en prueba.</p>')+'</div>'+
+    '<div class="card"><h3>Últimos cobros</h3><div class="tablewrap"><table><tbody>'+charges+'</tbody></table></div></div>';
+    if(ME&&ME.billingTools){
+      html+='<div class="card"><h3>Pruebas de cobro</h3>'+
+        '<p class="help" style="margin:0 0 10px">Simulan cobros sin llamar a Culqi. Los avisos por correo y WhatsApp <b>se envían de verdad</b> a este usuario ('+esc(u.email)+').'+(ME.paymentsEnabled?'':' PAYMENTS_ENABLED está apagado: el modo solo lectura no se aplicará.')+'</p>'+
+        '<div class="row2"><button class="btn sec" data-bt="fail">Simular cobro fallido</button><button class="btn sec" data-bt="recover">Simular pago recuperado</button><button class="btn sec" data-bt="precharge-notice">Aviso previo del anual</button><button class="btn danger" data-bt="clear">Borrar simulación</button></div>'+
+        '<p class="help">Fallo 1: correo. Fallo 2: correo y WhatsApp. Fallo 3: solo lectura. Fallo 5: cancelación. Para ver el efecto, entra como ese usuario en el dashboard.</p></div>';
+    }
+    $("drawer").innerHTML=html;
+  }
+  $("drawer").addEventListener("click",function(e){
+    var t=e.target; if(!cur)return; var id=cur.user.id;
+    function refresh(){return api("/users/"+id).then(function(d){cur=d;renderUser(d);loadUsers()})}
+    if(t.id==="dClose")return closeDrawer();
+    if(t.id==="dPlanSave")return act("/users/"+id+"/plan",{method:"POST",body:{plan:$("dPlan").value}},"Plan base guardado",refresh);
+    if(t.id==="dOvSave"){var days=parseInt($("dOvDays").value,10);var body={plan:$("dOvPlan").value};if(days>0)body.days=days;return act("/users/"+id+"/override",{method:"POST",body:body},"Plan temporal aplicado",refresh)}
+    if(t.id==="dOvClear")return act("/users/"+id+"/override",{method:"POST",body:{plan:null}},"Plan temporal quitado",refresh);
+    if(t.id==="dTrialSave"){var n=parseInt($("dTrialDays").value,10);if(!(n>0))return toast("Indica los días de prueba",true);return act("/users/"+id+"/trial",{method:"POST",body:{days:n}},"Prueba asignada",refresh)}
+    var bt=t.getAttribute&&t.getAttribute("data-bt");
+    if(bt){
+      var msg={fail:"Se simulará un cobro fallido y se enviará el aviso correspondiente a ",recover:"Se simulará un pago recuperado y, si estaba limitado, se avisará a ","precharge-notice":"Se enviará el aviso previo del plan anual a ",clear:"Se borrará la simulación de "}[bt]+cur.user.email+". ¿Continuar?";
+      if(!confirm(msg))return;
+      t.disabled=true;
+      return act("/users/"+id+"/billing-test",{method:"POST",body:{action:bt}},"Hecho",refresh).then(function(){t.disabled=false});
+    }
+  });
+
+  /* ---------- promociones ---------- */
+  function loadPromos(){
+    api("/promos").then(function(j){
+      var now=new Date();
+      $("promosBody").innerHTML=j.promos.length?j.promos.map(function(p){
+        var vig=new Date(p.startsAt)<=now&&new Date(p.endsAt)>=now, over=p.spentUsd>=p.budgetUsd;
+        var st=!p.active?'<span class="pill gray">Pausada</span>':over?'<span class="pill warn">Sin presupuesto</span>':vig?'<span class="pill ok">Vigente</span>':'<span class="pill">Fuera de fecha</span>';
+        return '<tr><td><b>'+esc(p.name)+'</b></td><td>'+dt(p.startsAt)+' – '+dt(p.endsAt)+'</td><td>'+p.appliesTo.map(function(a){return esc(PLAN[a])}).join(", ")+'</td><td>'+esc(PLAN[p.grantsPlan])+(p.uncapped?" · sin tope":"")+'</td><td>US$ '+p.spentUsd.toFixed(2)+' de '+p.budgetUsd.toFixed(2)+'</td><td>'+st+'</td><td><button class="btn sec" data-promo="'+esc(p.id)+'" data-active="'+(p.active?"0":"1")+'">'+(p.active?"Pausar":"Activar")+'</button></td></tr>'
+      }).join(""):'<tr><td colspan="7" class="help">Todavía no hay promociones.</td></tr>';
+    }).catch(function(e){toast(e.message,true)});
+  }
+  $("promosBody").addEventListener("click",function(e){var b=e.target.closest("button[data-promo]");if(!b)return;act("/promos/"+b.dataset.promo,{method:"PATCH",body:{active:b.dataset.active==="1"}},"Promoción actualizada",loadPromos)});
+  (function(){var d=new Date(),iso=function(x){return x.toISOString().slice(0,10)};$("pStart").value=iso(d);$("pEnd").value=iso(new Date(d.getTime()+30*864e5))})();
+  $("promoForm").addEventListener("submit",function(e){
+    e.preventDefault();
+    var applies=Array.prototype.slice.call(document.querySelectorAll(".pApplies:checked")).map(function(c){return c.value});
+    if(!applies.length)return toast("Elige a qué planes aplica",true);
+    var s=new Date($("pStart").value+"T00:00:00-05:00"), en=new Date($("pEnd").value+"T23:59:59-05:00");
+    act("/promos",{method:"POST",body:{name:$("pName").value,startsAt:s.toISOString(),endsAt:en.toISOString(),appliesTo:applies,grantsPlan:$("pGrants").value,uncapped:$("pUncapped").checked,budgetUsd:parseFloat($("pBudget").value)}},"Promoción creada",function(){$("pName").value="";loadPromos()});
+  });
+
+  /* ---------- registro ---------- */
+  var ACT={"plan.set":"Cambió el plan base","override.set":"Dio un plan temporal","override.clear":"Quitó el plan temporal","trial.set":"Dio prueba gratis","promo.create":"Creó una promoción","promo.activate":"Activó una promoción","promo.deactivate":"Pausó una promoción","billing-test.fail":"Simuló cobro fallido","billing-test.recover":"Simuló pago recuperado","billing-test.precharge-notice":"Envió aviso previo del anual","billing-test.clear":"Borró la simulación"};
+  function loadAudit(){
+    api("/audit").then(function(j){
+      $("auditBody").innerHTML=j.entries.length?j.entries.map(function(r){
+        var det=r.details?Object.keys(r.details).map(function(k){var v=r.details[k];return esc(k)+": "+esc(typeof v==="object"?JSON.stringify(v):v)}).join(" · "):"";
+        return '<tr><td>'+dt(r.createdAt,true)+'</td><td>'+esc(r.adminEmail)+'</td><td>'+esc(ACT[r.action]||r.action)+'</td><td>'+esc(r.targetEmail||"—")+'</td><td class="help" style="margin:0">'+det+'</td></tr>'
+      }).join(""):'<tr><td colspan="5" class="help">Todavía no hay acciones registradas.</td></tr>';
+    }).catch(function(e){toast(e.message,true)});
+  }
+
+  /* ---------- inicio ---------- */
+  api("/me").then(function(me){
+    ME=me; $("whoEmail").textContent=me.email;
+    $("env").innerHTML='<span class="pill '+(me.culqiMode==="live"?"bad":"ok")+'">Culqi: '+esc(me.culqiMode)+'</span><span class="pill '+(me.paymentsEnabled?"ok":"gray")+'">Cobros '+(me.paymentsEnabled?"activados":"apagados")+'</span><span class="pill '+(me.billingTools?"warn":"gray")+'">Pruebas de cobro '+(me.billingTools?"disponibles":"desactivadas")+'</span>';
+    loadSummary();
+  }).catch(function(e){
+    if(e.status===403){$("app").classList.add("hide");$("denied").classList.remove("hide");document.querySelector("nav.tabs").classList.add("hide")}
+    else toast(e.message,true);
+  });
+})();
+</script>
+</body>
+</html>

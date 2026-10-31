@@ -605,3 +605,16 @@ model DebtPayment {
   @@index([debtId])
   @@map("debt_payments")
 }
+
+// Registro de acciones del panel de administración (public/admin.html). Solo lectura desde el panel.
+model AdminAuditLog {
+  id           String   @id @default(uuid())
+  adminEmail   String
+  targetUserId String? // sin relación a propósito: el registro sobrevive si se borra al usuario
+  action       String
+  details      Json?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}

@@ -67,6 +67,9 @@ const envSchema = z.object({
   // Plantilla de WhatsApp (aprobada por Meta) para avisar de un cobro fallido fuera de la ventana de 24 h.
   WHATSAPP_TEMPLATE_BILLING: z.string().default("gastia_cobro_fallido"),
 
+  // Correos con acceso al panel de administración (/admin.html), separados por coma. Vacío = nadie.
+  ADMIN_EMAILS: z.string().optional().default(""),
+
   // Envío de correos transaccionales (recuperación de contraseña, etc.)
   RESEND_API_KEY: z.string().optional().default(""),
   EMAIL_FROM: z.string().default("Gastia <onboarding@resend.dev>"),
