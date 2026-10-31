@@ -4955,7 +4955,7 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
 @media (prefers-reduced-motion:reduce){#pg.idle .pg-hop,#pg.idle #pgCoin,#pg.walking .pg-hop,#pgSprite,#pgBubble{animation:none !important;}}
 </style>
 <div id="pg" aria-live="polite">
-  <div id="pgBubble" role="status"><button type="button" class="pg-x" id="pgX" aria-label="Cerrar mensaje">✕</button><p id="pgText"></p><button type="button" class="pg-chip" id="pgChip">¿Qué puedes hacer?</button></div>
+  <div id="pgBubble" role="status"><button type="button" class="pg-x" id="pgX" aria-label="Cerrar mensaje">✕</button><p id="pgText"></p><button type="button" class="pg-chip" id="pgChip">Decir «hola»</button></div>
   <button type="button" id="pgBtn" aria-label="Abrir el chat de Gastia"><span class="pg-hop"><img id="pgImg" alt="" decoding="async"><span id="pgSprite" aria-hidden="true"></span></span><span id="pgCoin" aria-hidden="true"><svg viewBox="0 0 32 32" width="22" height="22"><circle cx="16" cy="16" r="14" fill="#f2c14e" stroke="#7a4a1d" stroke-width="2"/><circle cx="16" cy="16" r="10" fill="none" stroke="#c9922a" stroke-width="1.5"/><text x="16" y="21" text-anchor="middle" font-family="Figtree,Arial,sans-serif" font-size="13" font-weight="800" fill="#7a4a1d">S/</text></svg></span></button>
 </div>
 <script>
@@ -4982,7 +4982,7 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
   function hideBubble(){ clearTimeout(bubbleTimer); bubble.classList.remove("show"); }
   function showBubble(){
     const n=firstName();
-    txt.textContent=(n?"Hola "+n+", soy ":"Hola, soy ")+petName()+" "+EMOJI[state.petType]+". Pregúntame lo que quieras sobre tus gastos.";
+    txt.textContent=(n?"Hola "+n+", soy ":"Hola, soy ")+petName()+" "+EMOJI[state.petType]+". Dime «hola» en el chat y te cuento lo que puedo hacer.";
     bubble.classList.add("show");
     clearTimeout(bubbleTimer); bubbleTimer=setTimeout(hideBubble,14000);
   }
@@ -4996,7 +4996,7 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
   }
   btn.addEventListener("click",()=>openChat());
   document.getElementById("pgX").addEventListener("click",hideBubble);
-  document.getElementById("pgChip").addEventListener("click",()=>openChat("¿Qué puedes hacer?"));
+  document.getElementById("pgChip").addEventListener("click",()=>openChat("hola"));
 
   function syncOpen(){
     const open=panel.classList.contains("open");
