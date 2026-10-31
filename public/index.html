@@ -4929,10 +4929,16 @@ body.wc-big{overflow:hidden;}
 #pg.walking #pgBtn{pointer-events:none;}
 #pgImg{width:84px;height:84px;object-fit:contain;display:block;filter:drop-shadow(0 6px 8px rgba(15,27,45,.18));}
 .pg-hop{display:block;transform-origin:50% 100%;}
-#pgCoin{position:absolute;right:2px;top:18px;font-size:20px;line-height:1;opacity:0;pointer-events:none;}
+#pgCoin{position:absolute;right:2px;top:18px;width:22px;height:22px;line-height:0;opacity:0;pointer-events:none;}
 #pg.idle .pg-hop{animation:pgBob 3.2s ease-in-out infinite;}
 #pg.idle #pgCoin{animation:pgCoin 9s ease-out 2.5s infinite;}
 #pg.walking .pg-hop{animation:pgStep .46s ease-in-out infinite;}
+#pgSprite{display:none;width:84px;height:84px;background-repeat:no-repeat;background-size:400% 100%;filter:drop-shadow(0 6px 8px rgba(15,27,45,.18));}
+#pg.sprite #pgImg{display:none;}
+#pg.sprite #pgSprite{display:block;animation:pgFrames .56s step-end infinite;}
+#pg.sprite.walking .pg-hop{animation:pgBobWalk .28s ease-in-out infinite;}
+@keyframes pgFrames{0%{background-position:0 0}25%{background-position:33.333% 0}50%{background-position:66.667% 0}75%{background-position:100% 0}}
+@keyframes pgBobWalk{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 @keyframes pgBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-4px) rotate(-1.5deg)}}
 @keyframes pgStep{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-16px) rotate(3deg)}}
 @keyframes pgCoin{0%{opacity:0;transform:translateY(6px) scale(.6)}6%{opacity:1;transform:translateY(-6px) scale(1)}22%{opacity:1;transform:translateY(-30px) scale(1.05) rotate(180deg)}30%,100%{opacity:0;transform:translateY(-40px) scale(.9) rotate(360deg)}}
@@ -4945,12 +4951,12 @@ body.wc-big{overflow:hidden;}
 #pgBubble .pg-chip:hover{background:var(--accent,#2472c8);color:#fff;}
 @keyframes pgPop{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
 body.wc-big #pg,#pg.chat-open{display:none !important;}
-@media (max-width:520px){#pg{right:4px;bottom:72px;}#pgImg{width:64px;height:64px;}}
-@media (prefers-reduced-motion:reduce){#pg.idle .pg-hop,#pg.idle #pgCoin,#pg.walking .pg-hop,#pgBubble{animation:none !important;}}
+@media (max-width:520px){#pg{right:4px;bottom:72px;}#pgImg,#pgSprite{width:64px;height:64px;}}
+@media (prefers-reduced-motion:reduce){#pg.idle .pg-hop,#pg.idle #pgCoin,#pg.walking .pg-hop,#pgSprite,#pgBubble{animation:none !important;}}
 </style>
 <div id="pg" aria-live="polite">
   <div id="pgBubble" role="status"><button type="button" class="pg-x" id="pgX" aria-label="Cerrar mensaje">✕</button><p id="pgText"></p><button type="button" class="pg-chip" id="pgChip">¿Qué puedes hacer?</button></div>
-  <button type="button" id="pgBtn" aria-label="Abrir el chat de Gastia"><span class="pg-hop"><img id="pgImg" alt="" decoding="async"></span><span id="pgCoin" aria-hidden="true">🪙</span></button>
+  <button type="button" id="pgBtn" aria-label="Abrir el chat de Gastia"><span class="pg-hop"><img id="pgImg" alt="" decoding="async"><span id="pgSprite" aria-hidden="true"></span></span><span id="pgCoin" aria-hidden="true"><svg viewBox="0 0 32 32" width="22" height="22"><circle cx="16" cy="16" r="14" fill="#f2c14e" stroke="#7a4a1d" stroke-width="2"/><circle cx="16" cy="16" r="10" fill="none" stroke="#c9922a" stroke-width="1.5"/><text x="16" y="21" text-anchor="middle" font-family="Figtree,Arial,sans-serif" font-size="13" font-weight="800" fill="#7a4a1d">S/</text></svg></span></button>
 </div>
 <script>
 (function(){
@@ -4960,6 +4966,7 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
         fab=document.getElementById("wcFab"), panel=document.getElementById("wcPanel");
   if(!pg || !fab || !panel) return;
   const EMOJI={dog:"🐶",cat:"🐱",capybara:"🦫",pig:"🐷"};
+  const WALK={dog:true}; // mascotas con hoja de sprites de caminata (/assets/mascots/<tipo>-walk.png)
   const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const small=()=>window.matchMedia("(max-width:520px)").matches;
   let bubbleTimer=null, walking=false, started=false, lastType=null;
@@ -5009,11 +5016,15 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
     return new Promise(resolve=>{
       const vw=window.innerWidth, vh=window.innerHeight, w=img.offsetWidth||84;
       const full=vw-10-w;                       // desplazamiento horizontal desde la esquina hasta el borde izquierdo
-      const pts=[[-full-w, -vh*0.30],[-full*0.78, -vh*0.52],[-full*0.52, -vh*0.18],[-full*0.30, -vh*0.46],[-full*0.12, -vh*0.12],[0,0]];
-      const keys=pts.map((p,i)=>({transform:"translate("+Math.round(p[0])+"px,"+Math.round(p[1])+"px)",offset:i/(pts.length-1),easing:"ease-in-out"}));
+      const sp=!!WALK[state.petType];
+      const spr=document.getElementById("pgSprite");
+      if(sp){ spr.style.backgroundImage="url(/assets/mascots/"+state.petType+"-walk.png)"; pg.classList.add("sprite"); }
+      const pts=sp ? [[-full-w,0],[-full*0.75,0],[-full*0.5,0],[-full*0.25,0],[0,0]]
+                   : [[-full-w, -vh*0.30],[-full*0.78, -vh*0.52],[-full*0.52, -vh*0.18],[-full*0.30, -vh*0.46],[-full*0.12, -vh*0.12],[0,0]];
+      const keys=pts.map((p,i)=>({transform:"translate("+Math.round(p[0])+"px,"+Math.round(p[1])+"px)",offset:i/(pts.length-1),easing:sp?"linear":"ease-in-out"}));
       pg.classList.add("show","walking"); pg.classList.remove("idle");
       const a=pg.animate(keys,{duration:7000,fill:"none"});
-      const done=()=>{ pg.classList.remove("walking"); pg.style.transform=""; resolve(); };
+      const done=()=>{ pg.classList.remove("walking","sprite"); pg.style.transform=""; resolve(); };
       a.onfinish=done; a.oncancel=done;
     });
   }
