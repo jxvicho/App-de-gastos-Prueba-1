@@ -493,6 +493,7 @@ th.del-col,td.del-col{width:36px;text-align:center;padding-left:0;padding-right:
   .pet-card:hover{border-color:var(--blue-400);}
   .pet-card.selected{border-color:var(--blue-700);background:var(--blue-100);}
   .pet-card svg{width:56px;height:56px;}
+  .pet-card img{width:92px;height:92px;object-fit:contain;}
   .pet-card span{font-size:12px;font-weight:700;color:var(--ink-soft);}
 
   @media (max-width:900px){
@@ -1649,78 +1650,19 @@ tbody tr:hover{background:#f7faff;}
 
     <div class="pet-card-grid" id="petCardGrid">
       <div class="pet-card" data-pet="dog">
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="100" cy="176" rx="46" ry="8" fill="#000000" opacity="0.08"/>
-          <rect x="72" y="128" width="14" height="42" rx="7" fill="#FFFFFF" stroke="#DADADA"/>
-          <rect x="114" y="128" width="14" height="42" rx="7" fill="#FFFFFF" stroke="#DADADA"/>
-          <ellipse cx="100" cy="120" rx="42" ry="36" fill="#FFFFFF" stroke="#DADADA"/>
-          <path d="M65 128 Q100 145 135 128 L135 112 Q100 96 65 112 Z" fill="#C1793D" opacity="0.85"/>
-          <path d="M55 78 Q42 48 62 42 Q76 40 73 58 Q70 76 63 90 Z" fill="#C1793D"/>
-          <path d="M145 78 Q158 48 138 42 Q124 40 127 58 Q130 76 137 90 Z" fill="#C1793D"/>
-          <circle cx="100" cy="72" r="30" fill="#FFFFFF" stroke="#DADADA"/>
-          <path d="M74 72 Q70 44 92 38 Q104 37 104 58 Q102 76 92 84 Z" fill="#C1793D"/>
-          <path d="M126 72 Q130 44 108 38 Q96 37 96 58 Q98 76 108 84 Z" fill="#C1793D"/>
-          <circle cx="90" cy="66" r="3" fill="#1A1A1A"/>
-          <circle cx="110" cy="66" r="3" fill="#1A1A1A"/>
-          <ellipse cx="100" cy="82" rx="6" ry="5" fill="#1A1A1A"/>
-          <path d="M96 100 Q100 118 104 100 Q102 110 100 113 Q98 110 96 100 Z" fill="#F2909F"/>
-        </svg>
+        <img src="/assets/mascots/dog-full.png" alt="" loading="lazy">
         <span>Perro</span>
       </div>
       <div class="pet-card" data-pet="cat">
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="100" cy="176" rx="44" ry="8" fill="#000000" opacity="0.08"/>
-          <rect x="74" y="132" width="13" height="38" rx="6.5" fill="#EDA857"/>
-          <rect x="113" y="132" width="13" height="38" rx="6.5" fill="#EDA857"/>
-          <path d="M155 150 Q175 130 168 112 Q163 100 155 112 Q158 132 148 148 Z" fill="#EDA857"/>
-          <ellipse cx="100" cy="122" rx="40" ry="34" fill="#F4B96B"/>
-          <circle cx="100" cy="68" r="29" fill="#F4B96B"/>
-          <path d="M72 52 L58 26 L82 44 Z" fill="#F4B96B"/>
-          <path d="M128 52 L142 26 L118 44 Z" fill="#F4B96B"/>
-          <path d="M75 54 L64 34 L80 46 Z" fill="#E88C8C"/>
-          <path d="M125 54 L136 34 L120 46 Z" fill="#E88C8C"/>
-          <circle cx="90" cy="66" r="3" fill="#1A1A1A"/>
-          <circle cx="110" cy="66" r="3" fill="#1A1A1A"/>
-          <path d="M97 76 L103 76 L100 80 Z" fill="#1A1A1A"/>
-          <path d="M82 68 L70 65 M82 72 L69 72" stroke="#1A1A1A" stroke-width="1.2"/>
-          <path d="M118 68 L130 65 M118 72 L131 72" stroke="#1A1A1A" stroke-width="1.2"/>
-        </svg>
+        <img src="/assets/mascots/cat-full.png" alt="" loading="lazy">
         <span>Gato</span>
       </div>
       <div class="pet-card" data-pet="capybara">
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="100" cy="176" rx="52" ry="8" fill="#000000" opacity="0.08"/>
-          <rect x="68" y="140" width="15" height="34" rx="7" fill="#8A6642"/>
-          <rect x="117" y="140" width="15" height="34" rx="7" fill="#8A6642"/>
-          <ellipse cx="100" cy="128" rx="56" ry="38" fill="#A97C50"/>
-          <ellipse cx="100" cy="82" rx="40" ry="32" fill="#A97C50"/>
-          <ellipse cx="76" cy="60" rx="9" ry="8" fill="#8A6642"/>
-          <ellipse cx="124" cy="60" rx="9" ry="8" fill="#8A6642"/>
-          <path d="M80 90 Q100 100 120 90 Q118 104 100 106 Q82 104 80 90 Z" fill="#C79A6B"/>
-          <path d="M90 78 L86 76 M110 78 L114 76" stroke="#1A1A1A" stroke-width="2.4" stroke-linecap="round"/>
-          <ellipse cx="94" cy="98" rx="3" ry="3.4" fill="#1A1A1A"/>
-          <ellipse cx="106" cy="98" rx="3" ry="3.4" fill="#1A1A1A"/>
-        </svg>
+        <img src="/assets/mascots/capybara-full.png" alt="" loading="lazy">
         <span>Capibara</span>
       </div>
       <div class="pet-card" data-pet="pig">
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="100" cy="176" rx="44" ry="8" fill="#000000" opacity="0.08"/>
-          <rect x="76" y="130" width="14" height="40" rx="7" fill="#F3B6C4"/>
-          <rect x="110" y="130" width="14" height="40" rx="7" fill="#F3B6C4"/>
-          <path d="M148 118 Q166 112 162 100 Q158 92 150 98 Q156 106 146 114 Z" fill="none" stroke="#E98FA6" stroke-width="4" stroke-linecap="round"/>
-          <ellipse cx="100" cy="118" rx="46" ry="38" fill="#F7C6D3"/>
-          <circle cx="100" cy="68" r="32" fill="#F7C6D3"/>
-          <ellipse cx="76" cy="42" rx="10" ry="9" fill="#F7C6D3"/>
-          <ellipse cx="124" cy="42" rx="10" ry="9" fill="#F7C6D3"/>
-          <ellipse cx="76" cy="43" rx="5" ry="4.5" fill="#E98FA6"/>
-          <ellipse cx="124" cy="43" rx="5" ry="4.5" fill="#E98FA6"/>
-          <ellipse cx="100" cy="76" rx="16" ry="11" fill="#E98FA6"/>
-          <ellipse cx="94" cy="76" rx="2.5" ry="3" fill="#B0607A"/>
-          <ellipse cx="106" cy="76" rx="2.5" ry="3" fill="#B0607A"/>
-          <circle cx="88" cy="64" r="3" fill="#1A1A1A"/>
-          <circle cx="112" cy="64" r="3" fill="#1A1A1A"/>
-        </svg>
+        <img src="/assets/mascots/pig-full.png" alt="" loading="lazy">
         <span>Chancho</span>
       </div>
     </div>
@@ -3172,7 +3114,7 @@ function renderSidebarPet(){
   if(state.petType && state.petType !== "none"){
     wrap.innerHTML = `
       <button class="sidebar-pet-row filled" id="sidebarPetBtn">
-        <img src="/assets/mascots/${state.petType}.svg" alt="${PET_LABELS[state.petType] || "Mascota"}">
+        <img src="/assets/mascots/${state.petType}-head.png" alt="${PET_LABELS[state.petType] || "Mascota"}">
         <span class="sidebar-pet-name sidebar-label">${state.petName || "Mascota"}</span>
       </button>
     `;
