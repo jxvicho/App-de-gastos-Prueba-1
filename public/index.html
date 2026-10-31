@@ -4920,5 +4920,130 @@ body.wc-big{overflow:hidden;}
   api("/chat/config").then(c=>{ if(c && c.enabled){ fab.classList.add("show"); loadHistory(); } }).catch(()=>{});
 })();
 </script>
+<!-- ===== Mascota guía del chat: pasea una vez al día y se queda junto al botón del chat ===== -->
+<style>
+#pg{position:fixed;right:10px;bottom:76px;z-index:39;display:none;flex-direction:column;align-items:flex-end;pointer-events:none;will-change:transform;}
+#pg.show{display:flex;}
+#pgBtn{pointer-events:auto;position:relative;border:0;background:none;padding:0;cursor:pointer;line-height:0;-webkit-tap-highlight-color:transparent;}
+#pgBtn:focus-visible{outline:3px solid var(--accent,#2472c8);outline-offset:2px;border-radius:12px;}
+#pg.walking #pgBtn{pointer-events:none;}
+#pgImg{width:84px;height:84px;object-fit:contain;display:block;filter:drop-shadow(0 6px 8px rgba(15,27,45,.18));}
+.pg-hop{display:block;transform-origin:50% 100%;}
+#pgCoin{position:absolute;right:2px;top:18px;font-size:20px;line-height:1;opacity:0;pointer-events:none;}
+#pg.idle .pg-hop{animation:pgBob 3.2s ease-in-out infinite;}
+#pg.idle #pgCoin{animation:pgCoin 9s ease-out 2.5s infinite;}
+#pg.walking .pg-hop{animation:pgStep .46s ease-in-out infinite;}
+@keyframes pgBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-4px) rotate(-1.5deg)}}
+@keyframes pgStep{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-16px) rotate(3deg)}}
+@keyframes pgCoin{0%{opacity:0;transform:translateY(6px) scale(.6)}6%{opacity:1;transform:translateY(-6px) scale(1)}22%{opacity:1;transform:translateY(-30px) scale(1.05) rotate(180deg)}30%,100%{opacity:0;transform:translateY(-40px) scale(.9) rotate(360deg)}}
+#pgBubble{pointer-events:auto;position:relative;margin:0 6px 10px 0;max-width:min(270px,calc(100vw - 110px));background:var(--card,#fff);color:var(--ink,#0b2545);border:1px solid var(--line,#dbe4f0);border-radius:14px 14px 4px 14px;box-shadow:0 14px 30px -12px rgba(15,27,45,.35);padding:10px 30px 10px 12px;font-size:13.5px;line-height:1.4;display:none;animation:pgPop .28s ease-out;}
+#pgBubble.show{display:block;}
+#pgBubble p{margin:0 0 8px 0;}
+#pgBubble .pg-x{position:absolute;top:4px;right:4px;width:24px;height:24px;border:0;background:none;color:var(--ink-soft,#5d6b80);font-size:14px;cursor:pointer;border-radius:50%;}
+#pgBubble .pg-x:hover{background:var(--bg,#f4f8fd);}
+#pgBubble .pg-chip{border:1px solid var(--accent,#2472c8);background:var(--card,#fff);color:var(--accent,#2472c8);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+#pgBubble .pg-chip:hover{background:var(--accent,#2472c8);color:#fff;}
+@keyframes pgPop{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+body.wc-big #pg,#pg.chat-open{display:none !important;}
+@media (max-width:520px){#pg{right:4px;bottom:72px;}#pgImg{width:64px;height:64px;}}
+@media (prefers-reduced-motion:reduce){#pg.idle .pg-hop,#pg.idle #pgCoin,#pg.walking .pg-hop,#pgBubble{animation:none !important;}}
+</style>
+<div id="pg" aria-live="polite">
+  <div id="pgBubble" role="status"><button type="button" class="pg-x" id="pgX" aria-label="Cerrar mensaje">✕</button><p id="pgText"></p><button type="button" class="pg-chip" id="pgChip">¿Qué puedes hacer?</button></div>
+  <button type="button" id="pgBtn" aria-label="Abrir el chat de Gastia"><span class="pg-hop"><img id="pgImg" alt="" decoding="async"></span><span id="pgCoin" aria-hidden="true">🪙</span></button>
+</div>
+<script>
+(function(){
+  if(typeof authToken === "undefined" || !authToken) return;
+  const pg=document.getElementById("pg"), btn=document.getElementById("pgBtn"), img=document.getElementById("pgImg"),
+        bubble=document.getElementById("pgBubble"), txt=document.getElementById("pgText"),
+        fab=document.getElementById("wcFab"), panel=document.getElementById("wcPanel");
+  if(!pg || !fab || !panel) return;
+  const EMOJI={dog:"🐶",cat:"🐱",capybara:"🦫",pig:"🐷"};
+  const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const small=()=>window.matchMedia("(max-width:520px)").matches;
+  let bubbleTimer=null, walking=false, started=false, lastType=null;
+
+  function today(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function seenToday(){ try{ return localStorage.getItem("gastia-pet-day")===today(); }catch(e){ return false; } }
+  function markToday(){ try{ localStorage.setItem("gastia-pet-day",today()); }catch(e){} }
+  function firstName(){ try{ const u=JSON.parse(localStorage.getItem("user")||"null"); return u && u.name ? String(u.name).trim().split(/\s+/)[0] : ""; }catch(e){ return ""; } }
+  function petOk(){ return typeof state!=="undefined" && state.petType && state.petType!=="none" && EMOJI[state.petType]; }
+  function chatOn(){ return fab.classList.contains("show"); }
+  function petName(){ return (state.petName && state.petName.trim()) || "Gastón"; }
+
+  function hideBubble(){ clearTimeout(bubbleTimer); bubble.classList.remove("show"); }
+  function showBubble(){
+    const n=firstName();
+    txt.textContent=(n?"Hola "+n+", soy ":"Hola, soy ")+petName()+" "+EMOJI[state.petType]+". Pregúntame lo que quieras sobre tus gastos.";
+    bubble.classList.add("show");
+    clearTimeout(bubbleTimer); bubbleTimer=setTimeout(hideBubble,14000);
+  }
+  function openChat(text){
+    hideBubble();
+    if(!panel.classList.contains("open")) fab.click();
+    if(text){
+      const input=document.getElementById("wcInput"), form=document.getElementById("wcForm");
+      if(input && form){ input.value=text; setTimeout(()=>form.requestSubmit(),150); }
+    }
+  }
+  btn.addEventListener("click",()=>openChat());
+  document.getElementById("pgX").addEventListener("click",hideBubble);
+  document.getElementById("pgChip").addEventListener("click",()=>openChat("¿Qué puedes hacer?"));
+
+  function syncOpen(){
+    const open=panel.classList.contains("open");
+    pg.classList.toggle("chat-open",open);
+    if(open) hideBubble();
+  }
+  new MutationObserver(syncOpen).observe(panel,{attributes:true,attributeFilter:["class"]});
+
+  function setPet(){
+    const label=petName();
+    if(lastType!==state.petType){ img.src="/assets/mascots/"+state.petType+"-full.png"; lastType=state.petType; }
+    btn.setAttribute("aria-label","Abrir el chat con "+label);
+  }
+
+  // Paseo de una vez al día: entra por la izquierda, recorre la pantalla saltando y llega a la esquina del chat.
+  function walk(){
+    return new Promise(resolve=>{
+      const vw=window.innerWidth, vh=window.innerHeight, w=img.offsetWidth||84;
+      const full=vw-10-w;                       // desplazamiento horizontal desde la esquina hasta el borde izquierdo
+      const pts=[[-full-w, -vh*0.30],[-full*0.78, -vh*0.52],[-full*0.52, -vh*0.18],[-full*0.30, -vh*0.46],[-full*0.12, -vh*0.12],[0,0]];
+      const keys=pts.map((p,i)=>({transform:"translate("+Math.round(p[0])+"px,"+Math.round(p[1])+"px)",offset:i/(pts.length-1),easing:"ease-in-out"}));
+      pg.classList.add("show","walking"); pg.classList.remove("idle");
+      const a=pg.animate(keys,{duration:7000,fill:"none"});
+      const done=()=>{ pg.classList.remove("walking"); pg.style.transform=""; resolve(); };
+      a.onfinish=done; a.oncancel=done;
+    });
+  }
+
+  async function start(){
+    if(started) return; started=true;
+    setPet();
+    const first=!seenToday();
+    markToday();
+    syncOpen();
+    if(first && !reduce && !small() && !panel.classList.contains("open")){
+      walking=true; await walk(); walking=false;
+    }
+    pg.classList.add("show");
+    pg.classList.add("idle");
+    if(first && !panel.classList.contains("open")) setTimeout(showBubble,350);
+  }
+  function refresh(){
+    if(!petOk() || !chatOn()){ pg.classList.remove("show"); hideBubble(); return; }
+    if(!started){ start(); return; }
+    if(!walking){ setPet(); pg.classList.add("show"); }
+  }
+  // La mascota y el chat cargan de forma asíncrona: espera hasta que ambos estén listos.
+  let tries=0; const poll=setInterval(()=>{ tries++; if(petOk() && chatOn()){ clearInterval(poll); refresh(); } else if(tries>60) clearInterval(poll); },400);
+  // Si el usuario cambia o quita su mascota, se actualiza sin recargar.
+  if(typeof window.renderSidebarPet==="function"){
+    const orig=window.renderSidebarPet;
+    window.renderSidebarPet=function(){ orig.apply(this,arguments); refresh(); };
+  }
+})();
+</script>
 </body>
 </html>

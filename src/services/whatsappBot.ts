@@ -44,10 +44,13 @@ const GREETING_PHRASES = [
   "hola", "holaa", "holaaa", "holaa", "hello", "hey", "ola",
   "buenas", "buenos dias", "buenas tardes", "buenas noches", "buen dia",
   "que tal", "como estas", "como andas", "que hay",
+  // Pedidos de ayuda: se responden con el mismo menú (lo usa el chip "¿Qué puedes hacer?" del chat web).
+  "que puedes hacer", "que sabes hacer", "que haces", "ayuda", "ayudame", "menu", "como funcionas", "como funciona",
+  "en que me ayudas", "en que puedes ayudarme",
 ];
 function detectGreetingIntent(normalizedText: string): boolean {
   // Quita puntuación final típica (!, ., ,, ¿?) para que "hola!" o "hola," también calcen.
-  const trimmed = normalizedText.replace(/[!¡.,¿?]+$/g, "").trim();
+  const trimmed = normalizedText.replace(/^[¿¡]+/, "").replace(/[!¡.,¿?]+$/g, "").trim();
   if (!trimmed || trimmed.length > 25 || /\d/.test(trimmed)) return false;
   return GREETING_PHRASES.some((phrase) => trimmed === phrase || trimmed.startsWith(`${phrase} `));
 }
