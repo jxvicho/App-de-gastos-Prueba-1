@@ -4933,11 +4933,11 @@ body.wc-big{overflow:hidden;}
 #pg.idle .pg-hop{animation:pgBob 3.2s ease-in-out infinite;}
 #pg.idle #pgCoin{animation:pgCoin 9s ease-out 2.5s infinite;}
 #pg.walking .pg-hop{animation:pgStep .46s ease-in-out infinite;}
-#pgSprite{display:none;width:84px;height:84px;background-repeat:no-repeat;background-size:400% 100%;filter:drop-shadow(0 6px 8px rgba(15,27,45,.18));}
+#pgSprite{display:none;width:84px;height:84px;background-repeat:no-repeat;background-size:600% 100%;filter:drop-shadow(0 6px 8px rgba(15,27,45,.18));}
 #pg.sprite #pgImg{display:none;}
-#pg.sprite #pgSprite{display:block;animation:pgFrames .56s step-end infinite;}
+#pg.sprite #pgSprite{display:block;animation:pgFrames .72s step-end infinite;}
 #pg.sprite.walking .pg-hop{animation:pgBobWalk .28s ease-in-out infinite;}
-@keyframes pgFrames{0%{background-position:0 0}25%{background-position:33.333% 0}50%{background-position:66.667% 0}75%{background-position:100% 0}}
+@keyframes pgFrames{0%{background-position:0 0}16.667%{background-position:20% 0}33.333%{background-position:40% 0}50%{background-position:60% 0}66.667%{background-position:80% 0}83.333%{background-position:100% 0}}
 @keyframes pgBobWalk{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 @keyframes pgBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-4px) rotate(-1.5deg)}}
 @keyframes pgStep{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-16px) rotate(3deg)}}
