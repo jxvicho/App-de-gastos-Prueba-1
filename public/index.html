@@ -4932,13 +4932,14 @@ body.wc-big{overflow:hidden;}
 #pgCoin{position:absolute;right:2px;top:18px;width:22px;height:22px;line-height:0;opacity:0;pointer-events:none;}
 #pg.idle .pg-hop{animation:pgBob 3.2s ease-in-out infinite;}
 #pg.idle #pgCoin{animation:pgCoin 9s ease-out 2.5s infinite;}
-#pg.walking .pg-hop{animation:pgStep .46s ease-in-out infinite;}
-#pgSprite{display:none;width:84px;height:84px;background-repeat:no-repeat;background-size:600% 100%;filter:drop-shadow(0 6px 8px rgba(15,27,45,.18));}
+#pgSprite{display:none;width:84px;height:84px;background-repeat:no-repeat;background-size:400% 100%;filter:drop-shadow(0 6px 8px rgba(15,27,45,.18));}
 #pg.sprite #pgImg{display:none;}
-#pg.sprite #pgSprite{display:block;animation:pgFrames .72s step-end infinite;}
-#pg.sprite.walking .pg-hop{animation:pgBobWalk .28s ease-in-out infinite;}
-@keyframes pgFrames{0%{background-position:0 0}16.667%{background-position:20% 0}33.333%{background-position:40% 0}50%{background-position:60% 0}66.667%{background-position:80% 0}83.333%{background-position:100% 0}}
-@keyframes pgBobWalk{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+#pg.sprite #pgSprite{display:block;}
+#pg.sprite.st-step #pgSprite{background-image:var(--pg-step);animation:pgFrames .56s step-end infinite;}
+#pg.sprite.st-wave #pgSprite{background-image:var(--pg-wave);animation:pgFrames .7s step-end infinite;}
+#pg.sprite.st-step .pg-hop{animation:pgWaddle .56s ease-in-out infinite;}
+@keyframes pgFrames{0%{background-position:0 0}25%{background-position:33.333% 0}50%{background-position:66.667% 0}75%{background-position:100% 0}}
+@keyframes pgWaddle{0%,100%{transform:translateY(0) rotate(-3deg)}25%,75%{transform:translateY(-4px) rotate(0)}50%{transform:translateY(0) rotate(3deg)}}
 @keyframes pgBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-4px) rotate(-1.5deg)}}
 @keyframes pgStep{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-16px) rotate(3deg)}}
 @keyframes pgCoin{0%{opacity:0;transform:translateY(6px) scale(.6)}6%{opacity:1;transform:translateY(-6px) scale(1)}22%{opacity:1;transform:translateY(-30px) scale(1.05) rotate(180deg)}30%,100%{opacity:0;transform:translateY(-40px) scale(.9) rotate(360deg)}}
@@ -4966,7 +4967,7 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
         fab=document.getElementById("wcFab"), panel=document.getElementById("wcPanel");
   if(!pg || !fab || !panel) return;
   const EMOJI={dog:"🐶",cat:"🐱",capybara:"🦫",pig:"🐷"};
-  const WALK={dog:true}; // mascotas con hoja de sprites de caminata (/assets/mascots/<tipo>-walk.png)
+  const STAND={dog:true}; // mascotas con sprites de pie: <tipo>-stand.png, -step.png (caminata) y -wave.png (saludo)
   const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const small=()=>window.matchMedia("(max-width:520px)").matches;
   let bubbleTimer=null, walking=false, started=false, lastType=null;
@@ -5007,26 +5008,50 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
 
   function setPet(){
     const label=petName();
-    if(lastType!==state.petType){ img.src="/assets/mascots/"+state.petType+"-full.png"; lastType=state.petType; }
+    if(lastType!==state.petType){ img.src="/assets/mascots/"+state.petType+(STAND[state.petType]?"-stand.png":"-full.png"); lastType=state.petType; setSheets(state.petType); scheduleWave(); }
     btn.setAttribute("aria-label","Abrir el chat con "+label);
   }
 
-  // Paseo de una vez al día: entra por la izquierda, recorre la pantalla saltando y llega a la esquina del chat.
-  function walk(){
-    return new Promise(resolve=>{
-      const vw=window.innerWidth, vh=window.innerHeight, w=img.offsetWidth||84;
-      const full=vw-10-w;                       // desplazamiento horizontal desde la esquina hasta el borde izquierdo
-      const sp=!!WALK[state.petType];
-      const spr=document.getElementById("pgSprite");
-      if(sp){ spr.style.backgroundImage="url(/assets/mascots/"+state.petType+"-walk.png)"; pg.classList.add("sprite"); }
-      const pts=sp ? [[-full-w,0],[-full*0.75,0],[-full*0.5,0],[-full*0.25,0],[0,0]]
-                   : [[-full-w, -vh*0.30],[-full*0.78, -vh*0.52],[-full*0.52, -vh*0.18],[-full*0.30, -vh*0.46],[-full*0.12, -vh*0.12],[0,0]];
-      const keys=pts.map((p,i)=>({transform:"translate("+Math.round(p[0])+"px,"+Math.round(p[1])+"px)",offset:i/(pts.length-1),easing:sp?"linear":"ease-in-out"}));
-      pg.classList.add("show","walking"); pg.classList.remove("idle");
-      const a=pg.animate(keys,{duration:7000,fill:"none"});
-      const done=()=>{ pg.classList.remove("walking","sprite"); pg.style.transform=""; resolve(); };
-      a.onfinish=done; a.oncancel=done;
-    });
+  // ---- Entrada del día (solo mascotas con sprites de pie) ----
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  function setSheets(t){ pg.style.setProperty("--pg-step","url(/assets/mascots/"+t+"-step.png)"); pg.style.setProperty("--pg-wave","url(/assets/mascots/"+t+"-wave.png)"); }
+  function setPose(p){ pg.classList.remove("st-step","st-wave"); if(p){ pg.classList.add("sprite","st-"+p); } else pg.classList.remove("sprite"); }
+  function slide(from,to,ms,pose){
+    setPose(pose);
+    const a=pg.animate([{transform:"translate("+Math.round(from[0])+"px,"+Math.round(from[1])+"px)"},{transform:"translate("+Math.round(to[0])+"px,"+Math.round(to[1])+"px)"}],{duration:ms,easing:"ease-in-out",fill:"forwards"});
+    return new Promise(res=>{ a.onfinish=res; a.oncancel=res; }).then(()=>a);
+  }
+  // Paseo de una vez al día: sale del selector de mascota, se para en el centro, saluda y se va a la esquina del chat.
+  async function walk(){
+    pg.style.opacity="0"; pg.classList.add("show","walking"); pg.classList.remove("idle");
+    const r0=pg.getBoundingClientRect(), c0=[r0.left+r0.width/2, r0.top+r0.height/2];
+    const sp=document.querySelector("#sidebarPetBtn img") || document.getElementById("sidebarPetBtn");
+    let sx=window.innerWidth-90, sy=40;
+    if(sp){ const b=sp.getBoundingClientRect(); if(b.width){ sx=b.left+b.width/2; sy=b.top+b.height/2; } }
+    const start=[sx-c0[0], sy-c0[1]];
+    const mid=[window.innerWidth/2-c0[0], window.innerHeight*0.5-c0[1]];
+    setSheets(state.petType);
+    const a0=pg.animate([{transform:"translate("+Math.round(start[0])+"px,"+Math.round(start[1])+"px) scale(.45)"}],{duration:1,fill:"forwards"});
+    await wait(30); pg.style.opacity="";
+    const b1=pg.animate([{transform:"translate("+Math.round(start[0])+"px,"+Math.round(start[1])+"px) scale(.45)"},{transform:"translate("+Math.round(mid[0])+"px,"+Math.round(mid[1])+"px) scale(1.5)"}],{duration:3200,easing:"ease-in-out",fill:"forwards"});
+    a0.cancel(); setPose("step");
+    await new Promise(r=>{ b1.onfinish=r; b1.oncancel=r; });
+    setPose("wave"); await wait(3400);
+    const b2=pg.animate([{transform:"translate("+Math.round(mid[0])+"px,"+Math.round(mid[1])+"px) scale(1.5)"},{transform:"translate(0px,0px) scale(1)"}],{duration:2600,easing:"ease-in-out",fill:"forwards"});
+    b1.cancel(); setPose("step");
+    await new Promise(r=>{ b2.onfinish=r; b2.oncancel=r; });
+    b2.cancel(); setPose(null);
+    pg.classList.remove("walking"); pg.style.transform="";
+  }
+  // Saludo corto ocasional mientras espera en la esquina.
+  let waveTimer=null;
+  function scheduleWave(){
+    clearInterval(waveTimer);
+    if(reduce || !STAND[state.petType]) return;
+    waveTimer=setInterval(async()=>{
+      if(walking || pg.classList.contains("chat-open") || !pg.classList.contains("show")) return;
+      setSheets(state.petType); setPose("wave"); await wait(2800); if(!walking) setPose(null);
+    },14000);
   }
 
   async function start(){
@@ -5035,7 +5060,7 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
     const first=!seenToday();
     markToday();
     syncOpen();
-    if(first && !reduce && !small() && !panel.classList.contains("open")){
+    if(first && !reduce && !small() && !panel.classList.contains("open") && STAND[state.petType]){
       walking=true; await walk(); walking=false;
     }
     pg.classList.add("show");
