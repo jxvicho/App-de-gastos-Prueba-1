@@ -1413,6 +1413,8 @@ const MANUAL_INCOME_DECLARATIVE_VERBS = [
   "recibi", "me pagaron", "me depositaron", "me deposito", "me transfirieron", "me ingreso", "cobre",
 ];
 
+const QUESTION_WORD_REGEX = /\b(?:cuanto|cuantos|cuanta|cuantas|cual|cuales|en que gaste|que gaste|que recibi)\b/;
+
 function startsNear(normalizedText: string, phrase: string): boolean {
   const idx = normalizedText.indexOf(phrase);
   if (idx === -1) return false;
@@ -1436,6 +1438,11 @@ function detectManualTransactionIntent(normalizedText: string): { type: "EXPENSE
     if (/\d/.test(normalizedText)) return { type: "EXPENSE" };
     return null;
   }
+
+  // Una PREGUNTA ("cuánto gasté en comida", "cuánto recibí este mes") no es un movimiento nuevo:
+  // la maneja la consulta por categoría/comercio o el resumen. Solo las frases declarativas
+  // ("gasté 20 en el grifo") se registran.
+  if (QUESTION_WORD_REGEX.test(normalizedText)) return null;
 
   if (MANUAL_EXPENSE_DECLARATIVE_VERBS.some((verb) => startsNear(normalizedText, verb))) {
     return { type: "EXPENSE" };
