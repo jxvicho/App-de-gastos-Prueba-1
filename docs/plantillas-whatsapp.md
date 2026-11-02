@@ -64,6 +64,13 @@ si ese día no hubo gastos ni pendientes.
 - Se usa solo para quien recibe aviso por consumo con botones (plan Unlimited sin registro automático). Con la ventana abierta se manda el mensaje normal con botones.
 - Al tocar un botón, el webhook (`type: "button"`) lo traduce a confirmar/descartar usando el id del mensaje (`context.id`).
 
+## 3b. `gastia_gasto_registrado` (aviso por consumo con registro automático, solo con la ventana de 24 h cerrada)
+- Categoría sugerida: **Utilidad**. Idioma: **Español (PER)** → `es_PE` (`WHATSAPP_TEMPLATE_AUTO_TXN_LANG`). Nombre en `WHATSAPP_TEMPLATE_AUTO_TXN` (vacío = desactivado).
+- Cuerpo: `✅ *Movimiento registrado automáticamente*` + Comercio `{{1}}`, Monto `{{2}}`, Categoría `{{3}}`, Fecha `{{4}}`, Banco `{{5}}` + `Ya quedó anotado en tu dashboard. 👍`
+- Ejemplos: {{1}} Bembos · {{2}} S/ 28.50 · {{3}} Restaurantes · {{4}} 01/11/2026 · {{5}} BCP
+- Sin botones (el movimiento ya está registrado). Ninguna variable al inicio ni al final del texto.
+- Se usa para quien tiene plan Unlimited y registro automático. Con la ventana abierta se manda el mensaje normal. Sin esta plantilla, el aviso solo llega al chat web.
+
 ## 4. `gastia_cobro_fallido` (aviso de cobro fallido, solo cuando la ventana de 24 h está cerrada)
 - Categoría sugerida: **Utilidad** (aviso transaccional de su suscripción; sin promociones). Idioma: **Español** → código `es` (`WHATSAPP_TEMPLATE_LANG`). Nombre en `WHATSAPP_TEMPLATE_BILLING`.
 - Cuerpo: `Hola {{1}}, {{2}}. Gestiona tu suscripción desde tu dashboard de Gastia.`

@@ -3835,10 +3835,30 @@ export async function notifyAutoRegisteredTransaction(
 ): Promise<void> {
   if (!phoneNumber) return;
 
-  const text = buildAutoRegisteredBody(transaction, petLabel);
   beginTxnContext();
   setCurrentTxn(transaction.id);
-  await sendTextMessage(phoneNumber, text, { kind: "txn_notification" });
+  if (isWebChannel() || (await isWindowOpen(phoneNumber))) {
+    await sendTextMessage(phoneNumber, buildAutoRegisteredBody(transaction, petLabel), { kind: "txn_notification" });
+    return;
+  }
+  // Ventana de 24 h cerrada: solo una plantilla aprobada puede salir. Sin plantilla configurada, el aviso queda en el chat web.
+  if (!env.WHATSAPP_TEMPLATE_AUTO_TXN) {
+    console.log(`WhatsApp: aviso de registro automático no enviado a ${phoneNumber} (ventana cerrada y sin WHATSAPP_TEMPLATE_AUTO_TXN).`);
+    return;
+  }
+  await sendTemplateMessage(
+    phoneNumber,
+    env.WHATSAPP_TEMPLATE_AUTO_TXN,
+    env.WHATSAPP_TEMPLATE_AUTO_TXN_LANG,
+    [
+      transaction.merchant || transaction.description || "Sin nombre",
+      formatAmount(transaction),
+      transaction.category?.name ?? "Sin categoría",
+      formatTxnDate(transaction),
+      transaction.bankKey ? formatBankLabel(transaction.bankKey) : "-",
+    ],
+    { kind: "txn_notification" }
+  );
 }
 
 /**
