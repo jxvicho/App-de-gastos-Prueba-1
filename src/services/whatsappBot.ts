@@ -74,7 +74,7 @@ function buildGreetingReply(userName: string, petLabel: PetPersona | null): stri
     `*Consultar*\n` +
     `📊 *Resumen* — ej. "resumen de hoy", "de la semana" o "de octubre"\n` +
     `🏷️ *Por categoría* — ej. "cuánto gasté en comida"\n` +
-    `🔎 *Por comercio* — ej. "cuánto gasté en Rappi"\n` +
+    `🔎 *Por comercio* — ej. "gastos en Rappi"\n` +
     `📋 *Pendientes* — "muéstrame los pendientes" y los apruebas o rechazas\n\n` +
     `*Automatizar*\n` +
     `⚙️ *Reglas* — ej. "todo gasto en Taxi va a Transporte"\n\n` +
