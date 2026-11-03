@@ -834,6 +834,15 @@ tbody tr:hover{background:#f7faff;}
    contexto de apilamiento): sin z-index, las tarjetas siguientes se pintaban encima del panel. */
 .controls{position:relative;z-index:25;}
 .cal-panel{z-index:60;}
+/* Con el calendario abierto, los filtros pasan por encima de la barra superior (sticky, z-index 30): sin
+   esto, en el celular la hoja del periodo quedaba tapada por la barra. El backdrop-filter se quita en
+   móvil porque convierte a .controls en el bloque contenedor del panel fixed y lo descentraba. */
+body.cal-open .controls{z-index:70;}
+@media (max-width:640px){
+  body.cal-open .controls{backdrop-filter:none;-webkit-backdrop-filter:none;}
+  body.cal-open .cal-backdrop.show{z-index:69;}
+  body.cal-open .cal-panel{z-index:71;}
+}
 /* --- Estado del sistema --- */
 .sys-status{order:3;position:relative;}
 .sys-pill{
@@ -2678,10 +2687,12 @@ function openCalPanel(){
   renderCalGrid();
   document.getElementById("calPanel").classList.add("open");
   document.getElementById("calBackdrop").classList.add("show");
+  document.body.classList.add("cal-open");
 }
 function closeCalPanel(){
   document.getElementById("calPanel").classList.remove("open");
   document.getElementById("calBackdrop").classList.remove("show");
+  document.body.classList.remove("cal-open");
 }
 document.getElementById("calBackdrop").addEventListener("click", closeCalPanel);
 
@@ -4967,7 +4978,7 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
         fab=document.getElementById("wcFab"), panel=document.getElementById("wcPanel");
   if(!pg || !fab || !panel) return;
   const EMOJI={dog:"🐶",cat:"🐱",capybara:"🦫",pig:"🐷"};
-  const STAND={dog:true}; // mascotas con sprites de pie: <tipo>-stand.png, -step.png (caminata) y -wave.png (saludo)
+  const STAND={dog:true,cat:true,capybara:true,pig:true}; // mascotas con sprites de pie: <tipo>-stand.png, -step.png (caminata) y -wave.png (saludo)
   const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const small=()=>window.matchMedia("(max-width:520px)").matches;
   let bubbleTimer=null, walking=false, started=false, lastType=null;
