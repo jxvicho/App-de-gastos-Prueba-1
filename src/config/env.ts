@@ -10,6 +10,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
   PORT: z.coerce.number().default(4000),
+  // Número de proxies de confianza delante del backend (0 = ninguno). Ver src/index.ts.
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   APP_BASE_URL: z.string().url(),
   // URL pública (túnel ngrok) por la que Meta llega al webhook. Opcional: solo para el indicador de estado.
@@ -87,3 +89,9 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+// En producción no se arranca con los secretos de ejemplo del .env.example.
+if (env.NODE_ENV === "production") {
+  const weak = [env.JWT_SECRET, env.TOKEN_ENCRYPTION_KEY].some((v) => /cambia-esto/i.test(v));
+  if (weak) throw new Error("JWT_SECRET o TOKEN_ENCRYPTION_KEY siguen con el valor de ejemplo. Genera valores aleatorios (openssl rand -hex 32).");
+}

@@ -1959,7 +1959,7 @@ function renderCategoryChart(byCat, sumAbs){
     row.innerHTML = `
       <div class="cat-tile" style="background:${meta.color}">${meta.icon}</div>
       <div class="cat-main">
-        <div class="cat-line"><span>${meta.label}</span><span class="cat-amt-v">${fmt(amt, state.heroCurrency)} <span class="cat-pct-v">${pct}%</span></span></div>
+        <div class="cat-line"><span>${escHtml(meta.label)}</span><span class="cat-amt-v">${fmt(amt, state.heroCurrency)} <span class="cat-pct-v">${pct}%</span></span></div>
         <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${w}%;background:${meta.color}"></div></div>
       </div>
     `;
@@ -2340,7 +2340,7 @@ function renderChips(){
       chip.textContent = "Todas las categorías";
     } else {
       const meta = CAT_META[c];
-      chip.innerHTML = `<span>${meta.icon}</span><span>${meta.label}</span>`;
+      chip.innerHTML = `<span>${escHtml(meta.icon)}</span><span>${escHtml(meta.label)}</span>`;
     }
     chip.onclick = ()=>{ state.category = c; state.visibleRows = 15; renderAll(); };
     wrap.appendChild(chip);
@@ -2435,7 +2435,7 @@ function renderTable(){
     if(meta.excluded) tr.classList.add("excluded-row");
     const options = Object.keys(CAT_META).map(key=>{
       const m = CAT_META[key];
-      return `<option value="${key}" ${key===t.category?"selected":""}>${m.icon} ${m.label}</option>`;
+      return `<option value="${key}" ${key===t.category?"selected":""}>${escHtml(m.icon)} ${escHtml(m.label)}</option>`;
     }).join("");
     const catText = shadeColor(meta.color, -0.45);
     const selectHtml = `<select class="cat-select" data-idx="${t.__idx}" style="background-color:${meta.color};color:#fff">${options}</select>`;
@@ -2956,7 +2956,7 @@ async function loadEmailAccounts(){
   try {
     EMAIL_ACCOUNTS = await api("/email-accounts");
   } catch(err) {
-    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">No se pudieron cargar tus correos: ${err.message}</div>`;
+    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">No se pudieron cargar tus correos: ${escHtml(err.message)}</div>`;
     return;
   }
 
@@ -2981,9 +2981,9 @@ async function loadEmailAccounts(){
     row.className = "acc";
     row.innerHTML = `
       <div class="tile" style="${tileStyle}"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="m4 8 8 6 8-6"/></svg></div>
-      <div class="who"><b>${acc.emailAddress}</b><span>${isOutlook ? "Outlook" : "Gmail"} · ${syncLabel(acc.lastSyncedAt)}</span></div>
+      <div class="who"><b>${escHtml(acc.emailAddress)}</b><span>${isOutlook ? "Outlook" : "Gmail"} · ${syncLabel(acc.lastSyncedAt)}</span></div>
       <span class="chip-ok">Activo</span>
-      <button class="icon-btn danger disconnect-account-btn" data-id="${acc.id}" title="Desconectar" aria-label="Desconectar ${acc.emailAddress}"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
+      <button class="icon-btn danger disconnect-account-btn" data-id="${acc.id}" title="Desconectar" aria-label="Desconectar ${escHtml(acc.emailAddress)}"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
     `;
     wrap.appendChild(row);
   });
@@ -3011,7 +3011,7 @@ async function loadBankCatalog(){
   try {
     banks = await api("/banks");
   } catch(err) {
-    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">No se pudo cargar el catálogo de bancos: ${err.message}</div>`;
+    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">No se pudo cargar el catálogo de bancos: ${escHtml(err.message)}</div>`;
     return;
   }
 
@@ -4091,7 +4091,7 @@ async function loadCategoryRules(){
   try {
     rules = await api("/category-rules");
   } catch(err) {
-    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">No se pudieron cargar las reglas: ${err.message}</div>`;
+    wrap.innerHTML = `<div style="color:var(--ink-faint);font-size:13px;">No se pudieron cargar las reglas: ${escHtml(err.message)}</div>`;
     return;
   }
 
@@ -4107,8 +4107,8 @@ async function loadCategoryRules(){
 
   rules.forEach(rule=>{
     const catMeta = CAT_META[rule.categoryId];
-    const catLabel = catMeta ? `${catMeta.icon} ${catMeta.label}` : (rule.category ? rule.category.name : "Sin categoría");
-    const criterion = (RULE_TYPE_LABELS[rule.type] || (v=>v))(rule.value);
+    const catLabel = catMeta ? `${escHtml(catMeta.icon)} ${escHtml(catMeta.label)}` : (rule.category ? escHtml(rule.category.name) : "Sin categoría");
+    const criterion = escHtml((RULE_TYPE_LABELS[rule.type] || (v=>v))(rule.value));
     const sourceTag = rule.source === "WHATSAPP" ? "Creada por WhatsApp" : "Creada en el dashboard";
 
     const row = document.createElement("div");
@@ -4159,7 +4159,7 @@ async function loadCategoryRules(){
 function populateRuleCategorySelect(){
   const select = document.getElementById("newRuleCategory");
   select.innerHTML = Object.entries(CAT_META)
-    .map(([key, meta])=> `<option value="${key}">${meta.icon} ${meta.label}</option>`)
+    .map(([key, meta])=> `<option value="${key}">${escHtml(meta.icon)} ${escHtml(meta.label)}</option>`)
     .join("");
 }
 
@@ -4531,11 +4531,11 @@ async function loadReview(){
     const sym = c => c === "USD" ? "$" : "S/";
     const shown = REVIEW_EXPANDED ? items : items.slice(0, REVIEW_COLLAPSED_ROWS);
     list.innerHTML = shown.map(t=>{
-      const catOptions = Object.keys(CAT_META).map(k=>`<option value="${k}" ${k===t.categoryId?"selected":""}>${CAT_META[k].icon} ${CAT_META[k].label}</option>`).join("");
+      const catOptions = Object.keys(CAT_META).map(k=>`<option value="${k}" ${k===t.categoryId?"selected":""}>${escHtml(CAT_META[k].icon)} ${escHtml(CAT_META[k].label)}</option>`).join("");
       const isPend = t.status === "PENDING_CONFIRMATION";
       const bank = txnAccountLabel(t);
       return `<div class="rv-row" data-id="${t.id}">
-        <div class="rv-main"><b>${(t.merchant || t.description || "Movimiento")}<span class="rv-chip ${isPend?"pend":"auto"}">${isPend?"Pendiente":"Automático"}</span></b><span>${bank} · ${fmtReviewWhen(t.occurredAt, t.source)}</span></div>
+        <div class="rv-main"><b>${escHtml(t.merchant || t.description || "Movimiento")}<span class="rv-chip ${isPend?"pend":"auto"}">${isPend?"Pendiente":"Automático"}</span></b><span>${escHtml(bank)} · ${fmtReviewWhen(t.occurredAt, t.source)}</span></div>
         <div class="rv-amt">${t.type==="INCOME"?"+ ":""}${sym(t.currency)} ${Number(t.amount).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
         <select class="rv-cat" aria-label="Categoría">${t.categoryId?"":'<option value="" selected>Sin categoría</option>'}${catOptions}</select>
         <div class="rv-actions">${isPend?`<button class="rv-btn ok" data-act="CONFIRMED">Confirmar</button>`:""}<button class="rv-btn no" data-act="REJECTED">Descartar</button></div>
@@ -4629,7 +4629,7 @@ function renderSysStatus(){
   } else if(sysStatus.apiError){
     rows = row("Servidor", "ok", "En línea") +
       row("Chequeo de estado", "err", "Falló") +
-      `<div class="sys-foot">Detalle: ${sysStatus.apiError}. Si dice "Ruta no encontrada", el servidor aún corre una versión anterior: reconstruye Docker en tu computadora.</div>`;
+      `<div class="sys-foot">Detalle: ${escHtml(sysStatus.apiError)}. Si dice "Ruta no encontrada", el servidor aún corre una versión anterior: reconstruye Docker en tu computadora.</div>`;
   } else {
     const e = sysStatus.email || {accounts:0};
     rows =

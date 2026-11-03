@@ -9,6 +9,7 @@ import { AppError } from "../middleware/errorHandler";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { DEFAULT_CATEGORIES } from "../utils/defaultCategories";
 import { sendPasswordResetEmail } from "../services/email";
+import { rateLimit, emailFromBody } from "../middleware/rateLimit";
 
 export const authRouter = Router();
 
@@ -41,6 +42,7 @@ const registerSchema = z.object({
 
 authRouter.post(
   "/register",
+  rateLimit({ name: "register", windowMs: 60 * 60 * 1000, max: 10 }),
   asyncHandler(async (req, res) => {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.issues[0].message, 422);
@@ -86,6 +88,8 @@ const loginSchema = z.object({
 
 authRouter.post(
   "/login",
+  rateLimit({ name: "login-ip", windowMs: 15 * 60 * 1000, max: 40 }),
+  rateLimit({ name: "login-email", windowMs: 15 * 60 * 1000, max: 10, keyExtra: emailFromBody }),
   asyncHandler(async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError("Credenciales inválidas", 422);
@@ -118,6 +122,8 @@ const forgotPasswordSchema = z.object({
 
 authRouter.post(
   "/forgot-password",
+  rateLimit({ name: "forgot", windowMs: 60 * 60 * 1000, max: 8 }),
+  rateLimit({ name: "forgot-email", windowMs: 60 * 60 * 1000, max: 3, keyExtra: emailFromBody }),
   asyncHandler(async (req, res) => {
     const parsed = forgotPasswordSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError("Ingresa un correo válido", 422);
@@ -159,6 +165,7 @@ const resetPasswordSchema = z.object({
 
 authRouter.post(
   "/reset-password",
+  rateLimit({ name: "reset", windowMs: 60 * 60 * 1000, max: 15 }),
   asyncHandler(async (req, res) => {
     const parsed = resetPasswordSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.issues[0].message, 422);

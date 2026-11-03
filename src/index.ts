@@ -13,8 +13,12 @@ import { dailyReportWorker } from "./queues/dailyReportWorker";
 import { scheduleDailyReportRepeatable } from "./queues/dailyReportQueue";
 import { keepDatabaseAwake } from "./config/keepAlive";
 import { sendPreChargeNotices } from "./services/billing";
+import { rateLimit } from "./middleware/rateLimit";
 
 const app = express();
+
+// Detrás de un proxy (Caddy/Nginx/ngrok) pon TRUST_PROXY=1 para que req.ip sea la IP real del cliente.
+if (env.TRUST_PROXY > 0) app.set("trust proxy", env.TRUST_PROXY);
 
 // Helmet con la CSP relajada lo justo para permitir Google Fonts en el dashboard
 app.use(
@@ -45,6 +49,13 @@ app.use(
     },
   })
 );
+
+// Tope general por IP. Los webhooks (Meta, Culqi) quedan fuera: llegan de pocas IPs y en ráfagas.
+const generalLimiter = rateLimit({ name: "api", windowMs: 60 * 1000, max: 600 });
+app.use("/api", (req, res, next) => {
+  if (req.path.startsWith("/whatsapp/webhook") || req.path.startsWith("/billing/culqi-webhook")) return next();
+  return generalLimiter(req, res, next);
+});
 
 app.use("/api", apiRouter);
 

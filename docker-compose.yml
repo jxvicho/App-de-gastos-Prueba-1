@@ -8,7 +8,7 @@ services:
       # Dentro de Docker, el backend debe apuntar a los nombres de servicio
       # ("postgres", "redis"), no a "localhost". Sobreescribimos aquí lo que
       # venga en tu .env para que funcione sin que tengas que editarlo.
-      DATABASE_URL: "postgresql://app:app_password@postgres:5432/gastos_db?schema=public"
+      DATABASE_URL: "postgresql://app:${POSTGRES_PASSWORD:-app_password}@postgres:5432/gastos_db?schema=public"
       REDIS_URL: "redis://redis:6379"
       # Docker Desktop (Windows/WSL2) a veces tiene rutas IPv6 inestables, lo
       # que provoca errores intermitentes "network_error" de MSAL al hablar
@@ -29,10 +29,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: app
-      POSTGRES_PASSWORD: app_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app_password}
       POSTGRES_DB: gastos_db
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -40,7 +40,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
 
