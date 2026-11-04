@@ -403,7 +403,7 @@ function detectSummaryType(normalizedText: string): "EXPENSE" | "INCOME" {
 // completamente distinta, se detecta antes que todo lo demás.
 const SUMMARY_INTENT_PHRASES = [
   "resumen", "cuanto gaste", "cuanto he gastado", "cuanto llevo", "cuanto gasto",
-  "cuanto va", "como voy", "gastos de", "resumen de", "total gastado", "cuanto se gasto",
+  "cuanto llevo gastado", "cuanto va", "como voy", "gastos de", "resumen de", "total gastado", "cuanto se gasto",
   "desglose",
   ...INCOME_SUMMARY_PHRASES,
 ];
@@ -1671,6 +1671,8 @@ function extractMerchantQuery(normalizedText: string): { merchant: string; dateR
     /(?:detalle de )?gastos?\s+(?:hacia|en|con|a)\s+(.+)/,
     /cuanto\s+(?:le\s+)?(?:he\s+)?pagad[oa]\s+a\s+(.+)/,
     /cuanto\s+le\s+pague\s+a\s+(.+)/,
+    // "cuánto (he) gastado en Rappi": solo llega acá si X NO resolvió a una categoría (se prueba antes).
+    /cuanto\s+(?:he\s+|llevo\s+)?gast(?:e|o|ado)\s+en\s+(.+)/,
   ];
   for (const pattern of patterns) {
     const match = textForMerchant.match(pattern);
@@ -1704,7 +1706,8 @@ function extractCategoryQuery(
 
   const patterns = [
     /(?:detalle de )?gastos?\s+(?:hacia|en|con|a)\s+(.+)/,
-    /cuanto\s+(?:he\s+)?gast[eo]\s+en\s+(.+)/,
+    /cuanto\s+(?:he\s+|llevo\s+)?gast(?:e|o|ado)\s+en\s+(.+)/,
+    /cuanto\s+llevo\s+en\s+(.+)/,
     /resumen\s+de\s+(.+)/,
     /detalle\s+de\s+(.+)/,
   ];
