@@ -1,5 +1,6 @@
 import type { Transaction, User } from "@prisma/client";
 import { getEffectivePlan } from "./plans";
+import { PLAN_FEATURES } from "../config/plans";
 import { notifyAutoRegisteredTransaction, notifyPendingTransaction, notifyWebChatTransaction } from "./whatsappBot";
 import { processAlertsForTransaction } from "./alerts";
 import { getPetLabel } from "../utils/pet";
@@ -14,7 +15,7 @@ export type IngestStatus = "AUTO_CONFIRMED" | "PENDING_CONFIRMATION";
  */
 export async function resolveIngestStatus(user: User): Promise<IngestStatus> {
   const eff = await getEffectivePlan(user);
-  if (eff.plan === "BASIC") return "PENDING_CONFIRMATION";
+  if (!PLAN_FEATURES[eff.plan].autoRegister) return "PENDING_CONFIRMATION";
   return user.autoRegister ? "AUTO_CONFIRMED" : "PENDING_CONFIRMATION";
 }
 

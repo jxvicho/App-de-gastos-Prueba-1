@@ -5,6 +5,7 @@ import type { Plan, BillingPeriod } from "@prisma/client";
  * sueltos en la lógica). `null` = sin límite.
  */
 export const PLAN_LIMITS: Record<Plan, { monthlyReplies: number | null }> = {
+  FREE: { monthlyReplies: 0 }, // sin WhatsApp
   BASIC: { monthlyReplies: 0 }, // sin respuestas del bot por WhatsApp (el chat web sí, en todos los planes)
   PRO: { monthlyReplies: 0 }, // igual: el Pro suma registro automático opcional y resumen diario
   UNLIMITED: { monthlyReplies: null },
@@ -41,6 +42,7 @@ export const META_FREE_SERVICE_MESSAGES_PER_MONTH = 1000;
 
 /** Nombre que ve el usuario. UNLIMITED nunca se ofrece en la web: solo se muestra a quien ya lo tiene. */
 export const PLAN_LABELS: Record<Plan, string> = {
+  FREE: "Gratis",
   BASIC: "Básico",
   PRO: "Pro",
   UNLIMITED: "Unlimited",
@@ -48,6 +50,7 @@ export const PLAN_LABELS: Record<Plan, string> = {
 
 /** Precio mensual (S/) de los planes que se venden. null = no se vende. */
 export const PLAN_PRICE_PEN: Record<Plan, number | null> = {
+  FREE: 0,
   BASIC: 14.9,
   PRO: 19.9,
   UNLIMITED: null,
@@ -90,4 +93,46 @@ export const DUNNING = {
   MAX_ATTEMPTS: 5,
   /** Desde este intento fallido el acceso pasa a solo lectura. */
   RESTRICT_AT_ATTEMPT: 3,
+};
+
+/**
+ * Qué puede hacer cada plan. FUENTE ÚNICA: el backend (permisos) y la pestaña "Planes" del panel Admin leen de aquí.
+ * Cambiar un valor aquí cambia el comportamiento y lo que muestra el panel.
+ */
+export interface PlanFeatures {
+  /** Conectar Gmail/Outlook y leer los consumos del correo. */
+  emailSync: boolean;
+  /** Usar el bot por WhatsApp (el chat web no depende de esto). */
+  whatsapp: boolean;
+  /** Puede activar el registro automático (sin confirmar uno por uno). */
+  autoRegister: boolean;
+  /** Resumen diario por WhatsApp. */
+  dailySummary: boolean;
+  /** Alertas de gasto alto. */
+  alerts: boolean;
+  /** Crear categorías propias (renombrar/eliminar las propias va con esto). */
+  createCategories: boolean;
+  /** Avisos de cada consumo por WhatsApp (el aviso por chat web llega a todos). */
+  perTxnWhatsapp: boolean;
+  /** Tope de mensajes del chat web por día (Lima). */
+  webChatDailyCap: number;
+  /** Máximo de correos conectados (0 = no puede). */
+  maxEmailAccounts: number;
+}
+
+export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
+  FREE: { emailSync: false, whatsapp: false, autoRegister: false, dailySummary: false, alerts: false, createCategories: false, perTxnWhatsapp: false, webChatDailyCap: 5, maxEmailAccounts: 0 },
+  BASIC: { emailSync: true, whatsapp: true, autoRegister: false, dailySummary: false, alerts: false, createCategories: true, perTxnWhatsapp: false, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2 },
+  PRO: { emailSync: true, whatsapp: true, autoRegister: true, dailySummary: true, alerts: true, createCategories: true, perTxnWhatsapp: false, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2 },
+  UNLIMITED: { emailSync: true, whatsapp: true, autoRegister: true, dailySummary: true, alerts: true, createCategories: true, perTxnWhatsapp: true, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2 },
+};
+
+/** Planes visibles hoy en la web (Básico y Unlimited quedan ocultos; siguen existiendo para datos y overrides). */
+export const VISIBLE_PLANS: Plan[] = ["FREE", "PRO"];
+
+/** Precio por periodo (S/) de cada plan que se vende. Gratis = 0. */
+export const PLAN_PRICES_FOR_PANEL: Partial<Record<Plan, Record<BillingPeriod, number>>> = {
+  FREE: { MONTHLY: 0, QUARTERLY: 0, ANNUAL: 0 },
+  BASIC: PLAN_PRICE_BY_PERIOD_PEN.BASIC,
+  PRO: PLAN_PRICE_BY_PERIOD_PEN.PRO,
 };

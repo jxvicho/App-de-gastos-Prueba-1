@@ -6,7 +6,8 @@ import { AppError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { limaDayStart } from "../services/plans";
-import { WEB_CHAT_HARD_CAP_PER_USER } from "../config/plans";
+import { PLAN_FEATURES } from "../config/plans";
+import { getEffectivePlan } from "../services/plans";
 import { handleWebMessage, handleWebMedia, textForButtonReply } from "../services/whatsappBot";
 
 /**
@@ -18,8 +19,12 @@ export const chatRouter = Router();
 chatRouter.use(requireAuth);
 
 const MAX_TEXT = 1000;
-/** Tope diario del chat web: fijo en código (no depende del .env), igual para todos los planes. */
-const WEB_DAILY_CAP = WEB_CHAT_HARD_CAP_PER_USER;
+/** Tope diario del chat web según el plan efectivo (config/plans.ts: Gratis 5, el resto 100). */
+async function capFor(userId: string): Promise<number> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planOverride: true, planOverrideUntil: true } });
+  if (!u) return PLAN_FEATURES.FREE.webChatDailyCap;
+  return PLAN_FEATURES[(await getEffectivePlan(u)).plan].webChatDailyCap;
+}
 
 function requireEnabled() {
   if (!env.WEB_CHAT_ENABLED) throw new AppError("El chat web no está habilitado", 404);
@@ -57,8 +62,8 @@ const AUDIO_TYPES = ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audi
 
 chatRouter.get(
   "/config",
-  asyncHandler(async (_req, res) => {
-    res.json({ enabled: env.WEB_CHAT_ENABLED, dailyCap: WEB_DAILY_CAP, media: true });
+  asyncHandler(async (req, res) => {
+    res.json({ enabled: env.WEB_CHAT_ENABLED, dailyCap: await capFor(req.userId!), media: true });
   })
 );
 
@@ -84,7 +89,7 @@ chatRouter.get(
       take: 60,
     });
     const used = await usedToday(session.id);
-    res.json({ messages: rows.reverse().map(serialize), remainingToday: Math.max(0, WEB_DAILY_CAP - used) });
+    res.json({ messages: rows.reverse().map(serialize), remainingToday: Math.max(0, (await capFor(req.userId!)) - used) });
   })
 );
 
@@ -121,8 +126,9 @@ chatRouter.post(
     const session = await getSession(userId);
 
     const used = await usedToday(session.id);
-    if (used >= WEB_DAILY_CAP) {
-      throw new AppError("Llegaste al límite de mensajes del chat por hoy. Mañana podrás seguir.", 429);
+    const cap = await capFor(userId);
+    if (used >= cap) {
+      throw new AppError(cap <= 5 ? `Tu plan Gratis incluye ${cap} mensajes de chat al día y ya los usaste. Mañana podrás seguir, o pasa a Pro para tener más.` : "Llegaste al límite de mensajes del chat por hoy. Mañana podrás seguir.", 429);
     }
 
     await prisma.whatsappMessage.create({
@@ -153,7 +159,7 @@ chatRouter.post(
     }
     await prisma.whatsappSession.update({ where: { id: session.id }, data: { lastMessageAt: new Date() } });
 
-    res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, WEB_DAILY_CAP - used - 1) });
+    res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, cap - used - 1) });
   })
 );
 
@@ -176,8 +182,9 @@ chatRouter.post(
     const userId = req.userId!;
     const session = await getSession(userId);
     const used = await usedToday(session.id);
-    if (used >= WEB_DAILY_CAP) {
-      throw new AppError("Llegaste al límite de mensajes del chat por hoy. Mañana podrás seguir.", 429);
+    const cap = await capFor(userId);
+    if (used >= cap) {
+      throw new AppError(cap <= 5 ? `Tu plan Gratis incluye ${cap} mensajes de chat al día y ya los usaste. Mañana podrás seguir, o pasa a Pro para tener más.` : "Llegaste al límite de mensajes del chat por hoy. Mañana podrás seguir.", 429);
     }
 
     await prisma.whatsappMessage.create({
@@ -201,6 +208,6 @@ chatRouter.post(
       );
     }
     await prisma.whatsappSession.update({ where: { id: session.id }, data: { lastMessageAt: new Date() } });
-    res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, WEB_DAILY_CAP - used - 1) });
+    res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, cap - used - 1) });
   })
 );

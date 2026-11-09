@@ -2901,6 +2901,11 @@ function openCatModal(){
   renderExistingCats();
   document.getElementById("newCatForm").classList.remove("open");
   renderNewCatPickers();
+  const canCreate = !(state.features && state.features.canCreateCategories === false);
+  document.getElementById("newCatToggle").style.display = canCreate ? "" : "none";
+  let lockNote = document.getElementById("catLockNote");
+  if(!lockNote){ lockNote = document.createElement("div"); lockNote.id = "catLockNote"; lockNote.className = "cm-hint"; lockNote.textContent = "🔒 El plan Gratis usa las categorías predefinidas. Pasa a Pro para crear las tuyas."; document.getElementById("newCatToggle").before(lockNote); }
+  lockNote.style.display = canCreate ? "none" : "";
   document.getElementById("catModalOverlay").classList.add("open");
 }
 function closeCatModal(){
@@ -3026,11 +3031,12 @@ async function loadEmailAccounts(){
     return;
   }
 
+  const planLocked = state.features && state.features.canConnectEmail === false;
   const full = EMAIL_ACCOUNTS.length >= 2;
   ["connect-outlook-btn","connect-gmail-btn"].forEach(id=>{
     const b = document.getElementById(id);
-    b.disabled = full;
-    b.title = full ? "Ya conectaste 2 correos. Desconecta uno para agregar otro." : "";
+    b.disabled = full || planLocked;
+    b.title = planLocked ? "Conectar tu correo es parte del plan Pro." : full ? "Ya conectaste 2 correos. Desconecta uno para agregar otro." : "";
   });
   const cnt = document.getElementById("email-limit-note");
   if(cnt) cnt.textContent = `${EMAIL_ACCOUNTS.length} de 2 correos conectados` + (full ? " · desconecta uno para agregar otro" : "");

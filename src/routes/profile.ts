@@ -6,7 +6,7 @@ import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
 import bcrypt from "bcryptjs";
 import { getEffectivePlan } from "../services/plans";
-import { PLAN_LABELS } from "../config/plans";
+import { PLAN_LABELS, PLAN_FEATURES } from "../config/plans";
 
 export const profileRouter = Router();
 
@@ -49,14 +49,18 @@ profileRouter.get(
       plan: eff.plan,
       planLabel: PLAN_LABELS[eff.plan],
       features: {
-        canToggleAutoRegister: eff.plan !== "BASIC",
-        canToggleDailySummary: eff.plan !== "BASIC",
+        canToggleAutoRegister: PLAN_FEATURES[eff.plan].autoRegister,
+        canToggleDailySummary: PLAN_FEATURES[eff.plan].dailySummary,
         canChangeDailyHour: false, // hora fija: 9:00 a. m. (Lima)
-        autoRegisterOn: eff.plan === "BASIC" ? false : user.autoRegister,
-        dailySummaryAvailable: eff.plan !== "BASIC",
-        dailySummaryOn: eff.plan === "BASIC" ? false : user.dailySummaryEnabled,
-        alerts: eff.plan !== "BASIC",
-        fullChat: eff.plan !== "BASIC",
+        autoRegisterOn: PLAN_FEATURES[eff.plan].autoRegister ? user.autoRegister : false,
+        dailySummaryAvailable: PLAN_FEATURES[eff.plan].dailySummary,
+        dailySummaryOn: PLAN_FEATURES[eff.plan].dailySummary ? user.dailySummaryEnabled : false,
+        alerts: PLAN_FEATURES[eff.plan].alerts,
+        fullChat: eff.plan !== "BASIC" && eff.plan !== "FREE",
+        canCreateCategories: PLAN_FEATURES[eff.plan].createCategories,
+        canConnectEmail: PLAN_FEATURES[eff.plan].emailSync,
+        canUseWhatsapp: PLAN_FEATURES[eff.plan].whatsapp,
+        webChatDailyCap: PLAN_FEATURES[eff.plan].webChatDailyCap,
       },
     });
   })
@@ -83,7 +87,7 @@ profileRouter.patch(
         select: { plan: true, planOverride: true, planOverrideUntil: true },
       });
       const eff = await getEffectivePlan(current);
-      if (eff.plan === "BASIC") throw new AppError("Las alertas de gasto están disponibles en planes superiores", 403);
+      if (!PLAN_FEATURES[eff.plan].alerts) throw new AppError("Las alertas de gasto están disponibles en planes superiores", 403);
       data.alertThreshold = alertThreshold && alertThreshold > 0 ? alertThreshold : null;
     }
     const user = await prisma.user.update({ where: { id: req.userId }, data, select: { name: true } });
@@ -144,7 +148,7 @@ profileRouter.patch(
       where: { id: req.userId },
       select: { plan: true, planOverride: true, planOverrideUntil: true },
     });
-    if ((await getEffectivePlan(current)).plan === "BASIC") {
+    if (!PLAN_FEATURES[(await getEffectivePlan(current)).plan].autoRegister) {
       throw new AppError("Tu plan registra los movimientos de forma manual. Pasa al plan Pro para activar el registro automático.", 403);
     }
     const user = await prisma.user.update({
@@ -174,7 +178,7 @@ profileRouter.patch(
         select: { plan: true, planOverride: true, planOverrideUntil: true },
       });
       const plan = (await getEffectivePlan(current)).plan;
-      if (plan === "BASIC") {
+      if (!PLAN_FEATURES[plan].dailySummary) {
         throw new AppError("El resumen diario está disponible desde el plan Pro", 403);
       }
     }

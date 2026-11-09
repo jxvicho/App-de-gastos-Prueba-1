@@ -64,6 +64,14 @@ td small{display:block;color:var(--muted)}
 .checks{display:flex;gap:12px;align-items:center;font-size:14px;color:var(--ink);font-weight:500}
 .checks label{flex-direction:row;align-items:center;gap:5px;color:var(--ink)}
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.matrix th:first-child,.matrix td:first-child{position:sticky;left:0;background:var(--surface);min-width:210px}
+.matrix td.c,.matrix th.c{text-align:center}
+.matrix tr.grp td{background:#f1f6fd;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.matrix .off{opacity:.5}
+.matrix .yes{color:var(--ok);font-weight:800} .matrix .no{color:var(--bad);font-weight:700}
+.matrix td small{font-weight:400}
+.matrix th small{display:block;font-weight:500;text-transform:none;letter-spacing:0}
+ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;font-size:14px}
 .hide{display:none!important}
 @media (max-width:640px){.kv{grid-template-columns:1fr}.who{margin-left:0}}
 </style>
@@ -77,6 +85,7 @@ td small{display:block;color:var(--muted)}
   <nav class="tabs" role="tablist" aria-label="Secciones">
     <button role="tab" aria-selected="true" data-tab="resumen">Resumen</button>
     <button role="tab" aria-selected="false" data-tab="usuarios">Usuarios</button>
+    <button role="tab" aria-selected="false" data-tab="planes">Planes</button>
     <button role="tab" aria-selected="false" data-tab="promos">Promociones</button>
     <button role="tab" aria-selected="false" data-tab="registro">Registro</button>
   </nav>
@@ -94,7 +103,7 @@ td small{display:block;color:var(--muted)}
     <div class="card">
       <div class="filters" style="margin-bottom:12px">
         <input id="q" type="search" placeholder="Buscar por nombre, correo o teléfono" style="flex:1;min-width:220px" aria-label="Buscar">
-        <select id="fPlan" aria-label="Plan"><option value="">Todos los planes</option><option value="BASIC">Básico</option><option value="PRO">Pro</option><option value="UNLIMITED">Unlimited</option></select>
+        <select id="fPlan" aria-label="Plan"><option value="">Todos los planes</option><option value="FREE">Gratis</option><option value="BASIC">Básico</option><option value="PRO">Pro</option><option value="UNLIMITED">Unlimited</option></select>
         <select id="fStatus" aria-label="Estado de suscripción"><option value="">Todas las suscripciones</option><option value="TRIALING">En prueba</option><option value="ACTIVE">Activa</option><option value="PAST_DUE">Cobro pendiente</option><option value="CANCELED">Cancelada</option><option value="NONE">Sin suscripción</option></select>
       </div>
       <div class="tablewrap"><table>
@@ -105,6 +114,17 @@ td small{display:block;color:var(--muted)}
     </div>
   </section>
 
+  <section id="tab-planes" class="hide">
+    <div class="tiles" id="planTiles"></div>
+    <div class="card">
+      <h3>Qué incluye cada plan</h3>
+      <p class="help" style="margin:0 0 10px">Este cuadro se genera con la misma configuración que aplica los permisos (<code>src/config/plans.ts</code>): lo que ves aquí es lo que el sistema hace. Las columnas atenuadas son planes ocultos hoy en la web.</p>
+      <div class="tablewrap"><table class="matrix" id="planMatrix"></table></div>
+    </div>
+    <div class="card"><h3>Precios y pruebas</h3><div class="tablewrap"><table class="matrix" id="planPrices"></table></div></div>
+    <div class="card"><h3>Condiciones</h3><ul class="cond" id="planConds"></ul></div>
+    <div class="card"><h3>Topes y costos generales</h3><div class="tablewrap"><table class="matrix" id="planGlobal"></table></div></div>
+  </section>
   <section id="tab-promos" class="hide">
     <div class="card" style="margin-bottom:16px">
       <h3>Nueva promoción</h3>
@@ -113,9 +133,9 @@ td small{display:block;color:var(--muted)}
         <label>Nombre<input id="pName" required minlength="2" maxlength="80" placeholder="Ej. Lanzamiento noviembre"></label>
         <label>Desde<input id="pStart" type="date" required></label>
         <label>Hasta<input id="pEnd" type="date" required></label>
-        <label>Otorga el plan<select id="pGrants"><option value="PRO">Pro</option><option value="UNLIMITED">Unlimited</option><option value="BASIC">Básico</option></select></label>
+        <label>Otorga el plan<select id="pGrants"><option value="PRO">Pro</option><option value="UNLIMITED">Unlimited</option><option value="BASIC">Básico</option><option value="FREE">Gratis</option></select></label>
         <label>Presupuesto (US$)<input id="pBudget" type="number" min="0" step="1" value="50" required></label>
-        <label>Aplica a<span class="checks"><label><input type="checkbox" class="pApplies" value="BASIC" checked> Básico</label><label><input type="checkbox" class="pApplies" value="PRO"> Pro</label></span></label>
+        <label>Aplica a<span class="checks"><label><input type="checkbox" class="pApplies" value="FREE"> Gratis</label><label><input type="checkbox" class="pApplies" value="BASIC" checked> Básico</label><label><input type="checkbox" class="pApplies" value="PRO"> Pro</label></span></label>
         <label>Respuestas del bot<span class="checks"><label><input type="checkbox" id="pUncapped" checked> Sin tope</label></span></label>
         <button class="btn" type="submit">Crear promoción</button>
       </form>
@@ -141,7 +161,7 @@ td small{display:block;color:var(--muted)}
   if(!token){location.href="/login.html";return}
   var $=function(i){return document.getElementById(i)};
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]})}
-  var PLAN={BASIC:"Básico",PRO:"Pro",UNLIMITED:"Unlimited"}, STATUS={TRIALING:"En prueba",ACTIVE:"Activa",PAST_DUE:"Cobro pendiente",CANCELED:"Cancelada"}, PERIOD={MONTHLY:"Mensual",QUARTERLY:"Trimestral",ANNUAL:"Anual"};
+  var PLAN={FREE:"Gratis",BASIC:"Básico",PRO:"Pro",UNLIMITED:"Unlimited"}, STATUS={TRIALING:"En prueba",ACTIVE:"Activa",PAST_DUE:"Cobro pendiente",CANCELED:"Cancelada"}, PERIOD={MONTHLY:"Mensual",QUARTERLY:"Trimestral",ANNUAL:"Anual"};
   var ST_CLASS={TRIALING:"",ACTIVE:"ok",PAST_DUE:"bad",CANCELED:"gray"};
   function dt(v,withTime){if(!v)return "—";var o={timeZone:"America/Lima",day:"2-digit",month:"short",year:"numeric"};if(withTime){o.hour="2-digit";o.minute="2-digit"}return new Date(v).toLocaleString("es-PE",o)}
   function pen(v){return "S/ "+Number(v).toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2})}
@@ -158,13 +178,70 @@ td small{display:block;color:var(--muted)}
   function act(p,opt,okMsg,after){return api(p,opt).then(function(j){toast(j.message||okMsg||"Listo");if(after)return after(j)}).catch(function(e){toast(e.message,true)})}
 
   /* ---------- pestañas ---------- */
-  var tabs=["resumen","usuarios","promos","registro"], loaded={};
+  var tabs=["resumen","usuarios","planes","promos","registro"], loaded={};
   function showTab(n){
     tabs.forEach(function(t){$("tab-"+t).classList.toggle("hide",t!==n)});
     document.querySelectorAll("nav.tabs button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===n?"true":"false")});
-    if(n==="resumen")loadSummary(); if(n==="usuarios")loadUsers(); if(n==="promos")loadPromos(); if(n==="registro")loadAudit();
+    if(n==="resumen")loadSummary(); if(n==="usuarios")loadUsers(); if(n==="planes")loadPlans(); if(n==="promos")loadPromos(); if(n==="registro")loadAudit();
   }
   document.querySelectorAll("nav.tabs button").forEach(function(b){b.addEventListener("click",function(){showTab(b.dataset.tab)})});
+
+  /* ---------- planes ---------- */
+  function loadPlans(){
+    api("/plans").then(function(d){
+      var P=d.plans, G=d.global, PL=["MONTHLY","QUARTERLY","ANNUAL"];
+      function cls(p){return p.visible?"":" off"}
+      function yn(v,extra){return v?'<span class="yes">✔</span>'+(extra?'<small> '+extra+'</small>':''):'<span class="no">✘</span>'}
+      function head(){return '<thead><tr><th></th>'+P.map(function(p){return '<th class="c'+cls(p)+'">'+esc(p.label)+(p.visible?'':'<small>oculto</small>')+'</th>'}).join("")+'</tr></thead>'}
+      function row(label,fn,hint){return '<tr><td>'+esc(label)+(hint?'<small>'+esc(hint)+'</small>':'')+'</td>'+P.map(function(p){return '<td class="c'+cls(p)+'">'+fn(p)+'</td>'}).join("")+'</tr>'}
+      function grp(t){return '<tr class="grp"><td colspan="'+(P.length+1)+'">'+esc(t)+'</td></tr>'}
+      $("planTiles").innerHTML=P.filter(function(p){return p.visible}).map(function(p){
+        var m=p.prices?p.prices.MONTHLY:null;
+        return '<div class="tile"><div class="k">'+esc(p.label)+'</div><div class="v">'+(m===0?"Gratis":m!=null?pen(m)+"<small style='font-size:14px;font-weight:600'> /mes</small>":"—")+'</div><div class="s">'+p.users+' usuario(s) con este plan</div></div>'
+      }).join("")+'<div class="tile"><div class="k">Planes ocultos</div><div class="v">'+P.filter(function(p){return !p.visible}).map(function(p){return p.label}).join(" y ")+'</div><div class="s">'+P.filter(function(p){return !p.visible}).reduce(function(a,p){return a+p.users},0)+' usuario(s) los tienen; se asignan desde Usuarios</div></div>';
+      var m=head();
+      m+='<tbody>'+grp("Captura de movimientos")+
+        row("Conectar correo (Gmail / Outlook)",function(p){return yn(p.features.emailSync,p.features.emailSync?"hasta "+p.features.maxEmailAccounts:"")},"Lee los avisos de consumo del banco")+
+        row("Registro automático",function(p){return yn(p.features.autoRegister)},"Sin confirmar uno por uno; si no, quedan por revisar")+
+        row("Movimientos manuales y por chat web",function(){return yn(true)},"Transacción manual, importar y chat")+
+        grp("Chat web")+
+        row("Mensajes al día",function(p){return '<b>'+p.features.webChatDailyCap+'</b>'},"Tope por día (hora de Lima)")+
+        row("Avisos de consumos en el chat web",function(p){return yn(p.features.emailSync)},"Llegan al leer el correo; no cuestan Meta")+
+        grp("WhatsApp")+
+        row("Usar el bot por WhatsApp",function(p){return yn(p.features.whatsapp)})+
+        row("Respuestas del bot al mes",function(p){return !p.features.whatsapp?'<span class="no">—</span>':p.monthlyReplies===null?'Sin tope':String(p.monthlyReplies)},"0 = solo mensajes programados, sin respuestas libres")+
+        row("Resumen diario",function(p){return yn(p.features.dailySummary,p.features.dailySummary?G.dailySummaryHourLima+":00":"")},"Por WhatsApp, a las "+G.dailySummaryHourLima+":00 (Lima)")+
+        row("Aviso de cada consumo por WhatsApp",function(p){return yn(p.features.perTxnWhatsapp)})+
+        row("Alertas de gasto alto",function(p){return yn(p.features.alerts)})+
+        grp("Dashboard")+
+        row("Dashboard, deudas, pagos fijos y metas",function(){return yn(true)})+
+        row("Crear categorías propias",function(p){return yn(p.features.createCategories)},"Todos pueden usar las predefinidas")+
+        '</tbody>';
+      $("planMatrix").innerHTML=m;
+      var pr=head()+'<tbody>'+grp("Precio (S/)")+
+        PL.map(function(k){return row(G.periodLabels[k],function(p){return p.prices?(p.prices[k]===0?'Gratis':pen(p.prices[k])+(k!=="MONTHLY"?'<small>'+pen(p.prices[k]/G.periodMonths[k])+' /mes</small>':'')):'—'})}).join("")+
+        grp("Días de prueba sin cobro")+
+        PL.map(function(k){return row(G.periodLabels[k],function(p){return p.trialDays?'<b>'+p.trialDays[k]+'</b> días':'—'})}).join("")+
+        '</tbody>';
+      $("planPrices").innerHTML=pr;
+      var D=G.dunning;
+      $("planConds").innerHTML=[
+        "<b>Gratis:</b> dashboard y chat web con "+P[0].features.webChatDailyCap+" mensajes al día. Sin correo, sin WhatsApp y sin crear categorías (usa las predefinidas). Sin prueba y sin cobro.",
+        "<b>Pro:</b> todo lo anterior más lectura de correo, registro automático opcional, resumen diario, alertas, WhatsApp y categorías propias. Precio vigente sin cambios.",
+        "<b>Prueba:</b> "+PL.map(function(k){return G.periodLabels[k].toLowerCase()+" "+P[2].trialDays[k]+" días"}).join(", ")+". Cancelando antes de que termine no se cobra. El plan anual no tiene reembolso: la prueba más larga ocupa su lugar.",
+        "<b>Cobro fallido:</b> "+D.MAX_ATTEMPTS+" intentos en total (el cobro inicial y reintentos diarios). Desde el intento "+D.RESTRICT_AT_ATTEMPT+" el acceso pasa a solo lectura; al intento "+D.MAX_ATTEMPTS+" la suscripción se cancela.",
+        "<b>Pagos:</b> "+(G.paymentsEnabled?"activados.":"desactivados todavía (PAYMENTS_ENABLED=false): nadie puede suscribirse.")+" Los planes Básico y Unlimited siguen existiendo para usuarios actuales y para asignarlos desde Usuarios o Promociones.",
+        "<b>Promociones y planes temporales:</b> mientras estén vigentes reemplazan el plan base del usuario y se aplican sus funciones y topes.",
+        "<b>Plan Gratis hoy:</b> no se asigna solo al registrarse; se pone desde Usuarios (plan temporal) o promoción. Un usuario Gratis con correo ya conectado queda en pausa, sin perder datos."
+      ].map(function(t){return "<li>"+t+"</li>"}).join("");
+      $("planGlobal").innerHTML='<tbody>'+
+        '<tr><td>Tope duro de mensajes salientes por usuario al día<small>Cualquier plan, WhatsApp</small></td><td>'+G.dailyHardCapPerUser+'</td></tr>'+
+        '<tr><td>Tarifa Meta (Perú, por mensaje)</td><td>US$ '+G.metaRateUsd.toFixed(3)+'</td></tr>'+
+        '<tr><td>Mensajes de servicio gratis por mes<small>Compartidos entre todos los usuarios</small></td><td>'+G.metaFreeServiceMessages+'</td></tr>'+
+        '<tr><td>Mensajes que cuentan para el tope mensual</td><td>'+G.counted.map(esc).join(", ")+'</td></tr>'+
+        '</tbody>';
+    }).catch(function(e){toast(e.message,true)});
+  }
 
   /* ---------- resumen ---------- */
   var ME=null;
@@ -179,7 +256,7 @@ td small{display:block;color:var(--muted)}
         tile("Ingreso mensual estimado",pen(s.mrrPen),"Solo suscripciones reales activas")+
         tile("Cobros (30 días)",pen(s.charges30d.paidPen),s.charges30d.paidCount+" cobrados · "+s.charges30d.failedCount+" fallidos")+
         tile("WhatsApp este mes",s.whatsappThisMonth.messages,"Costo Meta: US$ "+s.whatsappThisMonth.costUsd.toFixed(2))+
-        tile("Planes",(bp.BASIC||0)+" / "+(bp.PRO||0)+" / "+(bp.UNLIMITED||0),"Básico / Pro / Unlimited · "+s.users.withTemporaryPlan+" con plan temporal")+
+        tile("Planes",(bp.FREE||0)+" / "+(bp.BASIC||0)+" / "+(bp.PRO||0)+" / "+(bp.UNLIMITED||0),"Gratis / Básico / Pro / Unlimited · "+s.users.withTemporaryPlan+" con plan temporal")+
         tile("Promociones activas",s.activePromos,"Vigentes hoy");
     }).catch(function(e){toast(e.message,true)});
   }
@@ -216,7 +293,7 @@ td small{display:block;color:var(--muted)}
   function closeDrawer(){$("dbg").classList.remove("open")}
   $("dbg").addEventListener("click",function(e){if(e.target===$("dbg"))closeDrawer()});
   document.addEventListener("keydown",function(e){if(e.key==="Escape")closeDrawer()});
-  function planOptions(sel){return ["BASIC","PRO","UNLIMITED"].map(function(p){return '<option value="'+p+'"'+(p===sel?" selected":"")+'>'+PLAN[p]+'</option>'}).join("")}
+  function planOptions(sel){return ["FREE","BASIC","PRO","UNLIMITED"].map(function(p){return '<option value="'+p+'"'+(p===sel?" selected":"")+'>'+PLAN[p]+'</option>'}).join("")}
   function openUser(id){
     api("/users/"+id).then(function(d){cur=d;renderUser(d);$("dbg").classList.add("open")}).catch(function(e){toast(e.message,true)});
   }

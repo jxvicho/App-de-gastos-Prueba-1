@@ -5,7 +5,7 @@ import { env } from "../config/env";
 import { sendDailyReportToUser } from "../services/dailyReportSender";
 import { currentLimaHour } from "../services/weeklyReportData";
 import { getEffectivePlan } from "../services/plans";
-import { DAILY_SUMMARY_HOUR_LIMA } from "../config/plans";
+import { DAILY_SUMMARY_HOUR_LIMA, PLAN_FEATURES } from "../config/plans";
 
 export const dailyReportWorker = new Worker(
   "daily-report",
@@ -25,7 +25,7 @@ export const dailyReportWorker = new Worker(
       try {
         const eff = await getEffectivePlan(user);
         // El resumen diario es de Pro y Unlimited (Básico solo recibe el semanal).
-        if (eff.plan === "BASIC") continue;
+        if (!PLAN_FEATURES[eff.plan].dailySummary) continue;
         // Pro y Unlimited pueden apagarlo.
         if (!user.dailySummaryEnabled) continue;
         sent++;

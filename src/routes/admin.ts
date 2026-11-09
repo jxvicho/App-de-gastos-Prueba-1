@@ -1,5 +1,5 @@
 import { Router, type Request } from "express";
-import { Prisma } from "@prisma/client";
+import { Prisma, type Plan } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
 import { env } from "../config/env";
@@ -7,7 +7,11 @@ import { AppError } from "../middleware/errorHandler";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireAdmin } from "../middleware/requireAdmin";
-import { BILLING_PERIOD_MONTHS, PLAN_PRICE_BY_PERIOD_PEN } from "../config/plans";
+import {
+  BILLING_PERIOD_MONTHS, PLAN_PRICE_BY_PERIOD_PEN, PLAN_LABELS, PLAN_FEATURES, PLAN_LIMITS, PLAN_PRICES_FOR_PANEL, VISIBLE_PLANS,
+  TRIAL_DAYS_BY_PERIOD, BILLING_PERIOD_LABELS, DUNNING, DAILY_HARD_CAP_PER_USER, DAILY_SUMMARY_HOUR_LIMA, META_RATE_USD_PE,
+  META_FREE_SERVICE_MESSAGES_PER_MONTH, COUNTED_MESSAGE_KINDS,
+} from "../config/plans";
 import { getEffectivePlan, limaMonthStart } from "../services/plans";
 import { isAccessRestricted } from "../services/billing";
 import { billingToolsAllowed, simulateBilling } from "../services/adminTools";
@@ -20,7 +24,7 @@ export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
 
 const DAY_MS = 86_400_000;
-const planEnum = z.enum(["BASIC", "PRO", "UNLIMITED"]);
+const planEnum = z.enum(["FREE", "BASIC", "PRO", "UNLIMITED"]);
 
 async function audit(req: Request, action: string, targetUserId: string | null, details?: Record<string, unknown>) {
   await prisma.adminAuditLog.create({
@@ -34,6 +38,40 @@ function publicUser<T extends { passwordHash?: unknown; resetPasswordTokenHash?:
   void resetPasswordTokenHash;
   return rest;
 }
+
+/** Planes: qué incluye cada uno, precios, pruebas y topes. Todo sale de config/plans.ts (la misma fuente que aplica los permisos). */
+adminRouter.get(
+  "/plans",
+  asyncHandler(async (_req, res) => {
+    const counts = await prisma.user.groupBy({ by: ["plan"], _count: { _all: true } });
+    const countBy = Object.fromEntries(counts.map((c) => [c.plan, c._count._all]));
+    const order: Plan[] = ["FREE", "BASIC", "PRO", "UNLIMITED"];
+    res.json({
+      plans: order.map((p) => ({
+        id: p,
+        label: PLAN_LABELS[p],
+        visible: VISIBLE_PLANS.includes(p),
+        users: countBy[p] ?? 0,
+        prices: PLAN_PRICES_FOR_PANEL[p] ?? null,
+        // Solo los planes de pago tienen prueba; la duración depende del periodo elegido.
+        trialDays: p === "BASIC" || p === "PRO" ? TRIAL_DAYS_BY_PERIOD : null,
+        features: PLAN_FEATURES[p],
+        monthlyReplies: PLAN_LIMITS[p].monthlyReplies,
+      })),
+      global: {
+        dailyHardCapPerUser: DAILY_HARD_CAP_PER_USER,
+        dailySummaryHourLima: DAILY_SUMMARY_HOUR_LIMA,
+        metaRateUsd: META_RATE_USD_PE,
+        metaFreeServiceMessages: META_FREE_SERVICE_MESSAGES_PER_MONTH,
+        periodLabels: BILLING_PERIOD_LABELS,
+        periodMonths: BILLING_PERIOD_MONTHS,
+        dunning: DUNNING,
+        paymentsEnabled: env.PAYMENTS_ENABLED,
+        counted: COUNTED_MESSAGE_KINDS,
+      },
+    });
+  })
+);
 
 /** Quién soy y qué herramientas hay disponibles (el panel lo usa para mostrar u ocultar secciones). */
 adminRouter.get(

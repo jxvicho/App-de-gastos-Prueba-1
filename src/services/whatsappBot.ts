@@ -1,4 +1,6 @@
 import { isAccessRestricted } from "./billing";
+import { getEffectivePlan } from "./plans";
+import { PLAN_FEATURES } from "../config/plans";
 import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { env } from "../config/env";
@@ -2483,6 +2485,14 @@ async function handleFreeformDecision(
  */
 /** Cobro pendiente (modo solo lectura): el bot no registra nada y avisa una vez en la conversación. */
 async function blockedByBilling(userId: string, from: string): Promise<boolean> {
+  // Plan Gratis: sin bot de WhatsApp (el chat web sí). Se ignora en silencio: responder costaría un mensaje de Meta.
+  if (!isWebChannel()) {
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planOverride: true, planOverrideUntil: true } });
+    if (u && !PLAN_FEATURES[(await getEffectivePlan(u)).plan].whatsapp) {
+      console.log(`WhatsApp: ${userId} está en un plan sin WhatsApp; se ignora el mensaje.`);
+      return true;
+    }
+  }
   if (!(await isAccessRestricted(userId))) return false;
   await sendTextMessage(
     from,

@@ -6,6 +6,8 @@ import { env } from "../config/env";
 import { AppError } from "../middleware/errorHandler";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { requireAuth } from "../middleware/requireAuth";
+import { PLAN_FEATURES } from "../config/plans";
+import { getEffectivePlan } from "../services/plans";
 import { encrypt } from "../utils/crypto";
 import { getMicrosoftAuthUrl, exchangeMicrosoftCode } from "../services/microsoftOAuth";
 import { getGoogleAuthUrl, exchangeGoogleCode, isGoogleConfigured } from "../services/googleOAuth";
@@ -20,7 +22,14 @@ const LIMIT_MESSAGE = `Puedes conectar hasta ${MAX_EMAIL_ACCOUNTS} correos. Desc
  * ¿Puede el usuario conectar este correo? Siempre si ya está activo (reconectar/renovar permisos);
  * si es nuevo (o estaba desconectado), solo si le queda cupo. Sin email (antes del OAuth) solo mira el cupo.
  */
+async function planAllowsEmail(userId: string): Promise<boolean> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planOverride: true, planOverrideUntil: true } });
+  return !!u && PLAN_FEATURES[(await getEffectivePlan(u)).plan].emailSync;
+}
+const PLAN_EMAIL_MESSAGE = "Conectar tu correo es parte del plan Pro. El plan Gratis incluye el dashboard y el chat web.";
+
 async function canConnectEmail(userId: string, emailAddress?: string): Promise<boolean> {
+  if (!(await planAllowsEmail(userId))) return false;
   if (emailAddress) {
     const existing = await prisma.emailAccount.findUnique({
       where: { userId_emailAddress: { userId, emailAddress } },
@@ -124,6 +133,7 @@ emailAccountsRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     // Con el cupo lleno no se inicia otra conexión (el callback también lo valida).
+    if (!(await planAllowsEmail(req.userId!))) throw new AppError(PLAN_EMAIL_MESSAGE, 403, "PLAN_FEATURE");
     if (!(await canConnectEmail(req.userId!)) ) throw new AppError(LIMIT_MESSAGE, 409);
     const state = jwt.sign({ sub: req.userId }, env.JWT_SECRET, { expiresIn: "10m" });
     const url = await getMicrosoftAuthUrl(state);
@@ -184,6 +194,7 @@ emailAccountsRouter.get(
     if (!isGoogleConfigured()) {
       throw new AppError("La conexión con Gmail aún no está configurada en el servidor", 503);
     }
+    if (!(await planAllowsEmail(req.userId!))) throw new AppError(PLAN_EMAIL_MESSAGE, 403, "PLAN_FEATURE");
     if (!(await canConnectEmail(req.userId!))) throw new AppError(LIMIT_MESSAGE, 409);
     const state = jwt.sign({ sub: req.userId }, env.JWT_SECRET, { expiresIn: "10m" });
     res.json({ url: getGoogleAuthUrl(state) });

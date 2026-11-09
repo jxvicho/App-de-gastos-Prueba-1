@@ -4,6 +4,8 @@ import { prisma } from "../config/prisma";
 import { AppError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { PLAN_FEATURES } from "../config/plans";
+import { getEffectivePlan } from "../services/plans";
 
 export const categoriesRouter = Router();
 
@@ -45,6 +47,11 @@ categoriesRouter.post(
     const parsed = createCategorySchema.safeParse(req.body);
     if (!parsed.success) {
       throw new AppError(parsed.error.issues[0].message, 422);
+    }
+
+    const me = await prisma.user.findUniqueOrThrow({ where: { id: req.userId }, select: { plan: true, planOverride: true, planOverrideUntil: true } });
+    if (!PLAN_FEATURES[(await getEffectivePlan(me)).plan].createCategories) {
+      throw new AppError("El plan Gratis usa las categorías predefinidas. Pasa a Pro para crear las tuyas.", 403, "PLAN_FEATURE");
     }
 
     // El nombre es único por usuario (userId, name) — eliminar una categoría
