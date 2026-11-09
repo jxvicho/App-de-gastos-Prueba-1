@@ -1160,9 +1160,9 @@ function resolveCategoryFromText(
   return null;
 }
 
-async function getCategories(userId: string): Promise<{ id: string; name: string }[]> {
+async function getCategories(userId: string, kind?: "EXPENSE" | "INCOME"): Promise<{ id: string; name: string }[]> {
   return prisma.category.findMany({
-    where: { userId, isArchived: false },
+    where: { userId, isArchived: false, ...(kind ? { kind } : {}) },
     select: { id: true, name: true },
   });
 }
@@ -2454,7 +2454,8 @@ async function handleFreeformDecision(
     return;
   }
 
-  const categories = await getCategories(userId);
+  // Solo categorías del mismo tipo que el movimiento (un gasto no puede quedar en "Ingresos" ni al revés).
+  const categories = await getCategories(userId, pending.type === "INCOME" ? "INCOME" : "EXPENSE");
   const matchedCategory = resolveCategoryFromText(normalized, categories);
 
   if (matchedCategory) {
@@ -2725,7 +2726,7 @@ export async function handleIncomingMessage(
       return;
     }
 
-    const categoriesForManual = await getCategories(user.id);
+    const categoriesForManual = await getCategories(user.id, manualTxnIntent.type === "INCOME" ? "INCOME" : "EXPENSE");
     const categoryNamesForManual = categoriesForManual.map((c) => c.name);
 
     let extractedManual;
@@ -3789,7 +3790,8 @@ export async function notifyPendingTransaction(
   if (!phoneNumber) return;
 
   let messageId: string | undefined;
-  if (await isWindowOpen(phoneNumber)) {
+  // En el chat web no existe la ventana de 24 h de WhatsApp: siempre se responde dentro del chat.
+  if (isWebChannel() || (await isWindowOpen(phoneNumber))) {
     messageId = await sendInteractiveButtons(phoneNumber, buildNotificationBody(transaction, petLabel), [
       // En el chat web los botones van ligados a ESTE movimiento (web_ok/web_no:<id>); con varios
       // pendientes, un "no" genérico no sabría a cuál se refiere.
