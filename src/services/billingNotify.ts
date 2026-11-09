@@ -73,7 +73,7 @@ function emailHtml(text: string): string {
       <h1 style="color:#164b8a;font-size:22px;margin:0 0 16px;">Gastia</h1>
       <p style="font-size:14px;line-height:1.6;">${safe}</p>
       <p style="text-align:center;margin:28px 0;">
-        <a href="${env.DASHBOARD_BASE_URL}" style="background:#164b8a;color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:bold;font-size:14px;display:inline-block;">
+        <a href="${env.DASHBOARD_BASE_URL.replace(/\/+$/, "")}/app" style="background:#164b8a;color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:bold;font-size:14px;display:inline-block;">
           Ir a Gastia
         </a>
       </p>

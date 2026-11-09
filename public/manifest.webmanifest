@@ -2,7 +2,7 @@
   "name": "Gastia",
   "short_name": "Gastia",
   "description": "Tu resumen financiero, actualizado en tiempo real.",
-  "start_url": "/",
+  "start_url": "/app",
   "scope": "/",
   "display": "browser",
   "background_color": "#2872ba",

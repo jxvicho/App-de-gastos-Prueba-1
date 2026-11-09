@@ -195,7 +195,16 @@ const API_BASE = "/api";
 
 // Si ya hay sesión activa, no tiene sentido mostrar el registro de nuevo.
 if (localStorage.getItem("token")) {
-  location.href = "/";
+  location.href = "/app";
+}
+
+// Lo elegido en /empezar (solo mascotas del plan Gratis).
+const QS = new URLSearchParams(location.search);
+const PET_PARAM = ["dog", "cat", "none"].includes(QS.get("mascota")) ? QS.get("mascota") : "";
+const PET_NAME = PET_PARAM && PET_PARAM !== "none" ? (QS.get("nombre") || "").slice(0, 14) : "";
+if (PET_PARAM && PET_PARAM !== "none") {
+  const img = document.querySelector(".auth-mascot img");
+  if (img) { img.src = "/assets/mascots/" + PET_PARAM + (PET_PARAM === "dog" ? "-saludo" : "-wave") + ".png"; }
 }
 
 async function api(path, options = {}) {
@@ -267,11 +276,13 @@ document.getElementById("formRegister").addEventListener("submit", async (e)=>{
         name: form.get("name"),
         email,
         password,
+        ...(PET_PARAM ? { petType: PET_PARAM } : {}),
+        ...(PET_NAME ? { petName: PET_NAME } : {}),
       }),
     });
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
-    location.href = "/";
+    location.href = "/app";
   } catch(err) {
     showAuthError(err.message);
     registerSubmitBtn.disabled = !humanCheck.checked;

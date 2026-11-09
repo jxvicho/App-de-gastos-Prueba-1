@@ -39,6 +39,9 @@ const registerSchema = z.object({
   password: z.string().min(8),
   // El celular ya no se pide al registrarse: se vincula después, desde Configuración (plan Pro).
   phoneNumber: z.string().min(6).optional().or(z.literal("")),
+  // Mascota elegida en /empezar. Gratis solo admite perro, gato o ninguna; el resto se desbloquea con Pro.
+  petType: z.enum(["dog", "cat", "none"]).optional(),
+  petName: z.string().trim().max(14).optional(),
 });
 
 authRouter.post(
@@ -71,6 +74,8 @@ authRouter.post(
         email,
         passwordHash,
         phoneNumber,
+        ...(parsed.data.petType ? { petType: parsed.data.petType } : {}),
+        ...(parsed.data.petName ? { petName: parsed.data.petName } : {}),
         onboarding: { create: {} },
         categories: {
           createMany: {

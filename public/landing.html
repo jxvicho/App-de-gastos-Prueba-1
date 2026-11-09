@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es-PE">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gastia · Ordena tus gastos con tu mascota. Empieza gratis</title>
+<meta name="description" content="Gastia te ayuda a ver en qué se va tu plata: registra gastos e ingresos conversando con tu mascota, mira tu dashboard y recibe un resumen cada semana. Empieza gratis; con Pro conecta tu correo y tu WhatsApp.">
+<meta name="theme-color" content="#2472c8">
+<meta property="og:title" content="Gastia · Ordena tus gastos con tu mascota">
+<meta property="og:description" content="Registra gastos conversando, mira a dónde se va tu plata y recibe tu resumen semanal. Empieza gratis.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/assets/mascots/dog-saludo.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+  :root{
+    --navy:#0b2545; --blue-700:#164b8a; --blue-600:#1a5da8; --blue-500:#2472c8; --blue-400:#5b93d3;
+    --blue-200:#c3daf3; --blue-100:#eaf2fb; --ink:#101828; --ink-soft:#5b6675; --ink-faint:#8b96a5;
+    --line:#e3e9f1; --bg:#f4f7fb; --card:#fff; --ok:#12806c; --ok-bg:#e3f6f1; --gold:#f5b82e; --gold-bg:#fff6dc;
+    --wa:#e7ffdb; --radius:20px; font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;scroll-padding-top:76px;}
+  body{margin:0;font-family:"Inter","Segoe UI",Helvetica,Arial,sans-serif;background:#fff;color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5;overflow-x:hidden;}
+  img{max-width:100%;}
+  a{color:inherit;}
+  [hidden]{display:none !important;}
+  :focus-visible{outline:3px solid var(--blue-500);outline-offset:3px;border-radius:10px;}
+  .wrap{width:min(1120px,100% - 40px);margin:0 auto;}
+  .eyebrow{display:inline-block;font-size:13px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--blue-600);margin-bottom:10px;}
+  h1,h2,h3{color:var(--navy);margin:0;letter-spacing:-.4px;line-height:1.12;}
+  h2{font-size:clamp(28px,4.2vw,40px);margin-bottom:12px;}
+  .sub{color:var(--ink-soft);font-size:clamp(16px,2vw,18px);max-width:640px;margin:0 0 36px;}
+  .center{text-align:center;} .center .sub{margin-left:auto;margin-right:auto;}
+
+  /* botones */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;cursor:pointer;text-decoration:none;font:inherit;font-weight:800;font-size:16px;padding:14px 24px;border-radius:14px;min-height:50px;transition:transform .12s,background .15s,box-shadow .15s;}
+  .btn-primary{background:var(--blue-700);color:#fff;box-shadow:0 8px 0 -2px #0e3566,0 16px 28px -12px rgba(14,53,102,.55);}
+  .btn-primary:hover{background:var(--blue-600);} .btn-primary:active{transform:translateY(3px);box-shadow:0 5px 0 -2px #0e3566;}
+  .btn-ghost{background:#fff;color:var(--blue-700);border:2px solid var(--blue-200);}
+  .btn-ghost:hover{border-color:var(--blue-500);}
+  .btn-lg{font-size:18px;padding:17px 30px;min-height:58px;border-radius:16px;}
+
+  /* nav */
+  .nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.88);backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line);}
+  .nav .wrap{display:flex;align-items:center;gap:22px;height:64px;}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:21px;color:var(--blue-700);text-decoration:none;}
+  .nav ul{display:flex;gap:6px;list-style:none;margin:0 auto 0 14px;padding:0;}
+  .nav ul a{text-decoration:none;color:var(--ink-soft);font-weight:600;font-size:15px;padding:8px 12px;border-radius:10px;}
+  .nav ul a:hover{background:var(--blue-100);color:var(--blue-700);}
+  .nav .login{font-weight:700;font-size:15px;color:var(--blue-700);text-decoration:none;padding:8px 12px;}
+  .nav .btn{padding:10px 18px;min-height:42px;font-size:15px;box-shadow:none;}
+  @media(max-width:820px){.nav ul{display:none;} .nav .wrap{justify-content:flex-end;gap:6px;} .logo{margin-right:auto;} }
+  .nav .btn{white-space:nowrap;}
+  @media(max-width:480px){.nav .btn{padding:9px 14px;font-size:14px;} .nav .login{padding:8px 6px;font-size:14px;} .float.f1{display:none !important;} }
+
+  /* hero */
+  .hero{position:relative;background:radial-gradient(900px 480px at 85% 0%,var(--blue-100),transparent 70%),radial-gradient(700px 420px at 0% 30%,#f1f7ff,transparent 70%),#fff;padding:56px 0 72px;overflow:hidden;}
+  .hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:var(--gold-bg);color:#7a4b00;font-weight:700;font-size:13.5px;padding:7px 14px;border-radius:999px;margin-bottom:18px;border:1px solid #f3dfa0;}
+  .hero h1{font-size:clamp(36px,5.6vw,60px);margin-bottom:18px;}
+  .hero h1 em{font-style:normal;color:var(--blue-500);}
+  .hero p.lead{font-size:clamp(17px,2.2vw,20px);color:var(--ink-soft);margin:0 0 28px;max-width:560px;}
+  .cta-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+  .microcopy{margin-top:16px;font-size:14px;color:var(--ink-soft);display:flex;gap:16px;flex-wrap:wrap;}
+  .microcopy span::before{content:"✓ ";color:var(--ok);font-weight:800;}
+  .stage{position:relative;display:flex;justify-content:center;min-height:470px;}
+  .phone{position:relative;width:min(330px,100%);background:#16202e;border-radius:38px;padding:11px;box-shadow:0 40px 70px -30px rgba(11,37,69,.55);transform:rotate(2deg);}
+  .screen{background:#f1f5fa;border-radius:29px;overflow:hidden;height:440px;display:flex;flex-direction:column;}
+  .chat-head{background:#fff;border-bottom:1px solid var(--line);padding:11px 14px;display:flex;align-items:center;gap:10px;}
+  .chat-head img{width:38px;height:38px;border-radius:50%;background:var(--blue-100);object-fit:cover;object-position:top;}
+  .chat-head b{display:block;font-size:14.5px;color:var(--navy);line-height:1.1;} .chat-head span{font-size:11.5px;color:var(--ok);font-weight:600;}
+  .msgs{flex:1;padding:14px 12px;display:flex;flex-direction:column;gap:9px;}
+  .m{max-width:84%;padding:9px 12px;border-radius:14px;font-size:13.5px;line-height:1.4;opacity:0;transform:translateY(8px);animation:msgIn .5s cubic-bezier(.16,1,.3,1) forwards;white-space:pre-line;}
+  .m.in{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px;color:var(--navy);}
+  .m.out{background:var(--blue-700);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;}
+  .m.btns{background:none;border:0;padding:0;display:flex;gap:6px;}
+  .m.btns i{font-style:normal;background:#fff;border:1px solid var(--blue-200);color:var(--blue-700);font-weight:700;font-size:13px;padding:8px 13px;border-radius:10px;}
+  .m.btns i.ok{background:var(--blue-700);color:#fff;border-color:var(--blue-700);}
+  .m:nth-child(1){animation-delay:.4s}.m:nth-child(2){animation-delay:1.4s}.m:nth-child(3){animation-delay:2.4s}.m:nth-child(4){animation-delay:3.4s}.m:nth-child(5){animation-delay:4.4s}
+  @keyframes msgIn{to{opacity:1;transform:none}}
+  .float{position:absolute;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 22px 40px -22px rgba(11,37,69,.4);padding:12px 14px;font-size:13px;}
+  .float.f1{left:-4px;top:54px;transform:rotate(-3deg);animation:bob 5s ease-in-out infinite;}
+  .float.f2{right:-6px;bottom:64px;animation:bob 6s ease-in-out .8s infinite;}
+  .float b{display:block;color:var(--navy);font-size:15px;} .float small{color:var(--ink-soft);}
+  .mini-bars{display:flex;gap:5px;align-items:flex-end;height:38px;margin-top:8px;}
+  .mini-bars i{flex:1;border-radius:4px 4px 0 0;background:var(--blue-400);} .mini-bars i:nth-child(3){background:var(--blue-700);}
+  .mascot-peek{position:absolute;left:-18px;bottom:-4px;width:150px;filter:drop-shadow(0 14px 18px rgba(11,37,69,.25));animation:bob 4.5s ease-in-out infinite;pointer-events:none;}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @media(max-width:900px){
+    .hero{padding:36px 0 56px;} .hero .wrap{grid-template-columns:1fr;gap:32px;}
+    .stage{min-height:0;padding-bottom:14px;} .phone{transform:none;} .mascot-peek{width:110px;left:-6px;} .float.f1{left:0;top:40px;}.float.f2{right:0;}
+  }
+
+  /* franja de confianza */
+  .strip{background:var(--navy);color:#cfe0f5;}
+  .strip .wrap{display:flex;gap:10px 30px;justify-content:center;flex-wrap:wrap;padding:16px 0;font-size:14.5px;font-weight:600;}
+  .strip span{display:inline-flex;gap:8px;align-items:center;}
+
+  section{padding:84px 0;}
+  @media(max-width:700px){section{padding:60px 0;}}
+
+  /* cómo funciona */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;counter-reset:s;}
+  .step{background:var(--bg);border-radius:var(--radius);padding:26px 24px;position:relative;}
+  .step::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--blue-700);color:#fff;font-weight:800;margin-bottom:14px;}
+  .step h3{font-size:20px;margin-bottom:6px;} .step p{margin:0;color:var(--ink-soft);}
+  @media(max-width:820px){.steps{grid-template-columns:1fr;}}
+
+  /* funciones */
+  .features{background:var(--bg);}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  .fcard{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:24px;transition:transform .2s,box-shadow .2s;}
+  .fcard:hover{transform:translateY(-3px);box-shadow:0 24px 40px -28px rgba(11,37,69,.35);}
+  .fcard .ic{width:50px;height:50px;border-radius:14px;background:var(--blue-100);display:grid;place-items:center;font-size:25px;margin-bottom:14px;}
+  .fcard h3{font-size:18px;margin-bottom:6px;} .fcard p{margin:0;color:var(--ink-soft);font-size:15px;}
+  .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.4px;padding:3px 9px;border-radius:999px;margin-left:6px;vertical-align:middle;}
+  .tag.pro{background:var(--gold-bg);color:#8a5200;border:1px solid #f3dfa0;} .tag.free{background:var(--ok-bg);color:var(--ok);}
+  @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr);}} @media(max-width:600px){.grid{grid-template-columns:1fr;}}
+
+  /* automático (Pro) */
+  .auto .wrap{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;}
+  .flowdemo{display:grid;gap:12px;}
+  .mailcard,.txcard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:0 20px 36px -26px rgba(11,37,69,.4);}
+  .mailcard small{color:var(--ink-faint);} .mailcard p{margin:6px 0 0;font-size:14.5px;color:var(--ink-soft);}
+  .mailcard mark{background:#fff0b8;color:var(--navy);font-weight:700;border-radius:5px;padding:0 4px;}
+  .arrow{text-align:center;font-size:22px;color:var(--blue-500);}
+  .txcard{display:flex;align-items:center;gap:12px;border:2px solid var(--blue-500);}
+  .txcard .i{width:44px;height:44px;border-radius:12px;background:#fde7e0;display:grid;place-items:center;font-size:22px;}
+  .txcard b{color:var(--navy);display:block;} .txcard span{font-size:12.5px;color:var(--ink-soft);}
+  .txcard .amt{margin-left:auto;font-weight:800;color:var(--navy);}
+  .chip-ok{background:var(--ok-bg);color:var(--ok);font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;margin-left:6px;}
+  .checks{list-style:none;padding:0;margin:20px 0 26px;display:grid;gap:10px;}
+  .checks li{display:flex;gap:10px;color:var(--ink-soft);} .checks li::before{content:"✓";color:var(--ok);font-weight:800;flex:none;}
+  .checks b{color:var(--navy);}
+  @media(max-width:860px){.auto .wrap{grid-template-columns:1fr;gap:30px;}}
+
+  /* mascotas */
+  .pets{background:linear-gradient(180deg,var(--blue-100),#fff);}
+  .petrow{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
+  .pet{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 14px 14px;width:176px;text-align:center;box-shadow:0 18px 34px -26px rgba(11,37,69,.4);}
+  .pet img{width:112px;height:112px;object-fit:contain;} .pet b{display:block;color:var(--navy);margin-top:4px;}
+  .pet small{display:inline-block;margin-top:4px;font-size:12px;font-weight:700;} .pet .g{color:var(--ok);} .pet .p{color:#8a5200;}
+  .petnote{text-align:center;color:var(--ink-soft);margin:20px auto 0;max-width:560px;font-size:15px;}
+
+  /* planes */
+  .period{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:5px;gap:4px;margin-bottom:34px;}
+  .period button{border:0;background:transparent;font:inherit;font-weight:700;font-size:14.5px;color:var(--ink-soft);padding:10px 18px;border-radius:999px;cursor:pointer;min-height:42px;}
+  .period button[aria-pressed="true"]{background:var(--blue-700);color:#fff;}
+  .period button small{display:block;font-size:10.5px;font-weight:700;opacity:.85;margin-top:-2px;}
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:22px;max-width:900px;margin:0 auto;text-align:left;}
+  .plan{background:#fff;border:2px solid var(--line);border-radius:24px;padding:30px 28px;position:relative;display:flex;flex-direction:column;}
+  .plan.pro{border-color:var(--blue-500);box-shadow:0 34px 60px -36px rgba(36,114,200,.6);}
+  .plan .pop{position:absolute;top:-14px;left:28px;background:var(--gold);color:#3a2600;font-weight:800;font-size:12px;padding:5px 12px;border-radius:999px;}
+  .plan h3{font-size:24px;} .plan .for{color:var(--ink-soft);margin:4px 0 16px;font-size:15px;}
+  .price{display:flex;align-items:baseline;gap:6px;color:var(--navy);} .price b{font-size:46px;letter-spacing:-1px;line-height:1;} .price span{color:var(--ink-soft);font-weight:600;}
+  .price-note{min-height:22px;font-size:13.5px;color:var(--ok);font-weight:700;margin:6px 0 18px;}
+  .plan ul{list-style:none;margin:0 0 26px;padding:0;display:grid;gap:10px;flex:1;}
+  .plan li{display:flex;gap:10px;font-size:15px;color:var(--ink);} .plan li::before{content:"✓";color:var(--ok);font-weight:800;flex:none;}
+  .plan li.no{color:var(--ink-faint);} .plan li.no::before{content:"–";color:var(--ink-faint);}
+  .plan li.more{font-weight:700;color:var(--navy);} .plan li.more::before{content:"+";color:var(--blue-500);}
+  .plan .btn{width:100%;}
+  .trial{font-size:13px;color:var(--ink-soft);text-align:center;margin-top:12px;}
+  .pay{margin:36px auto 0;max-width:900px;background:var(--bg);border-radius:var(--radius);padding:22px 26px;display:flex;gap:18px 34px;align-items:center;justify-content:center;flex-wrap:wrap;}
+  .pay b{color:var(--navy);} .paychip{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 14px;font-weight:700;font-size:14.5px;color:var(--navy);}
+  .paychip i{font-style:normal;font-size:20px;}
+  @media(max-width:760px){.plans{grid-template-columns:1fr;}}
+
+  /* confianza */
+  .trust .grid{grid-template-columns:repeat(3,1fr);} @media(max-width:860px){.trust .grid{grid-template-columns:1fr;}}
+
+  /* faq */
+  .faq{background:var(--bg);} .faq .list{max-width:780px;margin:0 auto;display:grid;gap:12px;}
+  details{background:#fff;border:1px solid var(--line);border-radius:16px;padding:0;}
+  summary{cursor:pointer;list-style:none;padding:18px 22px;font-weight:700;color:var(--navy);display:flex;justify-content:space-between;gap:14px;align-items:center;min-height:56px;}
+  summary::-webkit-details-marker{display:none;} summary::after{content:"+";font-size:22px;color:var(--blue-500);flex:none;transition:transform .2s;}
+  details[open] summary::after{transform:rotate(45deg);}
+  details p{margin:0;padding:0 22px 20px;color:var(--ink-soft);}
+
+  /* cierre */
+  .final{background:linear-gradient(135deg,var(--blue-700),var(--navy));color:#fff;text-align:center;position:relative;overflow:hidden;}
+  .final h2{color:#fff;} .final p{color:#cfe0f5;max-width:560px;margin:0 auto 28px;font-size:18px;}
+  .final .btn-primary{background:#fff;color:var(--blue-700);box-shadow:0 8px 0 -2px #9fb8d8;} .final .btn-primary:hover{background:#f1f7ff;}
+  .final img{position:absolute;right:4%;bottom:-6px;width:170px;opacity:.95;} @media(max-width:900px){.final img{display:none;}}
+  footer{background:var(--navy);color:#9fb2cc;padding:34px 0 40px;font-size:14px;}
+  footer .wrap{display:flex;gap:16px 30px;flex-wrap:wrap;justify-content:space-between;align-items:center;}
+  footer a{color:#cfe0f5;text-decoration:none;margin-right:18px;} footer a:hover{text-decoration:underline;}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-delay:0s !important;transition-duration:.01ms !important;} .m{opacity:1;transform:none;}}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="/"><img src="/icons/logo-gastia.svg" width="32" height="32" alt="">Gastia</a>
+    <ul>
+      <li><a href="#como">Cómo funciona</a></li>
+      <li><a href="#funciones">Funciones</a></li>
+      <li><a href="#planes">Planes</a></li>
+      <li><a href="#faq">Preguntas</a></li>
+    </ul>
+    <a class="login" id="navLogin" href="/login">Ingresar</a>
+    <a class="btn btn-primary" id="navCta" href="/empezar">Empezar gratis</a>
+  </div>
+</header>
+
+<main>
+<!-- HERO -->
+<section class="hero" style="padding-bottom:72px">
+  <div class="wrap">
+    <div>
+      <span class="badge">🐾 Tu mascota te ayuda con la plata</span>
+      <h1>Sabe en qué se va tu plata, <em>sin hacer cuentas</em></h1>
+      <p class="lead">Cuéntale tus gastos a tu mascota como a un amigo, mira todo ordenado en tu dashboard y recibe un resumen cada domingo. Empieza gratis en menos de dos minutos.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary btn-lg" href="/empezar">Empezar gratis</a>
+        <a class="btn btn-ghost btn-lg" href="#como">Ver cómo funciona</a>
+      </div>
+      <div class="microcopy"><span>Sin tarjeta</span><span>Sin conectar nada</span><span>Soles y dólares</span></div>
+    </div>
+    <div class="stage" aria-hidden="true">
+      <div class="phone"><div class="screen">
+        <div class="chat-head"><img src="/assets/mascots/dog-head.png" alt=""><div><b>Pipo</b><span>● tu asistente de gastos</span></div></div>
+        <div class="msgs">
+          <div class="m out">30 soles de taxi</div>
+          <div class="m in">🧾 Gasto detectado
+S/ 30.00 · Taxi
+🚗 Transporte</div>
+          <div class="m btns"><i class="ok">✅ Anotar</i><i>Descartar</i></div>
+          <div class="m out">✅ Anotar</div>
+          <div class="m in">¡Anotado! 🚕 Hoy llevas S/ 30.00 en 1 gasto.</div>
+        </div>
+      </div></div>
+      <div class="float f1"><small>Gastaste esta semana</small><b>S/ 248.50</b><div class="mini-bars"><i style="height:40%"></i><i style="height:65%"></i><i style="height:100%"></i><i style="height:55%"></i><i style="height:30%"></i></div></div>
+      <div class="float f2"><small>Categoría con más gasto</small><b>🍽️ Alimentación</b></div>
+      <img class="mascot-peek" src="/assets/mascots/dog-saludo.png" alt="">
+    </div>
+  </div>
+</section>
+
+<div class="strip"><div class="wrap">
+  <span>🆓 Gratis para empezar</span><span>🇵🇪 Hecho en Perú</span><span>💬 Chat con tu mascota</span><span>📊 Resumen semanal cada domingo</span>
+</div></div>
+
+<!-- CÓMO FUNCIONA -->
+<section id="como">
+  <div class="wrap center">
+    <span class="eyebrow">Cómo funciona</span>
+    <h2>Ordenar tus gastos en 3 pasos</h2>
+    <p class="sub">Sin hojas de cálculo ni formularios eternos. Empiezas hoy y en minutos ya ves tu plata ordenada.</p>
+    <div class="steps" style="text-align:left">
+      <div class="step"><h3>Crea tu cuenta gratis</h3><p>Solo nombre, correo y contraseña. No pedimos tarjeta ni tu número de celular para empezar.</p></div>
+      <div class="step"><h3>Cuéntale tus gastos</h3><p>Escríbele a tu mascota: “almuerzo 18” o “me pagaron 800”. También puedes mandarle una nota de voz o la foto de una boleta.</p></div>
+      <div class="step"><h3>Mira a dónde se va tu plata</h3><p>Tu dashboard ordena todo por categoría, y cada domingo a las 8 p. m. tu mascota te deja un resumen de la semana.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- FUNCIONES -->
+<section class="features" id="funciones">
+  <div class="wrap center">
+    <span class="eyebrow">Funciones</span>
+    <h2>Todo lo que necesitas para controlar tu plata</h2>
+    <p class="sub">Desde el plan Gratis ya tienes lo esencial. Con Pro, Gastia trabaja por ti.</p>
+    <div class="grid" style="text-align:left">
+      <div class="fcard"><div class="ic">📊</div><h3>Dashboard claro <span class="tag free">GRATIS</span></h3><p>Gastos e ingresos del mes, gráficos por categoría, comercios donde más gastas y evolución en el tiempo. En soles y en dólares.</p></div>
+      <div class="fcard"><div class="ic">💬</div><h3>Chat con tu mascota <span class="tag free">GRATIS</span></h3><p>Anota gastos e ingresos escribiendo como hablas, o pregunta “¿cuánto gasté en comida este mes?”. Gratis incluye 5 mensajes al día.</p></div>
+      <div class="fcard"><div class="ic">🎙️</div><h3>Voz y fotos de boletas <span class="tag free">GRATIS</span></h3><p>Dile el gasto con una nota de voz o toma una foto del recibo o de tu captura de Yape, y Gastia lo prepara para que lo confirmes.</p></div>
+      <div class="fcard"><div class="ic">🗓️</div><h3>Resumen semanal <span class="tag free">GRATIS</span></h3><p>Cada domingo a las 8 p. m. recibes en tu chat cuánto gastaste, en qué categoría y cómo vas frente a la semana anterior.</p></div>
+      <div class="fcard"><div class="ic">🎯</div><h3>Metas, pagos fijos y deudas <span class="tag free">GRATIS</span></h3><p>Ponle tope a una categoría, anota tus pagos fijos y lleva el control de lo que debes y de lo que te deben.</p></div>
+      <div class="fcard"><div class="ic">📧</div><h3>Se anotan solos <span class="tag pro">PRO</span></h3><p>Conecta tu Gmail u Outlook y Gastia lee los avisos de consumo de tu banco. Tú eliges: confirmar cada uno o que se anoten solos.</p></div>
+      <div class="fcard"><div class="ic">📲</div><h3>Resúmenes en tu WhatsApp <span class="tag pro">PRO</span></h3><p>Resumen semanal los domingos y resumen diario a las 9 a. m. directo en tu WhatsApp, con avisos de gasto alto dentro del diario.</p></div>
+      <div class="fcard"><div class="ic">🏷️</div><h3>Categorías propias <span class="tag pro">PRO</span></h3><p>Crea tus categorías de gastos e ingresos, con tu color y tu ícono, además de las predefinidas.</p></div>
+      <div class="fcard"><div class="ic">🐷</div><h3>Todas las mascotas <span class="tag pro">PRO</span></h3><p>Perro y gato vienen gratis (o ninguna, si prefieres). Con Pro desbloqueas también al chancho y a la capibara.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- AUTOMÁTICO -->
+<section class="auto" id="automatico">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">Con Pro</span>
+      <h2>Tu banco avisa, Gastia anota</h2>
+      <p class="sub" style="margin-bottom:0">Cuando pagas con tu tarjeta, tu banco te manda un correo. Gastia lo lee por ti y lo convierte en un gasto ordenado, sin que escribas nada.</p>
+      <ul class="checks">
+        <li><span><b>Solo se lee lo que tú eliges.</b> Gastia mira únicamente los avisos de consumo de los bancos que tú selecciones.</span></li>
+        <li><span><b>Nunca vemos tus claves.</b> Te conectas con Google o Microsoft; no pedimos contraseñas de tu banco.</span></li>
+        <li><span><b>Tú tienes el control.</b> Confirmas cada gasto o activas el registro automático, y desconectas tu correo cuando quieras.</span></li>
+      </ul>
+      <a class="btn btn-primary" href="/empezar">Empezar gratis y activarlo después</a>
+    </div>
+    <div class="flowdemo" aria-hidden="true">
+      <div class="mailcard"><small>🏦 Tu banco · avisos@tubanco.pe</small><p>Realizaste un consumo por <mark>S/ 45.90</mark> en <mark>RAPPI</mark> con tu tarjeta terminada en 4821.</p></div>
+      <div class="arrow">⬇️</div>
+      <div class="txcard"><div class="i">🍽️</div><div><b>Rappi <span class="chip-ok">Automático ✓</span></b><span>Alimentación · hoy</span></div><div class="amt">S/ 45.90</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- MASCOTAS -->
+<section class="pets">
+  <div class="wrap center">
+    <span class="eyebrow">Tu compañero</span>
+    <h2>Ordenar tu plata, pero con compañía</h2>
+    <p class="sub">Elige quién te acompaña en el dashboard y en el chat, y ponle nombre. Si prefieres una app sobria, puedes elegir ninguno.</p>
+    <div class="petrow">
+      <div class="pet"><img src="/assets/mascots/dog-stand.png" alt="Perro"><b>Perro</b><small class="g">Gratis</small></div>
+      <div class="pet"><img src="/assets/mascots/cat-stand.png" alt="Gato"><b>Gato</b><small class="g">Gratis</small></div>
+      <div class="pet"><img src="/assets/mascots/pig-stand.png" alt="Chancho"><b>Chancho</b><small class="p">⭐ Pro</small></div>
+      <div class="pet"><img src="/assets/mascots/capybara-stand.png" alt="Capibara"><b>Capibara</b><small class="p">⭐ Pro</small></div>
+    </div>
+    <p class="petnote">Puedes cambiar de mascota o quitarla cuando quieras desde Configuración.</p>
+  </div>
+</section>
+
+<!-- PLANES -->
+<section id="planes">
+  <div class="wrap center">
+    <span class="eyebrow">Planes</span>
+    <h2>Empieza gratis. Pasa a Pro cuando quieras</h2>
+    <p class="sub">Sin letra chica: el plan Gratis no vence ni pide tarjeta. Pro es opcional y lo puedes cancelar cuando quieras.</p>
+
+    <div class="period" role="group" aria-label="Periodo de pago">
+      <button type="button" data-p="MONTHLY" aria-pressed="true">Mensual</button>
+      <button type="button" data-p="QUARTERLY" aria-pressed="false">Trimestral<small>Ahorras 8 %</small></button>
+      <button type="button" data-p="ANNUAL" aria-pressed="false">Anual<small>Ahorras 16 %</small></button>
+    </div>
+
+    <div class="plans">
+      <article class="plan">
+        <h3>Gratis</h3>
+        <p class="for">Para ordenar tus gastos y empezar el hábito.</p>
+        <div class="price"><b>S/ 0</b><span>para siempre</span></div>
+        <div class="price-note">&nbsp;</div>
+        <ul>
+          <li>Dashboard con gráficos, en soles y dólares</li>
+          <li>Registro manual de gastos e ingresos</li>
+          <li>Chat con tu mascota: 5 mensajes al día</li>
+          <li>Resumen semanal en tu chat, cada domingo</li>
+          <li>Metas, pagos fijos y deudas</li>
+          <li>Categorías predefinidas</li>
+          <li>Mascotas: perro, gato o ninguna</li>
+          <li class="no">Lectura automática de tu correo</li>
+          <li class="no">Resúmenes por WhatsApp</li>
+        </ul>
+        <a class="btn btn-ghost" href="/empezar">Empezar gratis</a>
+      </article>
+
+      <article class="plan pro">
+        <span class="pop">⭐ El más completo</span>
+        <h3>Pro</h3>
+        <p class="for">Para que Gastia trabaje por ti.</p>
+        <div class="price"><b id="proPrice">S/ 19.90</b><span id="proUnit">/ mes</span></div>
+        <div class="price-note" id="proNote">&nbsp;</div>
+        <ul>
+          <li class="more">Todo lo del plan Gratis, y además:</li>
+          <li>Conecta tu Gmail u Outlook: tus consumos se detectan solos</li>
+          <li>Registro automático (opcional)</li>
+          <li>Resumen diario y semanal en tu WhatsApp</li>
+          <li>Avisos de gasto alto</li>
+          <li>Crea tus propias categorías</li>
+          <li>Chat con tu mascota hasta 100 mensajes al día</li>
+          <li>Todas las mascotas: también chancho y capibara</li>
+        </ul>
+        <a class="btn btn-primary" href="/empezar">Empezar gratis</a>
+        <p class="trial" id="proTrial">Empieza gratis y activa Pro cuando quieras: 7 días de prueba sin cobro.</p>
+      </article>
+    </div>
+
+    <div class="pay">
+      <span><b>Paga como te sea más fácil:</b></span>
+      <span class="paychip"><i>📱</i> Yape</span>
+      <span class="paychip"><i>💳</i> Tarjeta de crédito o débito</span>
+      <span style="font-size:13.5px;color:var(--ink-soft)">Precios en soles. Cancela cuando quieras.</span>
+    </div>
+  </div>
+</section>
+
+<!-- CONFIANZA -->
+<section class="trust" style="background:var(--bg)">
+  <div class="wrap center">
+    <span class="eyebrow">Tu privacidad</span>
+    <h2>Tus datos, bajo tu control</h2>
+    <p class="sub">Entendemos que se trata de tu plata. Por eso hacemos las cosas simples y transparentes.</p>
+    <div class="grid" style="text-align:left">
+      <div class="fcard"><div class="ic">🔑</div><h3>Sin pedirte claves</h3><p>Nunca te pedimos contraseñas de tu banco. Para leer tu correo (Pro) te conectas con Google o Microsoft.</p></div>
+      <div class="fcard"><div class="ic">🎛️</div><h3>Tú decides qué se lee</h3><p>Solo los avisos de consumo de los bancos que elijas, y puedes desconectar tu correo con un clic.</p></div>
+      <div class="fcard"><div class="ic">📵</div><h3>Nada de mensajes sin permiso</h3><p>Los mensajes por WhatsApp son solo si los aceptas, y tu número se verifica con un código antes de vincularlo.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="wrap">
+    <div class="center"><span class="eyebrow">Preguntas frecuentes</span><h2>Lo que más nos preguntan</h2></div>
+    <div class="list" style="margin-top:28px">
+      <details><summary>¿De verdad es gratis?</summary><p>Sí. El plan Gratis no tiene fecha de vencimiento ni te pide tarjeta. Incluye tu dashboard, el registro manual, el chat con tu mascota (5 mensajes al día) y el resumen semanal. Pro es opcional.</p></details>
+      <details><summary>¿Qué necesito para crear mi cuenta?</summary><p>Solo tu nombre, un correo y una contraseña. No pedimos número de celular ni datos de tu banco para empezar.</p></details>
+      <details><summary>¿Cómo conecto mi correo y mi WhatsApp?</summary><p>Cuando pases a Pro, desde Configuración dentro de tu cuenta: conectas Gmail u Outlook, eliges tus bancos y vinculas tu número de WhatsApp con un código de verificación.</p></details>
+      <details><summary>¿Cómo funciona la prueba gratis de Pro?</summary><p>Pro tiene 7 días de prueba (14 días si eliges el plan anual). No se cobra durante la prueba y puedes cancelar antes de que termine para no pagar nada. El plan anual no tiene reembolso una vez cobrado.</p></details>
+      <details><summary>¿Cómo puedo pagar Pro?</summary><p>Con Yape o con tarjeta de crédito o débito. Los precios son en soles: S/ 19.90 al mes, S/ 54.90 por 3 meses o S/ 199.90 por un año.</p></details>
+      <details><summary>¿Puedo cancelar cuando quiera?</summary><p>Sí, desde Configuración en tu cuenta. Si cancelas, tus datos se conservan y vuelves al plan Gratis.</p></details>
+      <details><summary>¿Gastia ve mis claves del banco?</summary><p>No. Gastia nunca te pide contraseñas de tu banco. Con Pro solo lee los avisos de consumo que tu banco ya te envía por correo, y solo de los bancos que tú elijas.</p></details>
+      <details><summary>¿Funciona en el celular?</summary><p>Sí. Gastia funciona desde el navegador de tu celular, tablet o computadora, y el chat con tu mascota está pensado para usarse a pantalla completa en el móvil.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- CIERRE -->
+<section class="final">
+  <div class="wrap">
+    <h2>Empieza hoy a ordenar tu plata</h2>
+    <p>Crea tu cuenta gratis en menos de dos minutos. Tu mascota ya te está esperando.</p>
+    <a class="btn btn-primary btn-lg" href="/empezar">Empezar gratis</a>
+  </div>
+  <img src="/assets/mascots/cat-stand.png" alt="" aria-hidden="true">
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><a href="/login">Ingresar</a><a href="/empezar">Crear cuenta</a><a href="#planes">Planes</a><a href="#faq">Preguntas</a></div>
+    <div>© 2026 Gastia · CH2 Tech EIRL · Hecho en Perú 🇵🇪</div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // Si ya hay sesión, el menú lleva directo al panel.
+  try{
+    if(localStorage.getItem("token")){
+      var l=document.getElementById("navLogin"), c=document.getElementById("navCta");
+      l.hidden=true; c.textContent="Ir a mi panel"; c.href="/app";
+    }
+  }catch(e){}
+
+  // Precio de Pro según el periodo.
+  var P={
+    MONTHLY:{price:"S/ 19.90",unit:"/ mes",note:"",trial:"Empieza gratis y activa Pro cuando quieras: 7 días de prueba sin cobro."},
+    QUARTERLY:{price:"S/ 54.90",unit:"cada 3 meses",note:"Equivale a S/ 18.30 al mes · ahorras S/ 4.80",trial:"7 días de prueba sin cobro. Cancela antes y no pagas nada."},
+    ANNUAL:{price:"S/ 199.90",unit:"al año",note:"Equivale a S/ 16.66 al mes · ahorras S/ 38.90",trial:"14 días de prueba sin cobro. El plan anual no tiene reembolso una vez cobrado."}
+  };
+  var btns=[].slice.call(document.querySelectorAll(".period button"));
+  btns.forEach(function(b){
+    b.addEventListener("click",function(){
+      btns.forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false");});
+      var d=P[b.dataset.p];
+      document.getElementById("proPrice").textContent=d.price;
+      document.getElementById("proUnit").textContent=d.unit;
+      document.getElementById("proNote").textContent=d.note||" ";
+      document.getElementById("proTrial").textContent=d.trial;
+    });
+  });
+})();
+</script>
+</body>
+</html>

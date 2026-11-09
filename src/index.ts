@@ -75,11 +75,15 @@ app.get("/restablecer", (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "reset-password.html"));
 });
 
-// Dashboard estático (Fase "visual" — habla con la misma API de arriba)
-app.use(express.static(path.join(__dirname, "..", "public")));
-app.get(/^(?!\/api).*/, (_req, res) => {
-  res.sendFile(path.join(__dirname, "..", "public", "index.html"));
-});
+// Web pública: landing en "/", onboarding en "/empezar" y el dashboard (SPA) en "/app".
+const publicDir = path.join(__dirname, "..", "public");
+app.get("/", (_req, res) => res.sendFile(path.join(publicDir, "landing.html")));
+app.get("/empezar", (_req, res) => res.sendFile(path.join(publicDir, "empezar.html")));
+app.get(/^\/app(\/.*)?$/, (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
+// index:false para que "/" no sirva index.html (el dashboard) por defecto.
+app.use(express.static(publicDir, { index: false }));
+// Cualquier otra ruta que no sea API vuelve a la landing.
+app.get(/^(?!\/api).*/, (_req, res) => res.redirect("/"));
 
 app.use("/api", notFoundHandler);
 app.use(errorHandler);

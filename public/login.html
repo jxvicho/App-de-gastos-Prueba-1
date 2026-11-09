@@ -192,7 +192,7 @@ const API_BASE = "/api";
 
 // Si ya hay sesión activa, no tiene sentido mostrar el login de nuevo.
 if (localStorage.getItem("token")) {
-  location.href = "/";
+  location.href = "/app";
 }
 
 async function api(path, options = {}) {
@@ -249,7 +249,7 @@ document.getElementById("formLogin").addEventListener("submit", async (e)=>{
     });
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
-    location.href = "/";
+    location.href = "/app";
   } catch(err) { showAuthError(err.message); }
 });
 </script>
