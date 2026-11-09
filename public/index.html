@@ -47,6 +47,26 @@ function _uiDialog(msg, isConfirm){
 }
 function uiConfirm(msg){ return _uiDialog(msg, true); }
 function uiAlert(msg){ return _uiDialog(msg, false); }
+function uiPrompt(msg, value){
+  return new Promise(function(resolve){
+    var ov = document.createElement("div");
+    ov.className = "modal-overlay open"; ov.style.zIndex = "10000";
+    var box = document.createElement("div"); box.className = "modal-box"; box.style.maxWidth = "380px";
+    var p = document.createElement("div");
+    p.style.cssText = "font-size:15px;line-height:1.45;color:#0b2545;margin-bottom:12px;"; p.textContent = String(msg);
+    var inp = document.createElement("input"); inp.type = "text"; inp.maxLength = 200; inp.value = value || "";
+    inp.style.cssText = "width:100%;box-sizing:border-box;margin-bottom:16px;font-size:16px;height:44px;";
+    var acts = document.createElement("div"); acts.className = "modal-actions";
+    var done = function(v){ ov.remove(); resolve(v); };
+    var no = document.createElement("button"); no.type = "button"; no.className = "btn-cancel"; no.textContent = "Cancelar"; no.addEventListener("click", function(){ done(null); });
+    var ok = document.createElement("button"); ok.type = "button"; ok.className = "btn-save"; ok.textContent = "Guardar"; ok.addEventListener("click", function(){ done(inp.value); });
+    acts.appendChild(no); acts.appendChild(ok);
+    inp.addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); done(inp.value); } else if(e.key === "Escape"){ done(null); } });
+    ov.addEventListener("click", function(e){ if(e.target === ov) done(null); });
+    box.appendChild(p); box.appendChild(inp); box.appendChild(acts); ov.appendChild(box); document.body.appendChild(ov);
+    inp.focus(); inp.select();
+  });
+}
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -2490,7 +2510,7 @@ function showUndoToast(msg, onUndo){
 function escHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 async function editTxnNote(idx){
   const t = TXNS[idx]; if(!t) return;
-  const val = prompt("Nota para este movimiento (ej. gaseosa). Déjala vacía para borrarla:", t.note || "");
+  const val = await uiPrompt("Nota para este movimiento (ej. gaseosa). Déjala vacía para borrarla:", t.note || "");
   if(val === null) return;
   const note = val.trim().slice(0,200);
   try {
@@ -4654,7 +4674,7 @@ async function refreshData(){
 
     CAT_META = {};
     categories.forEach(c=>{
-      CAT_META[c.id] = { label:c.name, icon:c.icon || "🏷️", color:c.colorHex || "#1a5da8", locked:c.isDefault, excluded:c.excludeFromTotals };
+      CAT_META[c.id] = { label:c.name, icon:c.icon || "🏷️", color:c.colorHex || "#1a5da8", locked:c.isDefault, excluded:c.excludeFromTotals, kind:c.kind || "EXPENSE" };
     });
     const fallbackCategoryId = categories.find(c=>c.name==="Otros comercios")?.id;
     TXNS = transactions.map(t=>({
