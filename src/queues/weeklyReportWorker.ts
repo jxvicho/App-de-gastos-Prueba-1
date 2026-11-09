@@ -10,7 +10,7 @@ import { claimOnce, releaseClaim } from "./dedupe";
 export const weeklyReportWorker = new Worker(
   "weekly-report",
   async (job) => {
-    const users = await prisma.user.findMany({ where: { phoneNumber: { not: null } } });
+    const users = await prisma.user.findMany({ where: { whatsappOptIn: true, phoneNumber: { not: null } } });
     console.log(`📊 Reporte semanal (trabajo ${job.id}): ${users.length} usuario(s) con teléfono...`);
 
     // Lunes 00:00 (Lima) de la semana actual hasta ahora mismo — el cron
