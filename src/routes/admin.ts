@@ -46,7 +46,51 @@ adminRouter.get(
     const counts = await prisma.user.groupBy({ by: ["plan"], _count: { _all: true } });
     const countBy = Object.fromEntries(counts.map((c) => [c.plan, c._count._all]));
     const order: Plan[] = ["FREE", "BASIC", "PRO", "UNLIMITED"];
+    const F = PLAN_FEATURES;
+    const planList = (fn: (p: Plan) => boolean): Plan[] => order.filter(fn);
+    const paid = (p: Plan) => p === "BASIC" || p === "PRO";
+
+    // Plantillas de Meta que usa el código (nombre e idioma salen del .env; ver docs/plantillas-whatsapp.md).
+    const templates = [
+      { key: "WEEKLY", name: env.WHATSAPP_TEMPLATE_WEEKLY, lang: env.WHATSAPP_TEMPLATE_LANG, header: "Imagen", vars: 6, buttons: "Ninguno",
+        use: "Resumen semanal (un mensaje por moneda con movimiento)", when: "Solo con la ventana de 24 h cerrada", plans: planList((p) => F[p].whatsapp), enabled: !!env.WHATSAPP_TEMPLATE_WEEKLY },
+      { key: "DAILY", name: env.WHATSAPP_TEMPLATE_DAILY, lang: env.WHATSAPP_TEMPLATE_LANG, header: "—", vars: 7, buttons: "Ninguno",
+        use: "Resumen diario (incluye las alertas pendientes)", when: "Solo con la ventana de 24 h cerrada", plans: planList((p) => F[p].dailySummary), enabled: !!env.WHATSAPP_TEMPLATE_DAILY },
+      { key: "TXN", name: env.WHATSAPP_TEMPLATE_TXN, lang: env.WHATSAPP_TEMPLATE_TXN_LANG, header: "—", vars: 5, buttons: "Anotar / Descartar",
+        use: "Aviso de consumo detectado que pide confirmar", when: "Solo con la ventana cerrada", plans: planList((p) => F[p].perTxnWhatsapp), enabled: !!env.WHATSAPP_TEMPLATE_TXN },
+      { key: "AUTO_TXN", name: env.WHATSAPP_TEMPLATE_AUTO_TXN, lang: env.WHATSAPP_TEMPLATE_AUTO_TXN_LANG, header: "—", vars: 5, buttons: "Ninguno",
+        use: "Aviso de consumo registrado automáticamente", when: "Solo con la ventana cerrada; sin plantilla el aviso queda en el chat web", plans: planList((p) => F[p].perTxnWhatsapp && F[p].autoRegister), enabled: !!env.WHATSAPP_TEMPLATE_AUTO_TXN },
+      { key: "BILLING", name: env.WHATSAPP_TEMPLATE_BILLING, lang: env.WHATSAPP_TEMPLATE_LANG, header: "—", vars: 2, buttons: "Ninguno",
+        use: "Cobro fallido, solo lectura, cancelación y pago recuperado", when: "Solo con la ventana cerrada y WhatsApp aceptado", plans: planList(paid), enabled: !!env.WHATSAPP_TEMPLATE_BILLING },
+    ];
+
+    // Qué resúmenes y avisos recibe cada plan, y por qué canal. null = no lo recibe.
+    const cell = (_p: Plan, ok: boolean, text: string) => (ok ? text : null);
+    const messages = [
+      { id: "weekly", label: "Resumen semanal", channel: "WhatsApp", when: "Domingo 8:00 p. m. (Lima)",
+        by: Object.fromEntries(order.map((p) => [p, cell(p, F[p].whatsapp, "Imagen con texto (ventana abierta) o plantilla semanal; uno por moneda")])) },
+      { id: "daily", label: "Resumen diario", channel: "WhatsApp", when: `Todos los días ${DAILY_SUMMARY_HOUR_LIMA}:00 a. m. (Lima)${env.SUNDAY_MERGE_DAILY_INTO_WEEKLY ? "; el domingo solo sale el semanal" : "; el domingo sale también el semanal"}`,
+        by: Object.fromEntries(order.map((p) => [p, cell(p, F[p].dailySummary, "Texto (ventana abierta) o plantilla diaria; se puede apagar")])) },
+      { id: "alerts", label: "Alertas de gasto alto", channel: "WhatsApp", when: "Al superar un umbral o presupuesto",
+        by: Object.fromEntries(order.map((p) => [p, cell(p, F[p].alerts, PLAN_LIMITS[p].monthlyReplies === 0 ? "Dentro del resumen diario (línea Avisos)" : "Inmediata con ventana abierta; si no, en el resumen diario")])) },
+      { id: "txn_wa", label: "Aviso de cada consumo detectado", channel: "WhatsApp", when: "Al leer el correo del banco",
+        by: Object.fromEntries(order.map((p) => [p, cell(p, F[p].perTxnWhatsapp, F[p].autoRegister ? "Registrado automático (texto o plantilla) o con botones Anotar/Descartar" : "Con botones Anotar/Descartar (texto o plantilla)")])) },
+      { id: "txn_web", label: "Aviso de cada consumo detectado", channel: "Chat web", when: "Al leer el correo del banco; sin costo de Meta",
+        by: Object.fromEntries(order.map((p) => [p, cell(p, F[p].emailSync, "Mensaje en el chat con botones si queda por confirmar")])) },
+      { id: "chat_web", label: "Conversación con el asistente", channel: "Chat web", when: "Cuando el usuario escribe",
+        by: Object.fromEntries(order.map((p) => [p, `${F[p].webChatDailyCap} mensajes al día`])) },
+      { id: "bot_wa", label: "Respuestas del bot a lo que el usuario escribe", channel: "WhatsApp", when: "Cuando el usuario escribe",
+        by: Object.fromEntries(order.map((p) => [p, !F[p].whatsapp ? null : PLAN_LIMITS[p].monthlyReplies === null ? "Sin tope mensual" : `${PLAN_LIMITS[p].monthlyReplies} al mes`])) },
+      { id: "billing_wa", label: "Avisos de cobro y suscripción", channel: "WhatsApp y correo", when: "2.º fallo, solo lectura, cancelación, pago recuperado",
+        by: Object.fromEntries(order.map((p) => [p, cell(p, paid(p), "Correo siempre; WhatsApp si aceptó mensajes (texto o plantilla de cobro)")])) },
+      { id: "precharge", label: "Aviso previo del primer cobro anual", channel: "Correo", when: "2 días antes (solo con pagos activos)",
+        by: Object.fromEntries(order.map((p) => [p, cell(p, paid(p), "Correo")])) },
+    ];
+
     res.json({
+      templates: templates.map((t) => ({ ...t, name: t.name || null })),
+      messages,
+      sundayMerge: env.SUNDAY_MERGE_DAILY_INTO_WEEKLY,
       plans: order.map((p) => ({
         id: p,
         label: PLAN_LABELS[p],

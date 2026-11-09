@@ -122,6 +122,16 @@ ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;fo
       <div class="tablewrap"><table class="matrix" id="planMatrix"></table></div>
     </div>
     <div class="card"><h3>Precios y pruebas</h3><div class="tablewrap"><table class="matrix" id="planPrices"></table></div></div>
+    <div class="card">
+      <h3>Resúmenes y avisos por plan</h3>
+      <p class="help" style="margin:0 0 10px">Qué mensajes emite Gastia y por qué canal (WhatsApp, chat web o correo) para cada plan. “—” significa que ese plan no lo recibe.</p>
+      <div class="tablewrap"><table class="matrix" id="planMsgs"></table></div>
+    </div>
+    <div class="card">
+      <h3>Plantillas de WhatsApp (Meta)</h3>
+      <p class="help" style="margin:0 0 10px">Fuera de las 24 h desde el último mensaje del usuario, Meta solo permite plantillas aprobadas. El nombre y el idioma salen del <code>.env</code> y deben coincidir exactamente con los de Meta. Aquí no se puede ver si Meta ya las aprobó: eso se revisa en WhatsApp Manager.</p>
+      <div class="tablewrap"><table class="matrix" id="planTpls"></table></div>
+    </div>
     <div class="card"><h3>Condiciones</h3><ul class="cond" id="planConds"></ul></div>
     <div class="card"><h3>Topes y costos generales</h3><div class="tablewrap"><table class="matrix" id="planGlobal"></table></div></div>
   </section>
@@ -234,6 +244,15 @@ ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;fo
         "<b>Promociones y planes temporales:</b> mientras estén vigentes reemplazan el plan base del usuario y se aplican sus funciones y topes.",
         "<b>Plan Gratis hoy:</b> no se asigna solo al registrarse; se pone desde Usuarios (plan temporal) o promoción. Un usuario Gratis con correo ya conectado queda en pausa, sin perder datos."
       ].map(function(t){return "<li>"+t+"</li>"}).join("");
+      var M=d.messages;
+      $("planMsgs").innerHTML=head().replace('<th></th>','<th>Mensaje</th>')+'<tbody>'+M.map(function(m){
+        return '<tr><td>'+esc(m.label)+' <span class="pill">'+esc(m.channel)+'</span><small>'+esc(m.when)+'</small></td>'+P.map(function(p){var v=m.by[p.id];return '<td class="c'+cls(p)+'" style="font-size:13px">'+(v?esc(v):'<span class="no">—</span>')+'</td>'}).join("")+'</tr>'
+      }).join("")+'</tbody>';
+      var T=d.templates;
+      $("planTpls").innerHTML='<thead><tr><th>Plantilla</th><th>Uso</th><th>Idioma</th><th>Encabezado</th><th>Variables</th><th>Botones</th><th>Planes</th><th>Estado</th></tr></thead><tbody>'+T.map(function(t){
+        var pl=t.plans.length?t.plans.map(function(id){return esc(PLAN[id])}).join(", "):"Ninguno";
+        return '<tr><td>'+(t.name?'<code>'+esc(t.name)+'</code>':'<span class="no">sin nombre</span>')+'</td><td>'+esc(t.use)+'<small>'+esc(t.when)+'</small></td><td>'+esc(t.lang)+'</td><td>'+esc(t.header)+'</td><td>'+t.vars+'</td><td>'+esc(t.buttons)+'</td><td>'+pl+'</td><td>'+(t.enabled?'<span class="pill ok">Configurada</span>':'<span class="pill warn">Desactivada</span>')+'</td></tr>'
+      }).join("")+'</tbody>';
       $("planGlobal").innerHTML='<tbody>'+
         '<tr><td>Tope duro de mensajes salientes por usuario al día<small>Cualquier plan, WhatsApp</small></td><td>'+G.dailyHardCapPerUser+'</td></tr>'+
         '<tr><td>Tarifa Meta (Perú, por mensaje)</td><td>US$ '+G.metaRateUsd.toFixed(3)+'</td></tr>'+

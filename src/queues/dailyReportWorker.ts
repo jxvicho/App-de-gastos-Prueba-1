@@ -6,6 +6,7 @@ import { sendDailyReportToUser } from "../services/dailyReportSender";
 import { currentLimaHour } from "../services/weeklyReportData";
 import { getEffectivePlan } from "../services/plans";
 import { DAILY_SUMMARY_HOUR_LIMA, PLAN_FEATURES } from "../config/plans";
+import { claimOnce, releaseClaim } from "./dedupe";
 
 export const dailyReportWorker = new Worker(
   "daily-report",
@@ -28,8 +29,17 @@ export const dailyReportWorker = new Worker(
         if (!PLAN_FEATURES[eff.plan].dailySummary) continue;
         // Pro y Unlimited pueden apagarlo.
         if (!user.dailySummaryEnabled) continue;
+        // Una sola vez por usuario y día (Lima), aunque el trabajo se ejecute dos veces.
+        const dayKey = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+        const claim = `daily-report:sent:${dayKey}:${user.id}`;
+        if (!(await claimOnce(claim, 2 * 86_400))) continue;
         sent++;
-        await sendDailyReportToUser(user);
+        try {
+          await sendDailyReportToUser(user);
+        } catch (err) {
+          await releaseClaim(claim);
+          throw err;
+        }
       } catch (err) {
         console.error(`❌ Error mandando el reporte diario a ${user.name}:`, err);
       }
