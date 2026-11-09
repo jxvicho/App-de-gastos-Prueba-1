@@ -154,7 +154,13 @@
   .pet{background:#fff;border:2px solid var(--line);border-radius:16px;padding:10px 4px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--ink-soft);min-height:92px;}
   .pet img{width:54px;height:54px;object-fit:contain;}
   .pet[aria-checked="true"]{border-color:var(--blue-500);background:#f3f8ff;color:var(--blue-700);box-shadow:0 0 0 3px rgba(36,114,200,.14);}
+  .pet.none{grid-column:1/-1;flex-direction:row;justify-content:center;gap:10px;min-height:52px;padding:10px 14px;font-size:14px;border-style:dashed;}
+  .pet.none .ni{font-size:22px;line-height:1;}
+  .pet.none[aria-checked="true"]{border-style:solid;}
   .name{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--ink-soft);}
+  .nopet .guide .pipo, .nopet #petPreviewWrap{display:none !important;}
+  .nopet .name{display:none;}
+  .nopet .guide{min-height:0;padding-top:10px;}
   .name input{border:2px solid var(--line);border-radius:12px;padding:12px 14px;font-size:16px;font-family:inherit;color:var(--navy);font-weight:700;}
   .name input:focus{outline:none;border-color:var(--blue-500);box-shadow:0 0 0 3px rgba(36,114,200,.15);}
 
@@ -272,14 +278,15 @@
     <!-- 5 · MASCOTA -->
     <section class="step" id="s5" aria-labelledby="t5">
       <h2 id="t5">Elige a tu compañero</h2>
-      <p class="lead">Te acompaña en el dashboard y te avisa de tus gastos. Puedes cambiarlo después.</p>
+      <p class="lead">Te acompaña en el dashboard y te avisa de tus gastos. Es opcional: puedes elegir ninguno y cambiarlo o quitarlo después.</p>
       <div class="pets" role="radiogroup" aria-label="Mascota" id="pets">
         <button class="pet" role="radio" aria-checked="true" data-pet="dog"><img src="../../public/assets/mascots/dog-head.png" alt="">Perro</button>
         <button class="pet" role="radio" aria-checked="false" data-pet="cat"><img src="../../public/assets/mascots/cat-head.png" alt="">Gato</button>
         <button class="pet" role="radio" aria-checked="false" data-pet="capybara"><img src="../../public/assets/mascots/capybara-head.png" alt="">Capibara</button>
         <button class="pet" role="radio" aria-checked="false" data-pet="pig"><img src="../../public/assets/mascots/pig-head.png" alt="">Chancho</button>
+        <button class="pet none" role="radio" aria-checked="false" data-pet="none"><span class="ni" aria-hidden="true">🚫</span>Sin compañero, prefiero solo la app</button>
       </div>
-      <div style="display:flex;justify-content:center;margin:4px 0 12px"><div class="pipo idle" id="petPreview" style="--s:150px"><div class="pipo-s"></div></div></div>
+      <div id="petPreviewWrap" style="display:flex;justify-content:center;margin:4px 0 12px"><div class="pipo idle" id="petPreview" style="--s:150px"><div class="pipo-s"></div></div></div>
       <label class="name">Ponle nombre<input id="petName" maxlength="14" value="Pipo" autocomplete="off"></label>
     </section>
 
@@ -310,7 +317,7 @@
   var $$ = function(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); };
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  var PETS = { dog:"Pipo", cat:"Michi", capybara:"Capi", pig:"Chanchi" };
+  var PETS = { dog:"Pipo", cat:"Michi", capybara:"Capi", pig:"Chanchi", none:"" };
   var state = { step:0, goal:null, pet:"dog", petName:"Pipo", anotado:false, total:0, count:0, typed:false };
   var timers = [];
   function later(fn,ms){ var t=setTimeout(fn,ms); timers.push(t); return t; }
@@ -328,9 +335,9 @@
       note:["<b>Qué hace:</b> animación de 5 segundos: llega el correo del banco → se resaltan monto y comercio → aparece el gasto ya categorizado → llega el aviso por WhatsApp.","<b>Por qué:</b> es la ventaja que Pablo no tiene (él depende de que el usuario escriba, mande foto o audio). Gastia registra solo; esta pantalla lo hace visible.","<b>Cuidado:</b> usa “Tu banco” genérico, sin logos reales."] },
     { cta:"Entiendo, continuar", bubble:function(){ return "Te cuento qué hago con tu correo, sin letra chica."; },
       note:["<b>Qué hace:</b> tres tarjetas: qué leemos, qué nunca vemos, cómo se corta el acceso.","<b>Por qué:</b> conectar el correo es el mayor miedo del usuario y la mayor causa de abandono. Resolverlo ANTES de pedir el registro sube la confianza.","<b>A validar:</b> que cada frase coincida con la política de privacidad y con la configuración real (bancos elegidos, desconectar, borrar datos) antes de publicar."] },
-    { cta:"Continuar", bubble:function(){ return "Elige quién te acompaña. ¡Yo me ofrezco! 🐾"; },
-      note:["<b>Qué hace:</b> elige entre las 4 mascotas con vista previa de pie y nombre.","<b>Por qué:</b> es personalización que se siente como un regalo y aumenta el apego antes del registro. Ya existe en el dashboard; aquí se adelanta.","<b>Nota:</b> los nombres por defecto de gato, capibara y chancho son de ejemplo."] },
-    { cta:"Crear mi cuenta", bubble:function(){ return state.petName+" ya está listo. ¡Solo falta tu cuenta!"; },
+    { cta:"Continuar", bubble:function(){ return state.pet==="none" ? "Sin problema: tu dashboard queda limpio, solo lo esencial." : "Elige quién te acompaña. ¡Yo me ofrezco! 🐾 (o ninguno, tú decides)"; },
+      note:["<b>Qué hace:</b> elige entre las 4 mascotas con vista previa de pie y nombre, o <b>ninguna</b> (botón “Sin compañero”).","<b>Sin compañero:</b> se oculta la mascota guía, la vista previa y el campo de nombre; el avatar del chat usa el logo de Gastia y el mensaje final cambia. Se envía <i>mascota=none</i> a /registro (el backend ya admite <i>PetType.none</i>).","<b>Por qué:</b> es personalización que se siente como un regalo y aumenta el apego antes del registro. Ofrecer “ninguno” evita que quien prefiere algo sobrio sienta que la app es infantil, y no frena el avance. Ya existe en el dashboard; aquí se adelanta.","<b>Nota:</b> los nombres por defecto de gato, capibara y chancho son de ejemplo."] },
+    { cta:"Crear mi cuenta", bubble:function(){ return state.pet==="none" ? "Todo listo. ¡Solo falta tu cuenta!" : state.petName+" ya está listo. ¡Solo falta tu cuenta!"; },
       note:["<b>Qué hace:</b> resume los 3 pasos que siguen y lleva a <i>/registro</i> (formulario actual), pasando la meta, la mascota y el nombre elegidos.","<b>Por qué:</b> pedir el registro al final, con el valor ya visto, evita el rechazo de “crear cuenta” a ciegas.","<b>Plan y pago:</b> no se muestra aquí. La prueba gratis y los planes siguen en Configuración, como hoy; si luego quieres, se puede añadir una pantalla de planes tipo Pablo."] }
   ];
   var LAST = STEPS.length-1;
@@ -341,6 +348,7 @@
       heroPipo=$("#heroPipo"), guidePipo=$("#guidePipo"), notesBtn=$("#notesBtn"), notes=$("#notes");
 
   function setSheets(t){
+    if(t==="none") return;
     var r=document.documentElement.style;
     r.setProperty("--stand","url(../../public/assets/mascots/"+t+"-stand.png)");
     r.setProperty("--wave","url(../../public/assets/mascots/"+t+"-wave.png)");
@@ -375,13 +383,13 @@
     if(n===2) startDemo();
     if(n===3) playMagic();
     if(n===5) pose($("#petPreview"),"wave",1400);
-    if(n===6){ $("#s6lead").textContent="Elegiste a "+state.petName+(state.goal?" y tu meta ya está anotada.":".")+" Son tres pasos y menos de dos minutos:"; }
+    if(n===6){ $("#s6lead").textContent=(state.pet==="none" ? (state.goal?"Tu meta ya está anotada.":"") : "Elegiste a "+state.petName+(state.goal?" y tu meta ya está anotada.":"."))+" Son tres pasos y menos de dos minutos:"; }
     renderNotes();
     window.scrollTo({top:0,behavior:reduce?"auto":"smooth"});
     var h=$("#s"+n+" h1, #s"+n+" h2"); if(h && dir!==undefined){ h.setAttribute("tabindex","-1"); h.focus({preventScroll:true}); }
   }
   next.addEventListener("click",function(){
-    if(state.step===LAST){ var q=new URLSearchParams({from:"empezar",meta:state.goal||"",mascota:state.pet,nombre:state.petName}); location.href="/registro?"+q.toString(); return; }
+    if(state.step===LAST){ var q=new URLSearchParams({from:"empezar",meta:state.goal||"",mascota:state.pet,nombre:state.pet==="none"?"":state.petName}); location.href="/registro?"+q.toString(); return; }
     go(state.step+1,1);
   });
   back.addEventListener("click",function(){ go(state.step-1,-1); });
@@ -440,7 +448,7 @@
   function botSay(text,delay,cb){ var ty=typing(); later(function(){ ty.remove(); var m=addMsg(text,"in"); if(cb) cb(m); },delay||900); }
   var busy=false;
   function startDemo(){
-    setSheets(state.pet); $("#waAvatar").src="../../public/assets/mascots/"+state.pet+"-head.png";
+    if(state.pet!=="none") setSheets(state.pet); applyPetMode();
     msgs.innerHTML=""; state.anotado=false; state.total=0; state.count=0; busy=false;
     botSay("¡Hola! 👋 Cuéntame tu última compra, como se la contarías a un amigo, y mira cómo la registro al instante.",600);
     later(function(){ if(matchMedia("(hover:hover)").matches) input.focus({preventScroll:true}); },900);
@@ -491,11 +499,19 @@
     var b=e.target.closest(".pet"); if(!b) return;
     $$("#pets .pet").forEach(function(o){ o.setAttribute("aria-checked", o===b?"true":"false"); });
     var prevDefault=PETS[state.pet], inp=$("#petName");
-    state.pet=b.dataset.pet; setSheets(state.pet);
-    if(!inp.value.trim() || inp.value===prevDefault){ inp.value=PETS[state.pet]; state.petName=inp.value; }
+    state.pet=b.dataset.pet;
+    applyPetMode();
+    if(state.pet==="none"){ bubble.textContent=STEPS[5].bubble(); return; }
+    setSheets(state.pet);
+    if(!inp.value.trim() || inp.value===prevDefault || !prevDefault){ inp.value=PETS[state.pet]; state.petName=inp.value; }
     pose($("#petPreview"),"wave",1400); pose(guidePipo,"wave",1400);
   });
   $("#petName").addEventListener("input",function(e){ state.petName=e.target.value.trim()||PETS[state.pet]; });
+  // Sin compañero: se oculta la mascota guía, la vista previa y el nombre; el avatar del chat usa el logo de Gastia.
+  function applyPetMode(){
+    document.body.classList.toggle("nopet", state.pet==="none");
+    $("#waAvatar").src = state.pet==="none" ? "../../public/icons/logo-gastia.svg" : "../../public/assets/mascots/"+state.pet+"-head.png";
+  }
 
   /* ---------- notas de diseño ---------- */
   function renderNotes(){
