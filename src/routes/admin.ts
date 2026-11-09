@@ -62,6 +62,8 @@ adminRouter.get(
         use: "Aviso de consumo registrado automáticamente", when: "Solo con la ventana cerrada; sin plantilla el aviso queda en el chat web", plans: planList((p) => F[p].perTxnWhatsapp && F[p].autoRegister), enabled: !!env.WHATSAPP_TEMPLATE_AUTO_TXN },
       { key: "BILLING", name: env.WHATSAPP_TEMPLATE_BILLING, lang: env.WHATSAPP_TEMPLATE_LANG, header: "—", vars: 2, buttons: "Ninguno",
         use: "Cobro fallido, solo lectura, cancelación y pago recuperado", when: "Solo con la ventana cerrada y WhatsApp aceptado", plans: planList(paid), enabled: !!env.WHATSAPP_TEMPLATE_BILLING },
+      { key: "VERIFY", name: env.WHATSAPP_TEMPLATE_VERIFY, lang: env.WHATSAPP_TEMPLATE_VERIFY_LANG, header: "—", vars: 1, buttons: "Copiar código",
+        use: "Código de 6 dígitos para verificar el número al vincular WhatsApp", when: "Siempre (el número aún no abrió conversación)", plans: planList((p) => F[p].whatsapp), enabled: !!env.WHATSAPP_TEMPLATE_VERIFY },
     ];
 
     // Qué resúmenes y avisos recibe cada plan, y por qué canal. null = no lo recibe.

@@ -5,6 +5,12 @@ import { AppError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { env } from "../config/env";
+import { rateLimit } from "../middleware/rateLimit";
+import { redisConnection } from "../queues/redisConnection";
+import { claimOnce } from "../queues/dedupe";
+import { sendTemplateMessage } from "../services/whatsapp";
 import { getEffectivePlan } from "../services/plans";
 import { PLAN_LABELS, PLAN_FEATURES } from "../config/plans";
 
@@ -217,33 +223,98 @@ profileRouter.patch(
 );
 
 const setPhoneSchema = z.object({ phoneNumber: z.string().min(6, "Escribe tu número de WhatsApp") });
+const verifyPhoneSchema = z.object({ code: z.string().regex(/^\d{6}$/, "El código tiene 6 dígitos") });
 
-/** Vincular (o cambiar) el celular de WhatsApp desde Configuración. Solo planes con WhatsApp (Pro). */
-profileRouter.patch(
-  "/phone",
+const VERIFY_TTL_S = 10 * 60;
+const VERIFY_MAX_ATTEMPTS = 5;
+const verifyKey = (userId: string) => `phoneverify:${userId}`;
+const hashCode = (userId: string, phone: string, code: string) =>
+  crypto.createHash("sha256").update(`${userId}|${phone}|${code}|${env.JWT_SECRET}`).digest("hex");
+const maskPhone = (p: string) => `${p.slice(0, 3)} ${p.slice(3, 4)}•• ••• ${p.slice(-3)}`;
+
+async function assertWhatsappPlan(userId: string) {
+  const cur = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { plan: true, planOverride: true, planOverrideUntil: true, phoneNumber: true },
+  });
+  if (!PLAN_FEATURES[(await getEffectivePlan(cur)).plan].whatsapp) {
+    throw new AppError("Vincular WhatsApp es parte del plan Pro.", 403, "PLAN_FEATURE");
+  }
+  return cur;
+}
+
+/** Paso 1: pide vincular un número. Se envía un código de 6 dígitos por WhatsApp a ese número. */
+profileRouter.post(
+  "/phone/request",
+  rateLimit({ name: "phone-request", windowMs: 60 * 60 * 1000, max: 5, message: "Pediste demasiados códigos. Inténtalo en una hora." }),
   asyncHandler(async (req, res) => {
     const parsed = setPhoneSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? "Número inválido", 422);
-    const cur = await prisma.user.findUniqueOrThrow({
-      where: { id: req.userId },
-      select: { plan: true, planOverride: true, planOverrideUntil: true, phoneNumber: true },
-    });
-    if (!PLAN_FEATURES[(await getEffectivePlan(cur)).plan].whatsapp) {
-      throw new AppError("Vincular WhatsApp es parte del plan Pro.", 403, "PLAN_FEATURE");
-    }
+    const cur = await assertWhatsappPlan(req.userId!);
     const cleaned = parsed.data.phoneNumber.replace(/[^\d+]/g, "");
     const phoneNumber = cleaned.startsWith("+") ? cleaned : `+51${cleaned}`;
     if (!/^\+\d{8,15}$/.test(phoneNumber)) {
       throw new AppError("El número de WhatsApp no es válido. Inclúyelo con código de país, ej: +51987654321", 422);
     }
+    if (cur.phoneNumber === phoneNumber) throw new AppError("Ese número ya está vinculado a tu cuenta.", 409);
     const other = await prisma.user.findUnique({ where: { phoneNumber }, select: { id: true } });
     if (other && other.id !== req.userId) throw new AppError("Ya existe una cuenta con ese número de WhatsApp", 409);
-    // Un número nuevo exige volver a aceptar los mensajes y reinicia la ventana de 24 h.
-    const changed = cur.phoneNumber !== phoneNumber;
+
+    // Un código por número cada 60 s (evita que alguien use la app para spamear a un tercero).
+    if (!(await claimOnce(`phoneverify:cool:${phoneNumber}`, 60))) {
+      throw new AppError("Espera un minuto antes de pedir otro código.", 429);
+    }
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+    await redisConnection.set(
+      verifyKey(req.userId!),
+      JSON.stringify({ phone: phoneNumber, hash: hashCode(req.userId!, phoneNumber, code), attempts: 0 }),
+      "EX",
+      VERIFY_TTL_S
+    );
+
+    const wamid = await sendTemplateMessage(phoneNumber.replace(/^\+/, ""), env.WHATSAPP_TEMPLATE_VERIFY, env.WHATSAPP_TEMPLATE_VERIFY_LANG, [code], {
+      kind: "verification",
+      urlButtonSuffix: code,
+    });
+    if (!wamid) {
+      if (env.NODE_ENV !== "production") console.warn(`[verificación] Código para ${phoneNumber}: ${code} (no se pudo enviar por WhatsApp)`);
+      else {
+        await redisConnection.del(verifyKey(req.userId!));
+        throw new AppError("No pudimos enviar el código por WhatsApp. Revisa el número e inténtalo de nuevo.", 502);
+      }
+    }
+    res.json({ ok: true, phone: maskPhone(phoneNumber), expiresInSec: VERIFY_TTL_S });
+  })
+);
+
+/** Paso 2: confirma el código recibido y recién entonces vincula el número. */
+profileRouter.post(
+  "/phone/verify",
+  asyncHandler(async (req, res) => {
+    const parsed = verifyPhoneSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? "Código inválido", 422);
+    await assertWhatsappPlan(req.userId!);
+    const raw = await redisConnection.get(verifyKey(req.userId!));
+    if (!raw) throw new AppError("El código venció o no pediste uno. Solicita uno nuevo.", 410);
+    const st = JSON.parse(raw) as { phone: string; hash: string; attempts: number };
+    if (st.attempts >= VERIFY_MAX_ATTEMPTS) {
+      await redisConnection.del(verifyKey(req.userId!));
+      throw new AppError("Demasiados intentos. Solicita un código nuevo.", 429);
+    }
+    if (hashCode(req.userId!, st.phone, parsed.data.code) !== st.hash) {
+      st.attempts += 1;
+      const ttl = await redisConnection.ttl(verifyKey(req.userId!));
+      await redisConnection.set(verifyKey(req.userId!), JSON.stringify(st), "EX", Math.max(ttl, 1));
+      throw new AppError(`Código incorrecto. Te quedan ${Math.max(VERIFY_MAX_ATTEMPTS - st.attempts, 0)} intento(s).`, 422);
+    }
+    const other = await prisma.user.findUnique({ where: { phoneNumber: st.phone }, select: { id: true } });
+    if (other && other.id !== req.userId) throw new AppError("Ya existe una cuenta con ese número de WhatsApp", 409);
+    // Número nuevo: exige volver a aceptar los mensajes y reinicia la ventana de 24 h.
     await prisma.user.update({
       where: { id: req.userId },
-      data: changed ? { phoneNumber, whatsappOptIn: false, lastInboundAt: null } : {},
+      data: { phoneNumber: st.phone, whatsappOptIn: false, lastInboundAt: null },
     });
-    res.json({ ok: true, whatsappPhone: `${phoneNumber.slice(0, 3)} ${phoneNumber.slice(3, 4)}•• ••• ${phoneNumber.slice(-3)}` });
+    await redisConnection.del(verifyKey(req.userId!));
+    res.json({ ok: true, whatsappPhone: maskPhone(st.phone) });
   })
 );

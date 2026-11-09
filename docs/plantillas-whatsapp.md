@@ -81,6 +81,12 @@ si ese día no hubo gastos ni pendientes.
 - Sin botones. Ninguna variable al inicio ni al final del texto (ya cumple la regla de Meta).
 - Se manda en el 2.º cobro fallido, al pasar a solo lectura (3.er fallo), al cancelarse la suscripción y al recuperar el pago. Con la ventana abierta va como texto normal.
 
+## 5. `gastia_codigo_verificacion` (código al vincular el número, plan Pro)
+- Categoría: **Autenticación**. Idioma: **Español (PER)** → `es_PE` (`WHATSAPP_TEMPLATE_VERIFY_LANG`). Nombre en `WHATSAPP_TEMPLATE_VERIFY`.
+- Se crea con el tipo "Código de un solo uso" de Meta: cuerpo fijo (`*{{1}}* es tu código de verificación.`), con botón **Copiar código** (el código también viaja como parámetro del botón) y tiempo de vencimiento opcional (10 min).
+- Se manda al número que el usuario quiere vincular (Configuración > Gastia en WhatsApp). Siempre es plantilla: ese número aún no abrió conversación.
+- Sin esta plantilla aprobada, en producción vincular falla con "No pudimos enviar el código"; en desarrollo el código se imprime en el log del backend.
+
 ## Suscripciones (Culqi): configuración y prueba en sandbox
 Variables en el `.env` (NUNCA se suben a git): `PAYMENTS_ENABLED`, `CULQI_PUBLIC_KEY` (pk_test_…), `CULQI_SECRET_KEY` (sk_test_…) y `CULQI_WEBHOOK_SECRET` (una cadena larga aleatoria que inventes).
 1. `docker compose up --build -d` (aplica la migración `20261030150000_billing_culqi`).

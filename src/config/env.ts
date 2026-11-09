@@ -71,6 +71,9 @@ const envSchema = z.object({
   // Secreto que va en la URL del webhook (Culqi no firma los eventos): /api/billing/culqi-webhook/<secreto>
   CULQI_WEBHOOK_SECRET: z.string().optional().default(""),
   // Plantilla de WhatsApp (aprobada por Meta) para avisar de un cobro fallido fuera de la ventana de 24 h.
+  // Plantilla de autenticación (código de 6 dígitos) para verificar el número al vincular WhatsApp. Variable {{1}} = código.
+  WHATSAPP_TEMPLATE_VERIFY: z.string().default("gastia_codigo_verificacion"),
+  WHATSAPP_TEMPLATE_VERIFY_LANG: z.string().default("es_PE"),
   WHATSAPP_TEMPLATE_BILLING: z.string().default("gastia_cobro_fallido"),
 
   // Correos con acceso al panel de administración (/admin.html), separados por coma. Vacío = nadie.

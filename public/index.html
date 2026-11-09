@@ -1550,6 +1550,11 @@ body.cal-open .controls{z-index:70;}
             <div class="wa-link-row"><input type="tel" id="waPhoneInput" placeholder="+51 987 654 321" autocomplete="tel" aria-label="Número de WhatsApp"><button type="button" id="waPhoneBtn">Vincular</button></div>
             <div class="wa-link-hint">Debe ser el número desde el que le escribirás a Gastia. Con código de país; si no lo pones, asumimos Perú (+51).</div>
             <div class="wa-link-err" id="waPhoneErr"></div>
+            <div id="waCodeBox" style="display:none;margin-top:10px;">
+              <div class="wa-link-hint" id="waCodeHint" style="margin-bottom:6px;"></div>
+              <div class="wa-link-row"><input type="text" id="waCodeInput" inputmode="numeric" maxlength="6" pattern="\\d{6}" placeholder="Código de 6 dígitos" autocomplete="one-time-code" aria-label="Código de verificación"><button type="button" id="waCodeBtn">Confirmar</button></div>
+              <button type="button" class="wa-change" id="waCodeCancel" style="margin-top:6px;">Usar otro número</button>
+            </div>
           </div>
           <button type="button" class="wa-change" id="waChange" style="display:none;">Cambiar número</button>
         </div>
@@ -3274,17 +3279,37 @@ function updateWaCard(){
   document.getElementById("waLink").style.display = canWa && (!state.whatsappPhone || waEditing) ? "" : "none";
   document.getElementById("waChange").style.display = canWa && state.whatsappPhone && !waEditing ? "" : "none";
 }
-document.getElementById("waChange").addEventListener("click", ()=>{ waEditing = true; updateWaCard(); document.getElementById("waPhoneInput").focus(); });
+document.getElementById("waChange").addEventListener("click", ()=>{ waEditing = true; waResetCode(); updateWaCard(); document.getElementById("waPhoneInput").focus(); });
+function waResetCode(){
+  document.getElementById("waCodeBox").style.display = "none";
+  document.getElementById("waCodeInput").value = "";
+  document.getElementById("waPhoneBtn").textContent = "Enviar código";
+  document.getElementById("waPhoneInput").disabled = false;
+}
+document.getElementById("waPhoneBtn").textContent = "Enviar código";
 document.getElementById("waPhoneBtn").addEventListener("click", async ()=>{
   const inp = document.getElementById("waPhoneInput"), err = document.getElementById("waPhoneErr"), btn = document.getElementById("waPhoneBtn");
   err.textContent = ""; btn.disabled = true;
   try {
-    const r = await api("/profile/phone", { method:"PATCH", body: JSON.stringify({ phoneNumber: inp.value }) });
+    const r = await api("/profile/phone/request", { method:"POST", body: JSON.stringify({ phoneNumber: inp.value }) });
+    document.getElementById("waCodeHint").textContent = "Te enviamos un código por WhatsApp al " + r.phone + ". Vence en 10 minutos.";
+    document.getElementById("waCodeBox").style.display = "";
+    btn.textContent = "Reenviar código"; inp.disabled = true;
+    document.getElementById("waCodeInput").focus();
+  } catch(e){ err.textContent = e.message; }
+  finally { btn.disabled = false; }
+});
+document.getElementById("waCodeCancel").addEventListener("click", ()=>{ waResetCode(); document.getElementById("waPhoneErr").textContent=""; document.getElementById("waPhoneInput").focus(); });
+document.getElementById("waCodeBtn").addEventListener("click", async ()=>{
+  const err = document.getElementById("waPhoneErr"), btn = document.getElementById("waCodeBtn");
+  err.textContent = ""; btn.disabled = true;
+  try {
+    const r = await api("/profile/phone/verify", { method:"POST", body: JSON.stringify({ code: document.getElementById("waCodeInput").value.trim() }) });
     state.whatsappPhone = r.whatsappPhone; state.hasPhone = true; state.whatsappOptIn = false;
     if(state.profile){ state.profile.whatsappPhone = r.whatsappPhone; state.profile.hasPhone = true; state.profile.whatsappOptIn = false; }
-    waEditing = false; inp.value = "";
+    waEditing = false; waResetCode(); document.getElementById("waPhoneInput").value = "";
     updateWaCard(); renderProfile(); renderDaily();
-    uiAlert("Número vinculado. Para recibir mensajes por WhatsApp, marca \"Acepto recibir mensajes\" en Editar perfil.");
+    uiAlert("Número verificado y vinculado. Para recibir mensajes por WhatsApp, marca \"Acepto recibir mensajes\" en Editar perfil.");
   } catch(e){ err.textContent = e.message; }
   finally { btn.disabled = false; }
 });
