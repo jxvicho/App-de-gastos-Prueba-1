@@ -5073,6 +5073,7 @@ body.wc-big{overflow:hidden;}
 .wc-form .wc-ic.rec{background:#fde8e8;border-color:#e05252;animation:wcPulse 1s infinite;}
 @keyframes wcPulse{50%{opacity:.55}}
 .wc-hint{text-align:center;color:var(--ink-faint);font-size:12px;padding:4px 0;}
+.wc-ic.locked{opacity:.55;}
 @media (max-width:520px){#wcPanel{right:8px;bottom:80px;}.wc-form{gap:6px;padding:8px;}.wc-form .wc-ic{padding:0 8px;}.wc-form button#wcSend{padding:0 12px;}}
 </style>
 <button id="wcFab" type="button" aria-label="Abrir chat de Gastia" title="Chat de Gastia">💬<span id="wcBadge"></span></button>
@@ -5080,7 +5081,7 @@ body.wc-big{overflow:hidden;}
   <div class="wc-head"><div>Chat de Gastia<small id="wcSub">Pregúntame o registra un gasto</small></div><div class="wc-tools"><button type="button" id="wcExpand" aria-label="Ampliar chat" title="Ampliar">⤢</button><button type="button" id="wcClose" aria-label="Cerrar">×</button></div></div>
   <div id="wcMsgs"></div>
   <div id="wcReply"><span id="wcReplyTxt"></span><button type="button" id="wcReplyX" aria-label="Quitar respuesta">✕</button></div>
-  <form class="wc-form" id="wcForm"><button type="button" class="wc-ic" id="wcAttach" title="Adjuntar captura" aria-label="Adjuntar captura">📎</button><button type="button" class="wc-ic" id="wcMic" title="Nota de voz" aria-label="Grabar nota de voz">🎤</button><input type="file" id="wcFile" accept="image/jpeg,image/png,image/webp" hidden><textarea id="wcInput" rows="1" maxlength="1000" autocomplete="off" placeholder="Escribe un mensaje…"></textarea><button id="wcSend" type="submit">Enviar</button></form>
+  <form class="wc-form" id="wcForm"><button type="button" class="wc-ic" id="wcAttach" title="Subir o tomar una foto" aria-label="Subir o tomar una foto">📷</button><button type="button" class="wc-ic" id="wcMic" title="Nota de voz" aria-label="Grabar nota de voz">🎤</button><input type="file" id="wcFile" accept="image/jpeg,image/png,image/webp" hidden><textarea id="wcInput" rows="1" maxlength="1000" autocomplete="off" placeholder="Escribe un mensaje…"></textarea><button id="wcSend" type="submit">Enviar</button></form>
 </div>
 <script>
 (function(){
@@ -5168,7 +5169,10 @@ body.wc-big{overflow:hidden;}
     busy=false; sendBtn.disabled=false; scrollEnd();
   }
   const fileIn=document.getElementById("wcFile"), micBtn=document.getElementById("wcMic");
-  document.getElementById("wcAttach").addEventListener("click",()=>fileIn.click());
+  // Voz y fotos son de Pro: los íconos se ven siempre; en Gratis explican el plan en vez de abrirse.
+  var mediaOk=true;
+  function proMediaNotice(){ addMsg({role:"bot",text:"📷 Las fotos y 🎤 las notas de voz son parte del plan Pro. En Gratis puedes escribirme tus gastos, por ejemplo «almuerzo 18». Pasa a Pro desde Configuración › Plan y suscripción."}); scrollEnd(); }
+  document.getElementById("wcAttach").addEventListener("click",()=>{ if(!mediaOk){ proMediaNotice(); return; } fileIn.click(); });
   fileIn.addEventListener("change",()=>{
     const f=fileIn.files[0]; fileIn.value=""; if(!f) return;
     if(f.size>5*1024*1024){ addMsg({role:"bot",text:"La imagen supera 5 MB."}); return; }
@@ -5177,6 +5181,7 @@ body.wc-big{overflow:hidden;}
   let rec=null, chunks=[], recTimer=null;
   function stopRec(){ if(rec && rec.state!=="inactive") rec.stop(); }
   micBtn.addEventListener("click", async ()=>{
+    if(!mediaOk){ proMediaNotice(); return; }
     if(rec && rec.state==="recording"){ stopRec(); return; }
     if(!navigator.mediaDevices || !window.MediaRecorder){ addMsg({role:"bot",text:"Tu navegador no permite grabar audio."}); return; }
     try{
@@ -5238,7 +5243,7 @@ body.wc-big{overflow:hidden;}
   input.addEventListener("keydown",e=>{ if(e.key==="Enter" && !e.shiftKey && !touchDevice && !e.isComposing){ e.preventDefault(); form.requestSubmit(); } });
   form.addEventListener("submit",e=>{ e.preventDefault(); const t=input.value.trim(); if(!t) return; input.value=""; input.style.height=""; disableOldButtons(); send({text:t}); });
   // El botón solo aparece si el backend tiene el chat web habilitado.
-  api("/chat/config").then(c=>{ if(c && c.enabled){ if(!c.media){ document.getElementById("wcAttach").style.display="none"; document.getElementById("wcMic").style.display="none"; } fab.classList.add("show"); loadHistory(); } }).catch(()=>{});
+  api("/chat/config").then(c=>{ if(c && c.enabled){ mediaOk=!!c.media; if(!mediaOk){ document.getElementById("wcAttach").classList.add("locked"); document.getElementById("wcMic").classList.add("locked"); } fab.classList.add("show"); loadHistory(); } }).catch(()=>{});
 })();
 </script>
 <!-- ===== Mascota guía del chat: pasea una vez al día y se queda junto al botón del chat ===== -->
