@@ -162,7 +162,7 @@
   </div>
   <div class="auth-card">
     <h1 style="display:flex;align-items:center;gap:10px"><img src="/icons/logo-gastia.svg" alt="" width="40" height="40">Gastia</h1>
-    <p class="auth-sub">Crea tu cuenta para empezar a registrar tus gastos automáticamente por WhatsApp y correo.</p>
+    <p class="auth-sub">Crea tu cuenta gratis y empieza a ordenar tus gastos. Después, con el plan Pro, podrás conectar tu correo y tu WhatsApp desde Configuración.</p>
     <form id="formRegister" class="auth-form">
       <label>Nombre y apellido<input type="text" name="name" required placeholder="Javier Chapoñán"></label>
       <label>Correo<input type="email" name="email" required placeholder="tu@correo.com"></label>
@@ -178,10 +178,6 @@
           <input type="password" name="passwordConfirm" required minlength="8" placeholder="Repite la contraseña">
           <button type="button" class="auth-pw-toggle" aria-label="Mantén presionado para mostrar la contraseña">👁</button>
         </div>
-      </label>
-      <label>Número celular de WhatsApp
-        <input type="tel" name="phoneNumber" required placeholder="+51 987 654 321">
-        <span class="auth-hint">Debe ser el número desde el que le vas a escribir a Gastia por WhatsApp — así el bot te reconoce. Con código de país; si no lo pones, asumimos Perú (+51).</span>
       </label>
       <div class="auth-verify">
         <input type="checkbox" id="humanCheck">
@@ -271,7 +267,6 @@ document.getElementById("formRegister").addEventListener("submit", async (e)=>{
         name: form.get("name"),
         email,
         password,
-        phoneNumber: form.get("phoneNumber"),
       }),
     });
     localStorage.setItem("token", data.token);

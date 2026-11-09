@@ -857,6 +857,15 @@ tbody tr:hover{background:#f7faff;}
 .wa-status{display:flex;align-items:center;gap:10px;margin-top:16px;background:rgba(255,255,255,.12);border-radius:14px;padding:12px 14px;font-size:13.5px;}
 .wa-status .dot{width:8px;height:8px;border-radius:50%;background:#7ee0b5;flex:none;}
 .wa-status.off .dot{background:#f2c46d;}
+.wa-link{margin-top:12px;}
+.wa-link-row{display:flex;gap:8px;}
+.wa-link-row input{flex:1;min-width:0;height:44px;border-radius:12px;border:0;padding:0 12px;font-size:16px;font-family:inherit;}
+.wa-link-row button{height:44px;border:0;border-radius:12px;padding:0 16px;font-weight:700;cursor:pointer;background:#fff;color:#0e2f5a;font-family:inherit;}
+.wa-link-hint{font-size:12px;opacity:.85;margin-top:8px;line-height:1.4;}
+.wa-link-err{font-size:12.5px;color:#ffd0cc;margin-top:6px;min-height:0;}
+.wa-change{margin-top:10px;background:transparent;border:0;color:#fff;text-decoration:underline;font-size:12.5px;cursor:pointer;padding:0;font-family:inherit;}
+.pet-card.locked{opacity:.55;position:relative;}
+.pet-card .pro-badge{position:absolute;top:6px;right:6px;background:#0e2f5a;color:#fff;border-radius:999px;font-size:10.5px;font-weight:700;padding:2px 8px;}
 @media(max-width:640px){.cfg-title{font-size:26px;}.cfg-col:first-child,.cfg-col:last-child{flex:1 1 100%;}}
 
 .daily-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;}
@@ -1537,6 +1546,12 @@ body.cal-open .controls{z-index:70;}
             <div><div class="wa-t">Gastia en WhatsApp</div><p>Registra gastos, pide resúmenes y confirma movimientos escribiéndole a tu mascota.</p></div>
           </div>
           <div class="wa-status" id="waStatus"><span class="dot"></span><span id="waStatusText">Cargando…</span></div>
+          <div class="wa-link" id="waLink" style="display:none;">
+            <div class="wa-link-row"><input type="tel" id="waPhoneInput" placeholder="+51 987 654 321" autocomplete="tel" aria-label="Número de WhatsApp"><button type="button" id="waPhoneBtn">Vincular</button></div>
+            <div class="wa-link-hint">Debe ser el número desde el que le escribirás a Gastia. Con código de país; si no lo pones, asumimos Perú (+51).</div>
+            <div class="wa-link-err" id="waPhoneErr"></div>
+          </div>
+          <button type="button" class="wa-change" id="waChange" style="display:none;">Cambiar número</button>
         </div>
       </div>
     </div>
@@ -1548,12 +1563,13 @@ body.cal-open .controls{z-index:70;}
 <div class="modal-overlay" id="profileModalOverlay">
   <div class="modal-box">
     <h4>Editar perfil</h4>
-    <div class="modal-sub">Tu correo y tu celular no se pueden cambiar desde aquí: son tu acceso y el vínculo con WhatsApp.</div>
+    <div class="modal-sub">Tu correo no se puede cambiar desde aquí: es tu acceso. El celular de WhatsApp se vincula desde la tarjeta «Gastia en WhatsApp» (plan Pro).</div>
     <div class="modal-field"><label>Nombre</label><input type="text" id="pfName" maxlength="60"></div>
     <div class="modal-field"><label>Correo</label><input type="text" id="pfEmail" disabled></div>
     <div class="modal-field"><label>WhatsApp</label><input type="text" id="pfPhone" disabled></div>
     <div class="modal-field" id="pfAlertWrap"><label>Avisarme por WhatsApp de gastos mayores a (S/)</label><input type="number" id="pfAlert" min="0" step="10" placeholder="Sin umbral"></div>
     <label class="pf-check"><input type="checkbox" id="pfOptIn"> <span>Acepto recibir mensajes de Gastia por WhatsApp (resúmenes y avisos).</span></label>
+    <div class="modal-sub" id="pfOptNote" style="display:none;margin:0 0 8px 28px;">Esta opción está apagada en el plan Gratis. Con el plan Pro podrás activarla o desactivarla cuando quieras.</div>
     <div class="divider"></div>
     <div class="modal-sub" style="margin-bottom:10px;font-weight:700;color:#33455c;">Cambiar contraseña <span style="font-weight:400;">(opcional)</span></div>
     <div class="modal-field" id="pfCurWrap"><label>Contraseña actual</label><input type="password" id="pfCurPass" autocomplete="current-password"></div>
@@ -3245,11 +3261,33 @@ async function renderPrefs(){
   const open = {pet:openPetModal,budget:openBudgetModal,cat:openCatModal,rules:openRulesModal};
   wrap.querySelectorAll("button[data-pref]").forEach(b=>b.addEventListener("click",()=>open[b.dataset.pref]()));
 
-  const wa = document.getElementById("waStatus");
-  if(state.features && state.features.canUseWhatsapp === false){ wa.classList.add("off"); document.getElementById("waStatusText").textContent = "WhatsApp es parte del plan Pro"; }
-  else if(state.whatsappPhone){ wa.classList.remove("off"); document.getElementById("waStatusText").textContent = "Vinculado a " + state.whatsappPhone; }
-  else { wa.classList.add("off"); document.getElementById("waStatusText").textContent = "Sin número de WhatsApp vinculado"; }
+  updateWaCard();
 }
+let waEditing = false;
+function updateWaCard(){
+  const wa = document.getElementById("waStatus");
+  const canWa = !(state.features && state.features.canUseWhatsapp === false);
+  const txt = document.getElementById("waStatusText");
+  if(!canWa){ wa.classList.add("off"); txt.textContent = "WhatsApp es parte del plan Pro"; }
+  else if(state.whatsappPhone){ wa.classList.remove("off"); txt.textContent = "Vinculado a " + state.whatsappPhone; }
+  else { wa.classList.add("off"); txt.textContent = "Sin número de WhatsApp vinculado"; }
+  document.getElementById("waLink").style.display = canWa && (!state.whatsappPhone || waEditing) ? "" : "none";
+  document.getElementById("waChange").style.display = canWa && state.whatsappPhone && !waEditing ? "" : "none";
+}
+document.getElementById("waChange").addEventListener("click", ()=>{ waEditing = true; updateWaCard(); document.getElementById("waPhoneInput").focus(); });
+document.getElementById("waPhoneBtn").addEventListener("click", async ()=>{
+  const inp = document.getElementById("waPhoneInput"), err = document.getElementById("waPhoneErr"), btn = document.getElementById("waPhoneBtn");
+  err.textContent = ""; btn.disabled = true;
+  try {
+    const r = await api("/profile/phone", { method:"PATCH", body: JSON.stringify({ phoneNumber: inp.value }) });
+    state.whatsappPhone = r.whatsappPhone; state.hasPhone = true; state.whatsappOptIn = false;
+    if(state.profile){ state.profile.whatsappPhone = r.whatsappPhone; state.profile.hasPhone = true; state.profile.whatsappOptIn = false; }
+    waEditing = false; inp.value = "";
+    updateWaCard(); renderProfile(); renderDaily();
+    uiAlert("Número vinculado. Para recibir mensajes por WhatsApp, marca \"Acepto recibir mensajes\" en Editar perfil.");
+  } catch(e){ err.textContent = e.message; }
+  finally { btn.disabled = false; }
+});
 
 // Sidebar: alterna entre la vista Inicio (dashboard) y Configuración
 // (correos conectados + bancos), sin recargar la página.
@@ -3298,6 +3336,14 @@ function openPetModal(){
   document.querySelectorAll("#petCardGrid .pet-card").forEach(card=>{
     card.classList.toggle("selected", card.dataset.pet === petModalSelection);
   });
+  const premium = (state.features || {}).premiumPets !== false;
+  document.querySelectorAll("#petCardGrid .pet-card").forEach(card=>{
+    const locked = !premium && (card.dataset.pet === "capybara" || card.dataset.pet === "pig");
+    card.classList.toggle("locked", locked);
+    const b = card.querySelector(".pro-badge");
+    if(locked && !b){ const s = document.createElement("span"); s.className = "pro-badge"; s.textContent = "🔒 Pro"; card.appendChild(s); }
+    if(!locked && b) b.remove();
+  });
   document.getElementById("petNameInput").value = state.petName || "";
   document.getElementById("petModalOverlay").classList.add("open");
 }
@@ -3306,6 +3352,7 @@ function closePetModal(){
 }
 document.querySelectorAll("#petCardGrid .pet-card").forEach(card=>{
   card.addEventListener("click", ()=>{
+    if(card.classList.contains("locked")){ uiAlert("El chancho y el capibara se desbloquean con el plan Pro. En Gratis puedes elegir perro, gato o ninguna."); return; }
     petModalSelection = card.dataset.pet;
     document.querySelectorAll("#petCardGrid .pet-card").forEach(c=>c.classList.toggle("selected", c === card));
   });
@@ -3946,7 +3993,10 @@ function openProfileModal(){
   document.getElementById("pfPhone").value = p.whatsappPhone || "Sin vincular";
   document.getElementById("pfAlert").value = p.alertThreshold ?? "";
   document.getElementById("pfAlertWrap").style.display = (state.features || {}).alerts ? "" : "none";
-  document.getElementById("pfOptIn").checked = !!state.whatsappOptIn;
+  const noWa = (state.features || {}).canUseWhatsapp === false;
+  document.getElementById("pfOptIn").checked = noWa ? false : !!state.whatsappOptIn;
+  document.getElementById("pfOptIn").disabled = noWa;
+  document.getElementById("pfOptNote").style.display = noWa ? "" : "none";
   document.getElementById("pfCurWrap").style.display = p.hasPassword ? "" : "none";
   ["pfCurPass","pfNewPass","pfNewPass2"].forEach(id=>document.getElementById(id).value = "");
   document.getElementById("pfErr").textContent = "";
@@ -3974,7 +4024,7 @@ document.getElementById("pfSave").addEventListener("click", async ()=>{
     const body = { name };
     if((state.features || {}).alerts) body.alertThreshold = alertRaw === "" ? null : Number(alertRaw);
     const me = await api("/profile/me", { method:"PATCH", body: JSON.stringify(body) });
-    if(optIn !== !!state.whatsappOptIn){
+    if(!document.getElementById("pfOptIn").disabled && optIn !== !!state.whatsappOptIn){
       const w = await api("/profile/whatsapp-prefs", { method:"PATCH", body: JSON.stringify({ whatsappOptIn: optIn }) });
       state.whatsappOptIn = !!w.whatsappOptIn;
     }
@@ -4624,6 +4674,14 @@ async function loadData(){
   state.autoRegister = profile.features ? !!profile.features.autoRegisterOn : !!profile.autoRegister;
   state.dailyOn = profile.features ? !!profile.features.dailySummaryOn : !!profile.whatsappOptIn;
   state.whatsappOptIn = !!profile.whatsappOptIn;
+  state.hasPhone = !!profile.hasPhone;
+  // Solo Pro: al ingresar, el chat web explica cómo vincular correo y WhatsApp (una vez por sesión del navegador).
+  try {
+    if(profile.features && profile.features.canUseWhatsapp !== false && !sessionStorage.getItem("gastia-pro-hint")){
+      sessionStorage.setItem("gastia-pro-hint", "1");
+      api("/chat/pro-hint", { method:"POST" }).catch(()=>{});
+    }
+  } catch(e){}
   state.dailySummaryHour = Number.isInteger(profile.dailySummaryHour) ? profile.dailySummaryHour : 21;
   renderAutoRegister(); renderDaily();
   renderSidebarPet();
