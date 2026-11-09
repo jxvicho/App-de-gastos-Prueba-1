@@ -40,6 +40,7 @@ categoryRulesRouter.post(
       where: { id: parsed.data.categoryId, userId: req.userId },
     });
     if (!category) throw new AppError("Categoría no encontrada", 404);
+    if (category.kind === "INCOME") throw new AppError("Las reglas aplican a gastos: elige una categoría de gasto", 422);
 
     if (parsed.data.type !== "MERCHANT_CONTAINS" && Number.isNaN(parseFloat(parsed.data.value))) {
       throw new AppError("El valor debe ser un número para reglas de monto", 422);
@@ -96,6 +97,7 @@ categoryRulesRouter.patch(
         where: { id: parsed.data.categoryId, userId: req.userId },
       });
       if (!category) throw new AppError("Categoría no encontrada", 404);
+      if (category.kind === "INCOME") throw new AppError("Las reglas aplican a gastos: elige una categoría de gasto", 422);
       categoryId = category.id;
     }
 

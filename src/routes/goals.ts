@@ -31,6 +31,7 @@ goalsRouter.put(
 
     const category = await prisma.category.findFirst({ where: { id: categoryId, userId: req.userId } });
     if (!category) throw new AppError("Categoría no encontrada", 404);
+    if (category.kind === "INCOME" && amount > 0) throw new AppError("Las metas son para categorías de gasto", 422);
 
     const where = { userId_categoryId_currency: { userId: req.userId!, categoryId, currency } };
     if (amount === 0) {
