@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import { redisConnection } from "./redisConnection";
 import { prisma } from "../config/prisma";
-import { sendWeeklyReportToUser } from "../services/weeklyReportSender";
+import { sendWeeklyReportToUser, sendWeeklyReportToWebChat } from "../services/weeklyReportSender";
 import { currentWeekStart } from "../services/weeklyReportData";
 import { getEffectivePlan } from "../services/plans";
 import { PLAN_FEATURES } from "../config/plans";
@@ -10,8 +10,9 @@ import { claimOnce, releaseClaim } from "./dedupe";
 export const weeklyReportWorker = new Worker(
   "weekly-report",
   async (job) => {
-    const users = await prisma.user.findMany({ where: { whatsappOptIn: true, phoneNumber: { not: null } } });
-    console.log(`📊 Reporte semanal (trabajo ${job.id}): ${users.length} usuario(s) con teléfono...`);
+    const allUsers = await prisma.user.findMany();
+    const users = allUsers.filter((u) => u.whatsappOptIn && u.phoneNumber);
+    console.log(`📊 Reporte semanal (trabajo ${job.id}): ${allUsers.length} usuario(s) para el chat web, ${users.length} con WhatsApp...`);
 
     // Lunes 00:00 (Lima) de la semana actual hasta ahora mismo — el cron
     // corre justo el domingo 8pm, así que "ahora" es efectivamente esa hora.
@@ -21,6 +22,20 @@ export const weeklyReportWorker = new Worker(
     const weekKey = weekStart.toISOString().slice(0, 10);
     let sent = 0;
     let skipped = 0;
+
+    // Chat web: todos los planes, a la misma hora. El plan Gratis recibe además la invitación a Pro.
+    for (const user of allUsers) {
+      const claim = `weekly-report:web:${weekKey}:${user.id}`;
+      if (!(await claimOnce(claim, 4 * 86_400))) continue;
+      try {
+        const plan = (await getEffectivePlan(user)).plan;
+        await sendWeeklyReportToWebChat(user, weekStart, weekEnd, { upsell: !PLAN_FEATURES[plan].whatsapp });
+      } catch (err) {
+        await releaseClaim(claim);
+        console.error(`❌ Error dejando el reporte semanal en el chat web de ${user.name}:`, err);
+      }
+    }
+
     for (const user of users) {
       // Planes sin WhatsApp (Gratis) no reciben resúmenes por ahí.
       if (!PLAN_FEATURES[(await getEffectivePlan(user)).plan].whatsapp) continue;

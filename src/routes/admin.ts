@@ -71,6 +71,8 @@ adminRouter.get(
     const messages = [
       { id: "weekly", label: "Resumen semanal", channel: "WhatsApp", when: "Domingo 8:00 p. m. (Lima)",
         by: Object.fromEntries(order.map((p) => [p, cell(p, F[p].whatsapp, "Imagen con texto (ventana abierta) o plantilla semanal; uno por moneda")])) },
+      { id: "weekly_web", label: "Resumen semanal", channel: "Chat web", when: "Domingo 8:00 p. m. (Lima); sin costo de Meta",
+        by: Object.fromEntries(order.map((p) => [p, cell(p, true, F[p].whatsapp ? "Texto; uno por moneda" : "Texto + mensaje invitando a Pro para recibirlo por WhatsApp")])) },
       { id: "daily", label: "Resumen diario", channel: "WhatsApp", when: `Todos los días ${DAILY_SUMMARY_HOUR_LIMA}:00 a. m. (Lima)${env.SUNDAY_MERGE_DAILY_INTO_WEEKLY ? "; el domingo solo sale el semanal" : "; el domingo sale también el semanal"}`,
         by: Object.fromEntries(order.map((p) => [p, cell(p, F[p].dailySummary, "Texto (ventana abierta) o plantilla diaria; se puede apagar")])) },
       { id: "alerts", label: "Alertas de gasto alto", channel: "WhatsApp", when: "Al superar un umbral o presupuesto",

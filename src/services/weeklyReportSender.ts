@@ -10,6 +10,7 @@ import {
 } from "./weeklyReportData";
 import { buildWeeklyReportImage } from "./weeklyReportImage";
 import { petIntroPhrase } from "../utils/pet";
+import { recordWebBotMessage } from "./webChatNotify";
 
 // Orden fijo de envío cuando hay movimiento en ambas monedas — PEN primero
 // por ser la moneda por defecto de la app.
@@ -84,4 +85,59 @@ export async function sendWeeklyReportToUser(
       );
     }
   }
+}
+
+/** Texto del reporte semanal para el chat web (no admite imagen): mismos datos que la imagen de WhatsApp. */
+function weeklyWebText(
+  data: Awaited<ReturnType<typeof buildWeeklyReportData>>,
+  v: { firstName: string; petIntro: string; pending: number }
+): string {
+  const cur = data.currency;
+  const change = (pct: number | null) => (pct === null ? "" : ` (${pct >= 0 ? "▲" : "▼"} ${Math.abs(Math.round(pct))}% vs. la semana anterior)`);
+  const lines: string[] = [`📊 *Tu resumen semanal* · ${data.weekLabel}${cur === "USD" ? " · Dólares" : ""}`, "", `Hola ${v.firstName}, soy ${v.petIntro}.`, ""];
+  if (!data.hasAnyMovement) {
+    lines.push("No registraste movimientos esta semana. 🙌");
+  } else {
+    lines.push(`💸 *Gastaste:* ${formatMoneyPlain(data.totalExpense, cur)}${change(data.expenseChangePct)}`);
+    if (data.totalIncome > 0) lines.push(`💰 *Ingresos:* ${formatMoneyPlain(data.totalIncome, cur)}${change(data.incomeChangePct)}`);
+    if (data.topCategory) lines.push(`🏆 *Categoría con más gasto:* ${data.topCategory.icon} ${data.topCategory.name} (${formatMoneyPlain(data.topCategory.amount, cur)}, ${Math.round(data.topCategory.pct)}%)`);
+    if (data.peakDay) lines.push(`📅 *Día de más gasto:* ${data.peakDay.label} (${formatMoneyPlain(data.peakDay.amount, cur)})`);
+    if (data.weeklyBudget) lines.push(`🎯 *Presupuesto semanal:* ${formatMoneyPlain(data.weeklyBudget, cur)}`);
+    if (data.categoryBreakdown.length) {
+      lines.push("", "*Por categoría*");
+      for (const c of data.categoryBreakdown) lines.push(`· ${c.icon} ${c.name}: ${formatMoneyPlain(c.amount, cur)}`);
+    }
+  }
+  if (v.pending > 0) lines.push("", `⏳ Tienes ${v.pending} movimiento(s) pendiente(s) de confirmar.`);
+  lines.push("", "Revisa el detalle en tu dashboard.");
+  return lines.join("\n");
+}
+
+export const FREE_WEEKLY_UPSELL =
+  "⭐ *¿Quieres este reporte en tu WhatsApp?*\n" +
+  "Con *Gastia Pro* lo recibes cada domingo directo en tu WhatsApp, además de un *resumen diario* y alertas de gasto alto.\n\n" +
+  "Suscríbete desde *Configuración › Plan y suscripción* y pruébalo sin cobro los primeros días. 🐾";
+
+/**
+ * Deja el reporte semanal en el chat web (todos los planes, sin costo de Meta). Un mensaje por moneda con
+ * movimiento; en el plan Gratis, un mensaje final invitando a Pro para recibirlo por WhatsApp.
+ */
+export async function sendWeeklyReportToWebChat(
+  user: { id: string; name: string; petType: PetType; petName: string | null },
+  weekStart: Date,
+  weekEnd: Date,
+  opts: { upsell: boolean }
+): Promise<void> {
+  if (!env.WEB_CHAT_ENABLED) return;
+  if (await isAccessRestricted(user.id)) return;
+  const present = await getCurrenciesWithMovement(user.id, weekStart, weekEnd);
+  const currencies = present.length === 0 ? ["PEN"] : CURRENCY_ORDER.filter((c) => present.includes(c));
+  const firstName = user.name.trim().split(/\s+/)[0] || "Hola";
+  const petIntro = petIntroPhrase(user.petType, user.petName);
+  const pending = await countPendingTransactions(user.id);
+  for (const currency of currencies) {
+    const data = await buildWeeklyReportData(user.id, user.name, weekStart, weekEnd, currency);
+    await recordWebBotMessage(user.id, weeklyWebText(data, { firstName, petIntro, pending }));
+  }
+  if (opts.upsell) await recordWebBotMessage(user.id, FREE_WEEKLY_UPSELL);
 }
