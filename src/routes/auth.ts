@@ -37,7 +37,8 @@ const registerSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(8),
-  phoneNumber: z.string().min(6),
+  // El celular ya no se pide al registrarse: se vincula después, desde Configuración (plan Pro).
+  phoneNumber: z.string().min(6).optional().or(z.literal("")),
 });
 
 authRouter.post(
@@ -48,15 +49,18 @@ authRouter.post(
     if (!parsed.success) throw new AppError(parsed.error.issues[0].message, 422);
     const { name, email, password } = parsed.data;
 
-    const phoneNumber = normalizePhoneNumber(parsed.data.phoneNumber);
-    if (!PHONE_REGEX.test(phoneNumber)) {
-      throw new AppError("El número de WhatsApp no es válido. Inclúyelo con código de país, ej: +51987654321", 422);
+    let phoneNumber: string | null = null;
+    if (parsed.data.phoneNumber) {
+      phoneNumber = normalizePhoneNumber(parsed.data.phoneNumber);
+      if (!PHONE_REGEX.test(phoneNumber)) {
+        throw new AppError("El número de WhatsApp no es válido. Inclúyelo con código de país, ej: +51987654321", 422);
+      }
     }
 
     const existingEmail = await prisma.user.findUnique({ where: { email } });
     if (existingEmail) throw new AppError("Ya existe una cuenta con ese correo", 409);
 
-    const existingPhone = await prisma.user.findUnique({ where: { phoneNumber } });
+    const existingPhone = phoneNumber ? await prisma.user.findUnique({ where: { phoneNumber } }) : null;
     if (existingPhone) throw new AppError("Ya existe una cuenta con ese número de WhatsApp", 409);
 
     const passwordHash = await bcrypt.hash(password, 12);

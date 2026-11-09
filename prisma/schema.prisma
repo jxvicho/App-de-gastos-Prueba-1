@@ -37,7 +37,7 @@ model User {
   // se guardan directo (AUTO_CONFIRMED) sin pedir confirmación por WhatsApp.
   autoRegister Boolean  @default(false)
   // Plan y consentimiento de WhatsApp
-  plan              Plan      @default(BASIC)
+  plan              Plan      @default(FREE)
   planOverride      Plan? // plan temporal asignado desde el servidor (equipo, testers, casos puntuales)
   planOverrideUntil DateTime?
   whatsappOptIn     Boolean   @default(false) // consentimiento para recibir mensajes por WhatsApp

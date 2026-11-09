@@ -1134,7 +1134,14 @@ const followUpByUserId = new ChannelMap<FollowUpState>();
  * pero guardamos phoneNumber en formato E.164 ("+51987654321"). Probamos ambas
  * formas para no depender de cuál se haya usado al registrar al usuario.
  */
-function findUserByWhatsappNumber(from: string) {
+async function findUserByWhatsappNumber(from: string) {
+  // Chat web de un usuario sin celular vinculado (plan Gratis): se identifica con "web:<userId>".
+  // Se le pone ese identificador como phoneNumber en memoria para que todo el flujo del bot (que
+  // se apoya en el número) funcione igual; en el canal web las respuestas se devuelven al navegador.
+  if (from.startsWith("web:")) {
+    const u = await prisma.user.findUnique({ where: { id: from.slice(4) } });
+    return u && !u.phoneNumber ? { ...u, phoneNumber: from } : u;
+  }
   const withPlus = from.startsWith("+") ? from : `+${from}`;
   const withoutPlus = from.startsWith("+") ? from.slice(1) : from;
   return prisma.user.findFirst({
@@ -3911,7 +3918,7 @@ export function textForButtonReply(buttonId: string): string | null {
 export async function handleWebMessage(userId: string, text: string, contextMessageId?: string | null): Promise<WebReply[]> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { phoneNumber: true } });
   if (!user) return [];
-  const { replies } = await runInWebChannel(() => handleIncomingMessage(user.phoneNumber, text, contextMessageId));
+  const { replies } = await runInWebChannel(() => handleIncomingMessage(user.phoneNumber ?? `web:${userId}`, text, contextMessageId));
   return replies;
 }
 
@@ -3925,8 +3932,8 @@ export async function handleWebMedia(
   if (!user) return [];
   const { replies } = await runInWebChannel(() =>
     kind === "image"
-      ? handleIncomingImage(user.phoneNumber, "web", media)
-      : handleIncomingAudio(user.phoneNumber, "web", null, media)
+      ? handleIncomingImage(user.phoneNumber ?? `web:${userId}`, "web", media)
+      : handleIncomingAudio(user.phoneNumber ?? `web:${userId}`, "web", null, media)
   );
   return replies;
 }

@@ -9,6 +9,8 @@ import { limaDayStart } from "../services/plans";
 import { PLAN_FEATURES } from "../config/plans";
 import { getEffectivePlan } from "../services/plans";
 import { handleWebMessage, handleWebMedia, textForButtonReply } from "../services/whatsappBot";
+import { recordWebBotMessage } from "../services/webChatNotify";
+import { claimOnce } from "../queues/dedupe";
 
 /**
  * Chat web del dashboard. Reutiliza handleIncomingMessage (la misma lógica del
@@ -209,5 +211,33 @@ chatRouter.post(
     }
     await prisma.whatsappSession.update({ where: { id: session.id }, data: { lastMessageAt: new Date() } });
     res.json({ replies: saved.map(serialize), remainingToday: Math.max(0, cap - used - 1) });
+  })
+);
+
+/**
+ * Ayuda de bienvenida para usuarios Pro al ingresar: cómo vincular el correo y el WhatsApp desde Configuración.
+ * Solo se manda si falta algo y como mucho una vez cada 6 horas (el dashboard la pide al abrir la sesión).
+ */
+chatRouter.post(
+  "/pro-hint",
+  asyncHandler(async (req, res) => {
+    requireEnabled();
+    const userId = req.userId!;
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, plan: true, planOverride: true, planOverrideUntil: true, phoneNumber: true, whatsappOptIn: true },
+    });
+    if (!u) return res.json({ shown: false });
+    const f = PLAN_FEATURES[(await getEffectivePlan(u)).plan];
+    if (!f.whatsapp && !f.emailSync) return res.json({ shown: false });
+    const emails = await prisma.emailAccount.count({ where: { userId } });
+    const steps: string[] = [];
+    if (f.emailSync && emails === 0) steps.push("📧 *Conecta tu correo*: en Configuración → \"Correos conectados\" elige Gmail u Outlook. Así Gastia lee los avisos de tu banco y registra tus consumos solo.");
+    if (f.whatsapp && !u.phoneNumber) steps.push("💬 *Vincula tu WhatsApp*: en Configuración → \"Gastia en WhatsApp\" escribe tu número. Con él podrás registrar gastos y recibir resúmenes por WhatsApp.");
+    if (f.whatsapp && u.phoneNumber && !u.whatsappOptIn) steps.push("✅ *Acepta los mensajes*: en Configuración → \"Editar\" (tu perfil) marca \"Acepto recibir mensajes de Gastia por WhatsApp\".");
+    if (!steps.length) return res.json({ shown: false });
+    if (!(await claimOnce(`chat:prohint:${userId}`, 6 * 3600))) return res.json({ shown: false });
+    await recordWebBotMessage(userId, `¡Hola, ${u.name.split(" ")[0]}! 👋 Ya eres Pro. Para sacarle todo el provecho a Gastia te faltan estos pasos:\n\n${steps.join("\n\n")}\n\nCuando quieras, aquí mismo puedes pedirme un resumen o anotar un gasto.`);
+    res.json({ shown: true });
   })
 );

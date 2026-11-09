@@ -41,8 +41,13 @@ profileRouter.get(
     const whatsappPhone = phoneNumber
       ? `${phoneNumber.slice(0, 3)} ${phoneNumber.slice(3, 4)}•• ••• ${phoneNumber.slice(-3)}`
       : null;
+    const feats = PLAN_FEATURES[eff.plan];
     res.json({
       ...rest,
+      // Gratis: sin WhatsApp (opt-in siempre apagado) y solo mascotas básicas; si tenía una premium, se muestra el perro.
+      whatsappOptIn: feats.whatsapp ? user.whatsappOptIn : false,
+      petType: !feats.premiumPets && (user.petType === "capybara" || user.petType === "pig") ? "dog" : user.petType,
+      hasPhone: !!phoneNumber,
       whatsappPhone,
       hasPassword: !!passwordHash,
       alertThreshold: alertThreshold ? Number(alertThreshold) : null,
@@ -61,6 +66,7 @@ profileRouter.get(
         canConnectEmail: PLAN_FEATURES[eff.plan].emailSync,
         canUseWhatsapp: PLAN_FEATURES[eff.plan].whatsapp,
         webChatDailyCap: PLAN_FEATURES[eff.plan].webChatDailyCap,
+        premiumPets: feats.premiumPets,
       },
     });
   })
@@ -126,6 +132,12 @@ profileRouter.patch(
   asyncHandler(async (req, res) => {
     const parsed = setPetSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? "Datos de mascota inválidos", 422);
+    if (parsed.data.petType === "capybara" || parsed.data.petType === "pig") {
+      const cur = await prisma.user.findUniqueOrThrow({ where: { id: req.userId }, select: { plan: true, planOverride: true, planOverrideUntil: true } });
+      if (!PLAN_FEATURES[(await getEffectivePlan(cur)).plan].premiumPets) {
+        throw new AppError("El chancho y el capibara se desbloquean con el plan Pro. En Gratis puedes elegir perro, gato o ninguna.", 403, "PLAN_FEATURE");
+      }
+    }
 
     const user = await prisma.user.update({
       where: { id: req.userId },
@@ -172,6 +184,17 @@ profileRouter.patch(
     const parsed = setWhatsappPrefsSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError("Datos inválidos: whatsappOptIn, dailySummaryEnabled (true/false) y dailySummaryHour (0 a 23)", 422);
 
+    if (parsed.data.whatsappOptIn === true) {
+      const cur = await prisma.user.findUniqueOrThrow({
+        where: { id: req.userId },
+        select: { plan: true, planOverride: true, planOverrideUntil: true, phoneNumber: true },
+      });
+      if (!PLAN_FEATURES[(await getEffectivePlan(cur)).plan].whatsapp) {
+        throw new AppError("Recibir mensajes por WhatsApp es parte del plan Pro. En Gratis esta opción queda apagada.", 403, "PLAN_FEATURE");
+      }
+      if (!cur.phoneNumber) throw new AppError("Primero vincula tu número de WhatsApp en Configuración.", 409);
+    }
+
     if (parsed.data.dailySummaryEnabled !== undefined || parsed.data.dailySummaryHour !== undefined) {
       const current = await prisma.user.findUniqueOrThrow({
         where: { id: req.userId },
@@ -190,5 +213,37 @@ profileRouter.patch(
       select: { whatsappOptIn: true, dailySummaryEnabled: true, dailySummaryHour: true },
     });
     res.json(user);
+  })
+);
+
+const setPhoneSchema = z.object({ phoneNumber: z.string().min(6, "Escribe tu número de WhatsApp") });
+
+/** Vincular (o cambiar) el celular de WhatsApp desde Configuración. Solo planes con WhatsApp (Pro). */
+profileRouter.patch(
+  "/phone",
+  asyncHandler(async (req, res) => {
+    const parsed = setPhoneSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? "Número inválido", 422);
+    const cur = await prisma.user.findUniqueOrThrow({
+      where: { id: req.userId },
+      select: { plan: true, planOverride: true, planOverrideUntil: true, phoneNumber: true },
+    });
+    if (!PLAN_FEATURES[(await getEffectivePlan(cur)).plan].whatsapp) {
+      throw new AppError("Vincular WhatsApp es parte del plan Pro.", 403, "PLAN_FEATURE");
+    }
+    const cleaned = parsed.data.phoneNumber.replace(/[^\d+]/g, "");
+    const phoneNumber = cleaned.startsWith("+") ? cleaned : `+51${cleaned}`;
+    if (!/^\+\d{8,15}$/.test(phoneNumber)) {
+      throw new AppError("El número de WhatsApp no es válido. Inclúyelo con código de país, ej: +51987654321", 422);
+    }
+    const other = await prisma.user.findUnique({ where: { phoneNumber }, select: { id: true } });
+    if (other && other.id !== req.userId) throw new AppError("Ya existe una cuenta con ese número de WhatsApp", 409);
+    // Un número nuevo exige volver a aceptar los mensajes y reinicia la ventana de 24 h.
+    const changed = cur.phoneNumber !== phoneNumber;
+    await prisma.user.update({
+      where: { id: req.userId },
+      data: changed ? { phoneNumber, whatsappOptIn: false, lastInboundAt: null } : {},
+    });
+    res.json({ ok: true, whatsappPhone: `${phoneNumber.slice(0, 3)} ${phoneNumber.slice(3, 4)}•• ••• ${phoneNumber.slice(-3)}` });
   })
 );
