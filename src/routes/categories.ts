@@ -28,11 +28,15 @@ categoriesRouter.get(
 // seguridad para cualquier otro cliente que cree una categoría sin
 // especificar color (ej. un futuro flujo por WhatsApp).
 const DEFAULT_CUSTOM_CATEGORY_COLOR = "#E53935";
+// Las categorías de ingreso propias usan verdes (las de gasto, rojos).
+const DEFAULT_CUSTOM_INCOME_COLOR = "#2E9E5B";
 
 const createCategorySchema = z.object({
   name: z.string().min(1).max(50),
   icon: z.string().optional(),
   colorHex: z.string().optional(),
+  // EXPENSE (gasto, por defecto) o INCOME (ingreso): son listas distintas.
+  kind: z.enum(["EXPENSE", "INCOME"]).default("EXPENSE"),
 });
 
 categoriesRouter.post(
@@ -60,6 +64,7 @@ categoriesRouter.post(
         where: { id: existing.id },
         data: {
           isArchived: false,
+          kind: parsed.data.kind,
           icon: parsed.data.icon ?? existing.icon,
           colorHex: parsed.data.colorHex ?? existing.colorHex,
         },
@@ -69,7 +74,7 @@ categoriesRouter.post(
     }
 
     const category = await prisma.category.create({
-      data: { ...parsed.data, colorHex: parsed.data.colorHex ?? DEFAULT_CUSTOM_CATEGORY_COLOR, userId: req.userId! },
+      data: { ...parsed.data, colorHex: parsed.data.colorHex ?? (parsed.data.kind === "INCOME" ? DEFAULT_CUSTOM_INCOME_COLOR : DEFAULT_CUSTOM_CATEGORY_COLOR), userId: req.userId! },
     });
     res.status(201).json(category);
   })

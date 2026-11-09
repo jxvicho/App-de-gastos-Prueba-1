@@ -7,7 +7,7 @@ import { prisma } from "../config/prisma";
 import { env } from "../config/env";
 import { AppError } from "../middleware/errorHandler";
 import { asyncHandler } from "../middleware/asyncHandler";
-import { DEFAULT_CATEGORIES } from "../utils/defaultCategories";
+import { ALL_DEFAULT_CATEGORIES } from "../utils/defaultCategories";
 import { sendPasswordResetEmail } from "../services/email";
 import { rateLimit, emailFromBody } from "../middleware/rateLimit";
 
@@ -70,7 +70,7 @@ authRouter.post(
         onboarding: { create: {} },
         categories: {
           createMany: {
-            data: DEFAULT_CATEGORIES.map((c) => ({ ...c, isDefault: true })),
+            data: ALL_DEFAULT_CATEGORIES.map((c) => ({ ...c, isDefault: true })),
           },
         },
       },

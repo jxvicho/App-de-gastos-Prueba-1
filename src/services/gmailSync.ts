@@ -52,7 +52,7 @@ export async function syncGmailAccount(account: EmailAccountWithSenders): Promis
   if (terms.length === 0) return;
 
   const categories = await prisma.category.findMany({
-    where: { userId: account.userId, isArchived: false },
+    where: { userId: account.userId, isArchived: false, kind: "EXPENSE" },
     select: { id: true, name: true },
   });
   const categoryNames = categories.map((c) => c.name);

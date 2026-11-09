@@ -180,6 +180,11 @@ model AccountCard {
 // CATEGORÍAS
 // ------------------------------------------------------------
 
+enum CategoryKind {
+  EXPENSE
+  INCOME
+}
+
 model Category {
   goals CategoryGoal[]
   id        String   @id @default(uuid())
@@ -191,6 +196,7 @@ model Category {
   isDefault Boolean  @default(false) // true para las 25 categorías precargadas
   excludeFromTotals Boolean @default(false)
   isArchived Boolean @default(false)
+  kind      CategoryKind @default(EXPENSE) // EXPENSE = categoría de gastos, INCOME = categoría de ingresos
   createdAt DateTime @default(now())
 
   transactions      Transaction[]

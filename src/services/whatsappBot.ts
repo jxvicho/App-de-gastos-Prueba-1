@@ -9,7 +9,7 @@ import { findEquivalentRule } from "./ruleDedup";
 import { extractTransferFromImage, extractReceiptFromImage, extractManualTransactionFromText, transcribeAudio } from "./gemini";
 import { sendWeeklyReportToUser } from "./weeklyReportSender";
 import { currentWeekStart } from "./weeklyReportData";
-import { DEFAULT_CATEGORIES } from "../utils/defaultCategories";
+import { ALL_DEFAULT_CATEGORIES } from "../utils/defaultCategories";
 import { normalizeText } from "../utils/text";
 import { getPetLabel, PetPersona } from "../utils/pet";
 
@@ -110,7 +110,7 @@ const BUTTON_ID_IMAGE_INCOME = "img_income";
 
 // Mapeamos por nombre de categoría para no reinventar íconos que ya
 // existen en el catálogo real de categorías (DEFAULT_CATEGORIES).
-const CATEGORY_ICON_BY_NAME = new Map(DEFAULT_CATEGORIES.map((c) => [c.name, c.icon]));
+const CATEGORY_ICON_BY_NAME = new Map(ALL_DEFAULT_CATEGORIES.map((c) => [c.name, c.icon]));
 const FALLBACK_CATEGORY_ICON = "🏷️";
 
 const MONTH_NAMES_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];

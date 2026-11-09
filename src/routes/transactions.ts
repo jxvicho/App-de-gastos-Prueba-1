@@ -66,9 +66,10 @@ transactionsRouter.get(
 const createTransactionSchema = z.object({
   type: z.enum(["EXPENSE", "INCOME"]).default("EXPENSE"),
   amount: z.number().positive(),
-  currency: z.string().default("PEN"),
-  merchant: z.string().optional(),
-  description: z.string().optional(),
+  currency: z.enum(["PEN", "USD"]).default("PEN"),
+  merchant: z.string().trim().max(80).optional(),
+  description: z.string().max(200).optional(),
+  note: z.string().trim().max(200).optional(),
   categoryId: z.string().uuid().optional(),
   accountCardId: z.string().uuid().optional(),
   occurredAt: z.string().datetime(),
@@ -80,9 +81,28 @@ transactionsRouter.post(
     const parsed = createTransactionSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.issues[0].message, 422);
 
+    // La categoría debe ser del usuario y coincidir con el tipo: las de gasto
+    // para gastos y las de ingreso para ingresos. Sin categoría, el ingreso
+    // cae en "Ingresos" y el gasto en "Otros comercios".
+    let categoryId = parsed.data.categoryId;
+    if (categoryId) {
+      const cat = await prisma.category.findFirst({ where: { id: categoryId, userId: req.userId, isArchived: false } });
+      if (!cat) throw new AppError("Categoría no encontrada", 404);
+      if (cat.kind !== parsed.data.type) {
+        throw new AppError(parsed.data.type === "INCOME" ? "Elige una categoría de ingresos" : "Elige una categoría de gastos", 422);
+      }
+    } else {
+      const fb = await prisma.category.findFirst({
+        where: { userId: req.userId, isArchived: false, name: parsed.data.type === "INCOME" ? "Ingresos" : "Otros comercios" },
+      });
+      categoryId = fb?.id;
+    }
+
     const transaction = await prisma.transaction.create({
       data: {
         ...parsed.data,
+        categoryId,
+        note: parsed.data.note || null,
         occurredAt: new Date(parsed.data.occurredAt),
         userId: req.userId!,
         source: "DASHBOARD_MANUAL",
@@ -156,7 +176,7 @@ transactionsRouter.patch(
     // La categoría "Ingresos" es especial: asignar un movimiento a ella lo
     // reclasifica automáticamente como ingreso, y sacarlo de ahí lo vuelve
     // a clasificar como egreso.
-    const newType = category.name === "Ingresos" ? "INCOME" : "EXPENSE";
+    const newType = category.kind === "INCOME" || category.name === "Ingresos" ? "INCOME" : "EXPENSE";
 
     const updated = await prisma.transaction.update({
       where: { id: transaction.id },

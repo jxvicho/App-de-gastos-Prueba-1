@@ -906,6 +906,21 @@ body.cal-open .controls{z-index:70;}
 }
 
 
+/* ---- Transacción manual ---- */
+.sbx-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+.mt-seg{display:flex;gap:4px;background:#eef2f8;border-radius:999px;padding:4px;margin-bottom:14px;}
+.mt-seg button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 10px;font:700 13px inherit;font-family:inherit;color:#5a6a80;cursor:pointer;}
+.mt-seg button.active{background:#fff;color:#0b2545;box-shadow:0 2px 8px -2px rgba(11,37,69,.25);}
+.mt-seg button.active[data-type=INCOME]{color:#1b7a46;}
+.mt-seg button.active[data-type=EXPENSE]{color:#b3362b;}
+.mt-amt{display:flex;gap:8px;}
+.mt-amt .mt-cur{display:flex;gap:4px;background:#eef2f8;border-radius:12px;padding:3px;flex:none;}
+.mt-amt .mt-cur button{border:none;background:transparent;border-radius:9px;padding:0 12px;font:700 13px inherit;font-family:inherit;color:#5a6a80;cursor:pointer;}
+.mt-amt .mt-cur button.active{background:#fff;color:#0b2545;box-shadow:0 1px 6px -2px rgba(11,37,69,.3);}
+.mt-amt input{flex:1;min-width:0;font-size:18px;font-weight:700;}
+.mt-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:480px){.mt-row{grid-template-columns:1fr;}}
+#mtModalOverlay .modal-box{max-width:420px;max-height:92vh;max-height:92dvh;overflow:auto;}
 /* ---- Sandbox / Perfil / Plan ---- */
 .sbx-col{flex:1 1 460px !important;}
 .rec-kpis{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0 6px 0;}
@@ -975,7 +990,7 @@ body.cal-open .controls{z-index:70;}
 .sub-sec{border-top:1px solid #edf1f7;padding-top:14px;margin-top:14px;}
 .sub-sec h5{margin:0 0 8px 0;font-size:13.5px;color:#0b2545;}
 .bill-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
-.modal-box input[type=password],.modal-box input[type=number],.modal-box select,.modal-box input[type=text]{width:100%;border:1px solid var(--line,#dbe4f0);border-radius:10px;padding:9px 12px;font-size:13.5px;font-family:inherit;background:#fff;box-sizing:border-box;}
+.modal-box input[type=password],.modal-box input[type=number],.modal-box input[type=date],.modal-box input[type=time],.modal-box select,.modal-box input[type=text]{width:100%;border:1px solid var(--line,#dbe4f0);border-radius:10px;padding:9px 12px;font-size:13.5px;font-family:inherit;background:#fff;box-sizing:border-box;}
 .modal-box input:disabled{background:#f3f6fa;color:#6b7a90;}
 .pf-check{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#33455c;line-height:1.45;margin-bottom:6px;}
 .pf-check input{margin-top:3px;}
@@ -1265,8 +1280,13 @@ body.cal-open .controls{z-index:70;}
 
   <div id="viewSandbox" hidden>
   <div class="wrap">
-    <h1 class="cfg-title">Sandbox</h1>
-    <p class="cfg-lead">Revisa lo pendiente, controla tus pagos fijos y ponle metas a tus categorías</p>
+    <div class="sbx-top">
+      <div>
+        <h1 class="cfg-title">Sandbox</h1>
+        <p class="cfg-lead">Revisa lo pendiente, controla tus pagos fijos y ponle metas a tus categorías</p>
+      </div>
+      <button class="btn-save" id="mtOpenBtn" type="button" style="flex:none;width:auto;padding:10px 18px;">＋ Transacción manual</button>
+    </div>
     <div class="cfg-grid">
       <div class="cfg-col sbx-col">
   <div class="card review-card" id="reviewCard">
@@ -1498,6 +1518,35 @@ body.cal-open .controls{z-index:70;}
   </div>
 </div>
 
+<div class="modal-overlay" id="mtModalOverlay">
+  <div class="modal-box" role="dialog" aria-label="Transacción manual">
+    <h4>Transacción manual</h4>
+    <div class="modal-sub">Anota un gasto o un ingreso que Gastia no leyó solo.</div>
+    <div class="mt-seg" id="mtType" role="tablist" aria-label="Tipo">
+      <button type="button" data-type="EXPENSE" class="active">Gasto</button>
+      <button type="button" data-type="INCOME">Ingreso</button>
+    </div>
+    <div class="modal-field"><label>Monto</label>
+      <div class="mt-amt">
+        <div class="mt-cur" id="mtCur"><button type="button" data-cur="PEN" class="active">S/</button><button type="button" data-cur="USD">$</button></div>
+        <input type="number" id="mtAmount" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+      </div>
+    </div>
+    <div class="modal-field"><label>Categoría</label><select id="mtCat"></select></div>
+    <div class="modal-field"><label id="mtMerchantLbl">Comercio o concepto</label><input type="text" id="mtMerchant" maxlength="80" placeholder="Ej. Bodega, almuerzo, taxi…"></div>
+    <div class="mt-row">
+      <div class="modal-field"><label>Fecha</label><input type="date" id="mtDate"></div>
+      <div class="modal-field"><label>Hora</label><input type="time" id="mtTime"></div>
+    </div>
+    <div class="modal-field"><label>Nota <span style="font-weight:400;">(opcional)</span></label><input type="text" id="mtNote" maxlength="200" placeholder="Ej. cumpleaños de Ana"></div>
+    <div class="form-err" id="mtErr"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="mtCancel" type="button">Cancelar</button>
+      <button class="btn-save" id="mtSave" type="button">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="recModalOverlay">
   <div class="modal-box">
     <h4 id="recModalTitle">Pago recurrente</h4>
@@ -1559,6 +1608,10 @@ body.cal-open .controls{z-index:70;}
     </div>
 
     <div class="cm-tools">
+      <div class="cm-seg" id="catKind" style="margin-bottom:8px;">
+        <button type="button" data-k="EXPENSE" class="on">Gastos</button>
+        <button type="button" data-k="INCOME">Ingresos</button>
+      </div>
       <input type="search" id="catSearch" placeholder="Buscar categoría…" autocomplete="off">
       <div class="cm-seg" id="catFilter">
         <button type="button" data-f="all" class="on">Todas</button>
@@ -1713,6 +1766,11 @@ const ICON_PALETTE = [
 function nextAutoColor(){
   const used = Object.values(CAT_META).length;
   return SWATCH_PALETTE[used % SWATCH_PALETTE.length];
+}
+const INCOME_SWATCHES = ["#2E9E5B","#1B8A5A","#43A047","#00897B","#2A9D8F","#558B2F","#26A69A","#00796B"];
+function nextIncomeColor(){
+  const used = Object.values(CAT_META).filter(m=>m.kind === "INCOME").length;
+  return INCOME_SWATCHES[used % INCOME_SWATCHES.length];
 }
 const SWATCH_PALETTE = ["#E57373","#EF5350","#E53935","#C62828","#D84315","#FF7043",
   "#F4511E","#B71C1C","#AD1457","#6A1B9A"];
@@ -2728,12 +2786,12 @@ document.getElementById("calApplyBtn").addEventListener("click", ()=>{
 /* =========================================================
    CATEGORY MANAGER MODAL
    ========================================================= */
-let catFilterMode = "all";
+let catFilterMode = "all", catKind = "EXPENSE";
 function renderExistingCats(){
   const wrap = document.getElementById("existingCatList");
   wrap.innerHTML = "";
   const q = (document.getElementById("catSearch").value || "").trim().toLowerCase();
-  const keys = Object.keys(CAT_META);
+  const keys = Object.keys(CAT_META).filter(k=>(CAT_META[k].kind || "EXPENSE") === catKind);
   const nOwn = keys.filter(k=>!CAT_META[k].locked).length;
   document.getElementById("catSummary").textContent = `${keys.length-nOwn} predefinidas · ${nOwn} ${nOwn===1?"propia":"propias"}`;
 
@@ -2819,6 +2877,14 @@ function buildCatRow(key, count){
 }
 
 document.getElementById("catSearch").addEventListener("input", renderExistingCats);
+function syncCatKindUI(){
+  document.querySelectorAll("#catKind button").forEach(x=>x.classList.toggle("on", x.dataset.k === catKind));
+  document.getElementById("newCatToggle").textContent = catKind === "INCOME" ? "＋ Crear nueva categoría de ingreso" : "＋ Crear nueva categoría";
+  document.getElementById("newCatName").placeholder = catKind === "INCOME" ? "Ej. Alquiler cobrado, Bonos, Clases…" : "Ej. Educación, Mascotas, Ahorro…";
+}
+document.querySelectorAll("#catKind button").forEach(b=>{
+  b.addEventListener("click", ()=>{ catKind = b.dataset.k; syncCatKindUI(); renderExistingCats(); });
+});
 document.querySelectorAll("#catFilter button").forEach(b=>{
   b.addEventListener("click", ()=>{
     catFilterMode = b.dataset.f;
@@ -2830,7 +2896,7 @@ document.getElementById("closeCatModalX").addEventListener("click", ()=>closeCat
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && document.getElementById("catModalOverlay").classList.contains("open") && !document.getElementById("iconPop").classList.contains("open")) closeCatModal(); });
 
 function openCatModal(){
-  catFilterMode = "all"; document.getElementById("catSearch").value = "";
+  catFilterMode = "all"; catKind = "EXPENSE"; syncCatKindUI(); document.getElementById("catSearch").value = "";
   document.querySelectorAll("#catFilter button").forEach(x=>x.classList.toggle("on", x.dataset.f==="all"));
   renderExistingCats();
   document.getElementById("newCatForm").classList.remove("open");
@@ -2876,7 +2942,7 @@ document.getElementById("createCatBtn").addEventListener("click", async ()=>{
   try {
     await api("/categories", {
       method: "POST",
-      body: JSON.stringify({ name, icon: selectedIcon, colorHex: nextAutoColor() }),
+      body: JSON.stringify({ name, icon: selectedIcon, colorHex: catKind === "INCOME" ? nextIncomeColor() : nextAutoColor(), kind: catKind }),
     });
     document.getElementById("newCatName").value = "";
     document.getElementById("newCatForm").classList.remove("open");
@@ -3490,6 +3556,75 @@ document.getElementById("recSave").addEventListener("click", async ()=>{
 });
 
 
+/* ---------- Transacción manual ---------- */
+let mtType = "EXPENSE", mtCur = "PEN";
+function mtFillCats(){
+  const kind = mtType;
+  const keys = Object.keys(CAT_META).filter(k=>(CAT_META[k].kind || "EXPENSE") === kind && !CAT_META[k].excluded);
+  const prev = document.getElementById("mtCat").value;
+  document.getElementById("mtCat").innerHTML = keys.map(k=>`<option value="${k}">${CAT_META[k].icon} ${sbEsc(CAT_META[k].label)}</option>`).join("");
+  if(prev && keys.includes(prev)) document.getElementById("mtCat").value = prev;
+  else {
+    const def = keys.find(k=>CAT_META[k].label === (kind === "INCOME" ? "Ingresos" : "Otros comercios"));
+    if(def) document.getElementById("mtCat").value = def;
+  }
+}
+function mtSetType(t){
+  mtType = t;
+  document.querySelectorAll("#mtType button").forEach(b=>b.classList.toggle("active", b.dataset.type === t));
+  document.getElementById("mtMerchantLbl").textContent = t === "INCOME" ? "Origen o concepto" : "Comercio o concepto";
+  document.getElementById("mtMerchant").placeholder = t === "INCOME" ? "Ej. Sueldo de noviembre, cliente Juan…" : "Ej. Bodega, almuerzo, taxi…";
+  mtFillCats();
+}
+function mtSetCur(c){
+  mtCur = c;
+  document.querySelectorAll("#mtCur button").forEach(b=>b.classList.toggle("active", b.dataset.cur === c));
+}
+function openMtModal(){
+  const now = new Date();
+  document.getElementById("mtAmount").value = "";
+  document.getElementById("mtMerchant").value = "";
+  document.getElementById("mtNote").value = "";
+  document.getElementById("mtDate").value = `${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`;
+  document.getElementById("mtTime").value = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+  document.getElementById("mtErr").textContent = "";
+  mtSetCur("PEN"); mtSetType("EXPENSE");
+  document.getElementById("mtModalOverlay").classList.add("open");
+  setTimeout(()=>document.getElementById("mtAmount").focus(), 50);
+}
+const closeMtModal = ()=> document.getElementById("mtModalOverlay").classList.remove("open");
+document.getElementById("mtOpenBtn").addEventListener("click", openMtModal);
+document.getElementById("mtCancel").addEventListener("click", closeMtModal);
+document.getElementById("mtModalOverlay").addEventListener("click", e=>{ if(e.target.id === "mtModalOverlay") closeMtModal(); });
+document.getElementById("mtType").addEventListener("click", e=>{ const b = e.target.closest("button"); if(b) mtSetType(b.dataset.type); });
+document.getElementById("mtCur").addEventListener("click", e=>{ const b = e.target.closest("button"); if(b) mtSetCur(b.dataset.cur); });
+document.getElementById("mtSave").addEventListener("click", async ()=>{
+  const err = document.getElementById("mtErr");
+  const amount = parseFloat(document.getElementById("mtAmount").value);
+  const categoryId = document.getElementById("mtCat").value;
+  const d = document.getElementById("mtDate").value;
+  const tm = document.getElementById("mtTime").value || "12:00";
+  const merchant = document.getElementById("mtMerchant").value.trim();
+  const note = document.getElementById("mtNote").value.trim();
+  if(!(amount > 0)){ err.textContent = "Ingresa un monto mayor a 0."; return; }
+  if(!categoryId){ err.textContent = "Elige una categoría."; return; }
+  if(!d){ err.textContent = "Elige la fecha."; return; }
+  const when = new Date(`${d}T${tm}:00`);
+  if(isNaN(when.getTime())){ err.textContent = "Fecha u hora inválida."; return; }
+  const btn = document.getElementById("mtSave"); btn.disabled = true;
+  try {
+    const body = { type: mtType, amount, currency: mtCur, categoryId, occurredAt: when.toISOString() };
+    if(merchant) body.merchant = merchant;
+    if(note) body.note = note;
+    await api("/transactions", { method:"POST", body: JSON.stringify(body) });
+    closeMtModal();
+    await loadData();
+    if(typeof loadSandbox === "function") loadReview();
+  } catch(e){ err.textContent = e.message; }
+  finally { btn.disabled = false; }
+});
+document.addEventListener("keydown", e=>{ if(e.key === "Escape" && document.getElementById("mtModalOverlay").classList.contains("open")) closeMtModal(); });
+
 /* ---------- Deudas por cobrar / por pagar ---------- */
 let DEBTS = [], debtEditing = null, debtDir = "RECEIVABLE", payTarget = null, showSettled = {R:false,P:false};
 async function loadDebts(){
@@ -3675,7 +3810,7 @@ function renderGoals(){
   }).join("") : `<div class="rec-empty">${goalCur === "USD" ? "Aún no tienes metas en dólares." : "Aún no tienes metas en soles."} Elige una categoría y un monto mensual para empezar.</div>`;
   // categorías disponibles (sin meta todavía)
   const used = new Set(goals.map(g=>g.categoryId));
-  document.getElementById("goalCat").innerHTML = Object.keys(CAT_META).filter(k=>!CAT_META[k].excluded && !used.has(k))
+  document.getElementById("goalCat").innerHTML = Object.keys(CAT_META).filter(k=>!CAT_META[k].excluded && CAT_META[k].kind !== "INCOME" && !used.has(k))
     .map(k=>`<option value="${k}">${CAT_META[k].icon} ${sbEsc(CAT_META[k].label)}</option>`).join("");
 }
 async function putGoal(categoryId, currency, amount){
@@ -4365,6 +4500,7 @@ async function loadData(){
       color: c.colorHex || "#1a5da8",
       locked: c.isDefault,
       excluded: c.excludeFromTotals,
+      kind: c.kind || "EXPENSE",
     };
   });
 

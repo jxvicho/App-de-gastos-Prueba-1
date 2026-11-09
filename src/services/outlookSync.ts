@@ -82,7 +82,7 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
   // Categorías reales del usuario, para pedirle a Gemini que sugiera una y
   // para resolver el nombre que devuelva al id real (tolerante a mayúsculas/tildes).
   const categories = await prisma.category.findMany({
-    where: { userId: account.userId, isArchived: false },
+    where: { userId: account.userId, isArchived: false, kind: "EXPENSE" },
     select: { id: true, name: true },
   });
   const categoryNames = categories.map((c) => c.name);
