@@ -12,6 +12,42 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+/* Diálogos propios (reemplazan alert/confirm nativos: se ven bien en el móvil y no bloquean el navegador). */
+function _uiDialog(msg, isConfirm){
+  return new Promise(function(resolve){
+    var ov = document.createElement("div");
+    ov.className = "modal-overlay open";
+    ov.style.zIndex = "10000";
+    var box = document.createElement("div");
+    box.className = "modal-box";
+    box.setAttribute("role", isConfirm ? "alertdialog" : "dialog");
+    box.style.maxWidth = "380px";
+    var p = document.createElement("div");
+    p.style.cssText = "font-size:15px;line-height:1.45;color:#0b2545;white-space:pre-line;margin-bottom:18px;";
+    p.textContent = String(msg);
+    var acts = document.createElement("div");
+    acts.className = "modal-actions";
+    var done = function(v){ document.removeEventListener("keydown", onKey, true); ov.remove(); resolve(v); };
+    if(isConfirm){
+      var no = document.createElement("button"); no.type = "button"; no.className = "btn-cancel"; no.textContent = "Cancelar";
+      no.addEventListener("click", function(){ done(false); });
+      acts.appendChild(no);
+    }
+    var ok = document.createElement("button"); ok.type = "button"; ok.className = "btn-save"; ok.textContent = isConfirm ? "Aceptar" : "Entendido";
+    ok.addEventListener("click", function(){ done(true); });
+    acts.appendChild(ok);
+    box.appendChild(p); box.appendChild(acts); ov.appendChild(box);
+    var onKey = function(e){ if(e.key === "Escape"){ e.stopPropagation(); done(false); } else if(e.key === "Enter"){ e.stopPropagation(); e.preventDefault(); done(true); } };
+    document.addEventListener("keydown", onKey, true);
+    ov.addEventListener("click", function(e){ if(e.target === ov) done(false); });
+    document.body.appendChild(ov);
+    ok.focus();
+  });
+}
+function uiConfirm(msg){ return _uiDialog(msg, true); }
+function uiAlert(msg){ return _uiDialog(msg, false); }
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
@@ -979,6 +1015,12 @@ body.cal-open .controls{z-index:70;}
 .goal-add select,.goal-add input{border:1px solid #dbe4f0;border-radius:12px;min-height:40px;padding:0 12px;font-family:inherit;font-size:14px;background:#fff;color:#0f1b2d;min-width:0;}
 .goal-add #goalCat{flex:1 1 150px;}
 .goal-add input{flex:1 1 110px;}
+@media(max-width:520px){
+  .goal-add{flex-direction:column;align-items:stretch;}
+  .goal-add select,.goal-add input,.goal-add .btn-save,.goal-add #goalCat{width:100%;flex:none;font-size:16px;min-height:44px;height:44px;}
+}
+#accountSelect{font-family:inherit;font-size:14px;color:#0f1b2d;background:#fff;}
+@media(max-width:520px){#accountSelect{width:100%;font-size:16px;}}
 .goal-add .btn-save{border:none;border-radius:999px;padding:0 18px;min-height:40px;font-weight:700;cursor:pointer;background:var(--accent,#1a5da8);color:#fff;}
 .plan-fixed{font-size:12.5px;font-weight:700;color:#12806c;background:#e3f6f1;border-radius:999px;padding:6px 12px;max-width:230px;text-align:center;line-height:1.35;}
 .daily-hint{margin:10px 0 0 0;font-size:12.5px;color:#a05a00;}
@@ -1952,7 +1994,7 @@ function renderHero(){
     document.getElementById("heroTotalLbl").textContent = "Total gastado en el periodo filtrado";
   }
   document.getElementById("heroTotal").textContent = fmt(total, state.heroCurrency);
-  document.getElementById("heroSub").textContent = rows.length + " transacciones";
+  document.getElementById("heroSub").textContent = rows.length + (rows.length === 1 ? " transacción" : " transacciones");
 
   if(rows.length){
     const dates = rows.map(t=>t.date).sort();
@@ -1960,7 +2002,7 @@ function renderHero(){
     const days = Math.max(1, Math.round((last-first)/86400000)+1);
     const avg = total/days;
     document.getElementById("heroAvgDay").innerHTML = "<small>"+sym+"</small> " + avg.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2});
-    document.getElementById("heroDaysSpan").textContent = "sobre " + days + " días";
+    document.getElementById("heroDaysSpan").textContent = "sobre " + days + (days === 1 ? " día" : " días");
 
     const maxTxn = rows.reduce((a,b)=> b.amount>a.amount?b:a, rows[0]);
     document.getElementById("heroMax").innerHTML = "<small>"+sym+"</small> " + maxTxn.amount.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -2396,7 +2438,7 @@ document.getElementById("budgetSaveBtn").addEventListener("click", async ()=>{
     state.budget = prev;
     state.budgetUSD = prevUSD;
     renderAll();
-    alert("No se pudo guardar el presupuesto: " + err.message);
+    uiAlert("No se pudo guardar el presupuesto: " + err.message);
   }
 });
 
@@ -2453,23 +2495,23 @@ async function editTxnNote(idx){
   const note = val.trim().slice(0,200);
   try {
     await api(`/transactions/${t.id}/note`, {method:"PATCH", body: JSON.stringify({note: note || null})});
-  } catch(err){ alert("No se pudo guardar la nota: "+err.message); return; }
+  } catch(err){ uiAlert("No se pudo guardar la nota: "+err.message); return; }
   t.note = note;
   renderAll();
 }
 async function deleteTxn(idx){
   const t = TXNS[idx]; if(!t) return;
   const label = `${t.type==="ingreso" ? "ingreso" : "gasto"} de ${fmt(t.amount, t.currency)} (${t.desc})`;
-  if(!confirm(`¿Eliminar este ${label}?`)) return;
+  if(!await uiConfirm(`¿Eliminar este ${label}?`)) return;
   try {
     await api("/transactions/"+t.id, {method:"DELETE"});
-  } catch(err){ alert("No se pudo eliminar: "+err.message); return; }
+  } catch(err){ uiAlert("No se pudo eliminar: "+err.message); return; }
   const id = t.id;
   TXNS.splice(idx,1); TXNS.forEach((x,i)=>{ x.__idx = i; });
   renderAll();
   showUndoToast("Movimiento eliminado", async ()=>{
     try { await api(`/transactions/${id}/restore`, {method:"POST"}); await refreshData(); showUndoToast("Movimiento restaurado"); }
-    catch(err){ alert("No se pudo restaurar: "+err.message); }
+    catch(err){ uiAlert("No se pudo restaurar: "+err.message); }
   });
 }
 
@@ -2554,7 +2596,7 @@ function renderTable(){
         TXNS[idx].category = prevKey; // revertimos si el backend rechazó el cambio
         TXNS[idx].type = prevType;
         renderAll();
-        alert("No se pudo guardar el cambio de categoría: " + err.message);
+        uiAlert("No se pudo guardar el cambio de categoría: " + err.message);
       }
     });
     sel.addEventListener("click", e=>e.stopPropagation());
@@ -2873,7 +2915,7 @@ function buildCatRow(key, count){
       } catch(err) {
         CAT_META[key].label = prev;
         this.value = prev;
-        alert("No se pudo renombrar: " + err.message);
+        uiAlert("No se pudo renombrar: " + err.message);
       }
     });
   }
@@ -2882,13 +2924,13 @@ function buildCatRow(key, count){
   if(del) del.addEventListener("click", async ()=>{
     const label = CAT_META[key].label;
     const n = count ? ` Sus ${count} movimientos pasarán a "Otros comercios".` : "";
-    if(!confirm(`¿Eliminar la categoría "${label}"?${n}`)) return;
+    if(!await uiConfirm(`¿Eliminar la categoría "${label}"?${n}`)) return;
     try {
       await api(`/categories/${key}`, { method:"DELETE" });
       await loadData();
       renderExistingCats();
     } catch(err) {
-      alert("No se pudo eliminar: " + err.message);
+      uiAlert("No se pudo eliminar: " + err.message);
     }
   });
   return row;
@@ -2972,7 +3014,7 @@ document.getElementById("createCatBtn").addEventListener("click", async ()=>{
     await loadData();
     renderExistingCats();
   } catch(err) {
-    alert("No se pudo crear la categoría: " + err.message);
+    uiAlert("No se pudo crear la categoría: " + err.message);
   } finally {
     btn.disabled = false;
   }
@@ -3005,7 +3047,7 @@ function openIconPop(anchorEl, key){
         CAT_META[key].icon = prevIcon;
         renderExistingCats();
         renderAll();
-        alert("No se pudo guardar el ícono: " + err.message);
+        uiAlert("No se pudo guardar el ícono: " + err.message);
       }
     };
     grid.appendChild(el);
@@ -3080,14 +3122,14 @@ async function loadEmailAccounts(){
 
   wrap.querySelectorAll(".disconnect-account-btn").forEach(btn=>{
     btn.addEventListener("click", async function(){
-      if(!confirm("¿Desconectar este correo? Dejaremos de leer sus notificaciones bancarias.")) return;
+      if(!await uiConfirm("¿Desconectar este correo? Dejaremos de leer sus notificaciones bancarias.")) return;
       this.disabled = true;
       try {
         await api(`/email-accounts/${this.dataset.id}`, { method:"DELETE" });
         await loadEmailAccounts();
         await loadBankCatalog();
       } catch(err) {
-        alert("No se pudo desconectar el correo: " + err.message);
+        uiAlert("No se pudo desconectar el correo: " + err.message);
         this.disabled = false;
       }
     });
@@ -3265,7 +3307,7 @@ document.getElementById("petSaveBtn").addEventListener("click", async ()=>{
     renderSidebarPet();
     closePetModal();
   } catch(err) {
-    alert("No se pudo guardar tu mascota: " + err.message);
+    uiAlert("No se pudo guardar tu mascota: " + err.message);
   } finally {
     btn.disabled = false;
   }
@@ -3280,7 +3322,7 @@ document.getElementById("petNoneBtn").addEventListener("click", async ()=>{
     renderSidebarPet();
     closePetModal();
   } catch(err) {
-    alert("No se pudo actualizar: " + err.message);
+    uiAlert("No se pudo actualizar: " + err.message);
   } finally {
     btn.disabled = false;
   }
@@ -3318,7 +3360,7 @@ async function toggleAutoRegister(){
   } catch(err) {
     state.autoRegister = prev;
     renderAutoRegister();
-    alert("No se pudo cambiar el registro automático: " + err.message);
+    uiAlert("No se pudo cambiar el registro automático: " + err.message);
   }
 }
 document.getElementById("autoRegisterToggle").addEventListener("click", e=>{ e.preventDefault(); toggleAutoRegister(); });
@@ -3375,7 +3417,7 @@ async function saveDaily(next){
   } catch(err) {
     state.dailyOn = prev.on; state.dailySummaryHour = prev.hour;
     renderDaily();
-    alert("No se pudo guardar el reporte diario: " + err.message);
+    uiAlert("No se pudo guardar el reporte diario: " + err.message);
   }
 }
 const toggleDaily = ()=>{ if((state.features||{}).canToggleDailySummary === false) return; saveDaily({ enabled: !state.dailyOn, hour: Number(document.getElementById("dailyHour").value) }); };
@@ -3540,11 +3582,11 @@ document.getElementById("recList").addEventListener("click", async e=>{
     } else if(btn.dataset.act === "edit"){
       openRecModal(r);
     } else if(btn.dataset.act === "del"){
-      if(!confirm("¿Quitar “" + r.merchant + "”? Gastia no lo volverá a proponer.")) return;
+      if(!await uiConfirm("¿Quitar “" + r.merchant + "”? Gastia no lo volverá a proponer.")) return;
       await api("/recurring-payments/" + r.id, { method:"DELETE" });
       await loadRecurring();
     }
-  } catch(err){ alert("No se pudo actualizar: " + err.message); }
+  } catch(err){ uiAlert("No se pudo actualizar: " + err.message); }
 });
 let recEditing = null;
 function openRecModal(r){
@@ -3727,18 +3769,18 @@ document.getElementById("debtCard").addEventListener("click", async e=>{
     switch(btn.dataset.act){
       case "pay": openPayModal(d); break;
       case "edit": openDebtModal(d, d.direction); break;
-      case "settle": if(confirm(`¿Marcar como saldada la deuda con ${d.counterparty}?`)){ await api("/debts/"+d.id, {method:"PATCH", body: JSON.stringify({settled:true})}); await loadDebts(); } break;
+      case "settle": if(await uiConfirm(`¿Marcar como saldada la deuda con ${d.counterparty}?`)){ await api("/debts/"+d.id, {method:"PATCH", body: JSON.stringify({settled:true})}); await loadDebts(); } break;
       case "reopen": await api("/debts/"+d.id, {method:"PATCH", body: JSON.stringify({settled:false})}); await loadDebts(); break;
-      case "del": if(confirm(`¿Eliminar la deuda con ${d.counterparty}? Se borra también su historial de abonos.`)){ await api("/debts/"+d.id, {method:"DELETE"}); await loadDebts(); } break;
+      case "del": if(await uiConfirm(`¿Eliminar la deuda con ${d.counterparty}? Se borra también su historial de abonos.`)){ await api("/debts/"+d.id, {method:"DELETE"}); await loadDebts(); } break;
       case "delpay": await api(`/debts/${d.id}/payments/${btn.dataset.pid}`, {method:"DELETE"}); await loadDebts(); break;
       case "remind": {
         const link = waLink(d);
         if(link) window.open(link, "_blank", "noopener");
-        else { try { await navigator.clipboard.writeText(debtMsg(d)); alert("Copiamos el mensaje de cobro. Agrega el WhatsApp de la persona (Editar) para abrirlo directo en el chat."); } catch(_){ alert(debtMsg(d)); } }
+        else { try { await navigator.clipboard.writeText(debtMsg(d)); uiAlert("Copiamos el mensaje de cobro. Agrega el WhatsApp de la persona (Editar) para abrirlo directo en el chat."); } catch(_){ uiAlert(debtMsg(d)); } }
         break;
       }
     }
-  } catch(err){ alert("No se pudo completar la acción: " + err.message); }
+  } catch(err){ uiAlert("No se pudo completar la acción: " + err.message); }
 });
 function openDebtModal(d, dir){
   debtEditing = d; debtDir = dir;
@@ -3845,12 +3887,12 @@ document.getElementById("goalList").addEventListener("change", async e=>{
   if(e.target.tagName !== "INPUT") return;
   const row = e.target.closest(".goal-row"); const v = parseFloat(e.target.value);
   if(!(v > 0)) { renderGoals(); return; }
-  try { await putGoal(row.dataset.cat, row.dataset.cur, v); } catch(err){ alert("No se pudo guardar la meta: " + err.message); renderGoals(); }
+  try { await putGoal(row.dataset.cat, row.dataset.cur, v); } catch(err){ uiAlert("No se pudo guardar la meta: " + err.message); renderGoals(); }
 });
 document.getElementById("goalList").addEventListener("click", async e=>{
   const b = e.target.closest("[data-act=rm]"); if(!b) return;
   const row = b.closest(".goal-row");
-  try { await putGoal(row.dataset.cat, row.dataset.cur, 0); } catch(err){ alert("No se pudo quitar la meta: " + err.message); }
+  try { await putGoal(row.dataset.cat, row.dataset.cur, 0); } catch(err){ uiAlert("No se pudo quitar la meta: " + err.message); }
 });
 document.getElementById("goalCurSwitch").addEventListener("click", e=>{
   const b = e.target.closest("button[data-cur]"); if(!b) return;
@@ -3860,9 +3902,9 @@ document.getElementById("goalAddBtn").addEventListener("click", async ()=>{
   const categoryId = document.getElementById("goalCat").value;
   const currency = goalCur;
   const amount = parseFloat(document.getElementById("goalAmount").value);
-  if(!categoryId || !(amount > 0)){ alert("Elige una categoría y un monto mayor a 0."); return; }
+  if(!categoryId || !(amount > 0)){ uiAlert("Elige una categoría y un monto mayor a 0."); return; }
   try { await putGoal(categoryId, currency, amount); document.getElementById("goalAmount").value = ""; }
-  catch(err){ alert("No se pudo agregar la meta: " + err.message); }
+  catch(err){ uiAlert("No se pudo agregar la meta: " + err.message); }
 });
 
 /* ---------- Perfil ---------- */
@@ -4112,8 +4154,8 @@ function wirePayActions(s){
     await reload();
   }));
   const cn = document.getElementById("payCancel");
-  if(cn) cn.addEventListener("click", ()=>{
-    if(!confirm("¿Cancelar tu suscripción? Conservarás el acceso hasta el final del periodo ya pagado y no se te cobrará de nuevo.")) return;
+  if(cn) cn.addEventListener("click", async ()=>{
+    if(!await uiConfirm("¿Cancelar tu suscripción? Conservarás el acceso hasta el final del periodo ya pagado y no se te cobrará de nuevo.")) return;
     run(cn, async ()=>{ await api("/subscription/cancel", { method:"POST" }); await reload(); });
   });
 }
@@ -4153,7 +4195,7 @@ document.getElementById("connect-outlook-btn").addEventListener("click", async (
     const data = await api("/email-accounts/auth/microsoft");
     window.location.href = data.url;
   } catch(err) {
-    alert("No se pudo iniciar la conexión con Outlook: " + err.message);
+    uiAlert("No se pudo iniciar la conexión con Outlook: " + err.message);
     btn.disabled = false;
   }
 });
@@ -4165,7 +4207,7 @@ document.getElementById("connect-gmail-btn").addEventListener("click", async ()=
     const data = await api("/email-accounts/auth/google");
     window.location.href = data.url;
   } catch(err) {
-    alert("No se pudo iniciar la conexión con Gmail: " + err.message);
+    uiAlert("No se pudo iniciar la conexión con Gmail: " + err.message);
     btn.disabled = false;
   }
 });
@@ -4173,12 +4215,12 @@ document.getElementById("connect-gmail-btn").addEventListener("click", async ()=
 document.getElementById("save-banks-btn").addEventListener("click", async ()=>{
   const account = EMAIL_ACCOUNTS[0];
   if(!account){
-    alert("Conecta un correo primero para poder elegir tus bancos.");
+    uiAlert("Conecta un correo primero para poder elegir tus bancos.");
     return;
   }
   const bankKeys = Array.from(document.querySelectorAll(".bank-checkbox:checked")).map(cb=>cb.value);
   if(!bankKeys.length){
-    alert("Selecciona al menos un banco.");
+    uiAlert("Selecciona al menos un banco.");
     return;
   }
   const btn = document.getElementById("save-banks-btn");
@@ -4196,7 +4238,7 @@ document.getElementById("save-banks-btn").addEventListener("click", async ()=>{
     loadEmailAccounts();
     loadBankCatalog();
   } catch(err) {
-    alert("No se pudieron guardar los bancos: " + err.message);
+    uiAlert("No se pudieron guardar los bancos: " + err.message);
     btn.disabled = false;
   }
 });
@@ -4216,7 +4258,7 @@ function checkEmailConnectedRedirect(){
     const rest0 = params.toString();
     history.replaceState({}, "", window.location.pathname + (rest0 ? "?"+rest0 : "") + window.location.hash);
     showView("config");
-    alert(code === "limit" ? "Puedes conectar hasta 2 correos. Desconecta uno para agregar otro." : "No se pudo conectar el correo (" + code + ").");
+    uiAlert(code === "limit" ? "Puedes conectar hasta 2 correos. Desconecta uno para agregar otro." : "No se pudo conectar el correo (" + code + ").");
   }
   if(params.get("email_connected") === "1"){
     params.delete("email_connected");
@@ -4295,20 +4337,20 @@ async function loadCategoryRules(){
         await loadCategoryRules();
       } catch(err) {
         this.classList.toggle("on", !nowOn);
-        alert("No se pudo actualizar la regla: " + err.message);
+        uiAlert("No se pudo actualizar la regla: " + err.message);
       }
     });
   });
 
   wrap.querySelectorAll(".del-rule-btn").forEach(btn=>{
     btn.addEventListener("click", async function(){
-      if(!confirm("¿Eliminar esta regla? Los movimientos ya categorizados no cambian, solo deja de aplicarse a los nuevos.")) return;
+      if(!await uiConfirm("¿Eliminar esta regla? Los movimientos ya categorizados no cambian, solo deja de aplicarse a los nuevos.")) return;
       this.disabled = true;
       try {
         await api(`/category-rules/${this.dataset.id}`, { method:"DELETE" });
         await loadCategoryRules();
       } catch(err) {
-        alert("No se pudo eliminar la regla: " + err.message);
+        uiAlert("No se pudo eliminar la regla: " + err.message);
         this.disabled = false;
       }
     });
@@ -4386,7 +4428,7 @@ document.getElementById("createRuleBtn").addEventListener("click", async ()=>{
     return;
   }
   if(type !== "MERCHANT_CONTAINS" && isNaN(parseFloat(value))){
-    alert("El valor debe ser un número para reglas de monto.");
+    uiAlert("El valor debe ser un número para reglas de monto.");
     return;
   }
 
@@ -4408,7 +4450,7 @@ document.getElementById("createRuleBtn").addEventListener("click", async ()=>{
     document.getElementById("newRuleForm").classList.remove("open");
     await loadCategoryRules();
   } catch(err) {
-    alert(`No se pudo ${editingRuleId ? "guardar los cambios de" : "crear"} la regla: ` + err.message);
+    uiAlert(`No se pudo ${editingRuleId ? "guardar los cambios de" : "crear"} la regla: ` + err.message);
   } finally {
     btn.disabled = false;
   }
@@ -4419,7 +4461,7 @@ document.getElementById("createRuleBtn").addEventListener("click", async ()=>{
    ========================================================= */
 document.getElementById("exportBtn").addEventListener("click", ()=>{
   const rows = getFiltered(true).sort((a,b)=>{ const ka=a.date+" "+(a.time||""), kb=b.date+" "+(b.time||""); return ka<kb?-1:ka>kb?1:0; });
-  if(!rows.length){ alert("No hay movimientos que coincidan con los filtros actuales."); return; }
+  if(!rows.length){ uiAlert("No hay movimientos que coincidan con los filtros actuales."); return; }
 
   const data = rows.map(t=>({
     "Fecha": t.date,
@@ -4713,7 +4755,7 @@ async function loadReview(){
       if(more) more.addEventListener("click", ()=>{ REVIEW_EXPANDED = !REVIEW_EXPANDED; loadReview(); });
       const all = foot.querySelector(".rv-all");
       if(all) all.addEventListener("click", async ()=>{
-        if(!confirm(`¿Confirmar los ${pending} movimientos pendientes? Pasarán a contar en tus totales con la categoría que muestran.`)) return;
+        if(!await uiConfirm(`¿Confirmar los ${pending} movimientos pendientes? Pasarán a contar en tus totales con la categoría que muestran.`)) return;
         REVIEW_BUSY = true;
         all.disabled = true; all.textContent = "Confirmando…";
         const ids = items.filter(t=>t.status==="PENDING_CONFIRMATION").map(t=>t.id);
@@ -4723,7 +4765,7 @@ async function loadReview(){
           catch(e){ failed++; }
         }
         REVIEW_BUSY = false;
-        if(failed) alert(`No se pudieron confirmar ${failed} movimiento(s). Inténtalo de nuevo.`);
+        if(failed) uiAlert(`No se pudieron confirmar ${failed} movimiento(s). Inténtalo de nuevo.`);
         await reloadAfterReviewChange();
       });
     }
@@ -4734,17 +4776,17 @@ async function loadReview(){
         REVIEW_BUSY = true;
         try {
           await api(`/transactions/${id}/category`, { method:"PATCH", body: JSON.stringify({ categoryId: e.target.value }) });
-        } catch(err){ alert("No se pudo cambiar la categoría: " + err.message); }
+        } catch(err){ uiAlert("No se pudo cambiar la categoría: " + err.message); }
         REVIEW_BUSY = false;
         await reloadAfterReviewChange();
       });
       row.querySelectorAll("[data-act]").forEach(btn=>btn.addEventListener("click", async ()=>{
-        if(btn.dataset.act === "REJECTED" && !confirm("¿Descartar este movimiento? Dejará de contar en tus totales.")) return;
+        if(btn.dataset.act === "REJECTED" && !await uiConfirm("¿Descartar este movimiento? Dejará de contar en tus totales.")) return;
         REVIEW_BUSY = true;
         row.querySelectorAll("button").forEach(b=>b.disabled = true);
         try {
           await api(`/transactions/${id}/decision`, { method:"PATCH", body: JSON.stringify({ decision: btn.dataset.act }) });
-        } catch(err){ alert("No se pudo actualizar el movimiento: " + err.message); }
+        } catch(err){ uiAlert("No se pudo actualizar el movimiento: " + err.message); }
         REVIEW_BUSY = false;
         await reloadAfterReviewChange();
       }));
