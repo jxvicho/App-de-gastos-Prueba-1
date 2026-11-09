@@ -109,6 +109,11 @@ chatRouter.post(
   asyncHandler(async (req, res) => {
     requireEnabled();
     const body = sendSchema.parse(req.body);
+    // Postgres no admite el carácter nulo (\u0000) en texto: se quita antes de guardar.
+    if (body.text) {
+      body.text = body.text.replace(/\u0000/g, "").trim();
+      if (!body.text && !body.buttonId) throw new AppError("Escribe un mensaje", 422);
+    }
     // Un clic en botón equivale al mismo texto que entiende el bot de WhatsApp.
     // "web_del:<id>" = botón 🗑️ bajo un movimiento registrado (equivale a responder "eliminar" a ese mensaje en WhatsApp).
     // "web_ok:<id>" / "web_no:<id>" = Anotar / Descartar un movimiento detectado (como los botones de WhatsApp).

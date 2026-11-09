@@ -1415,6 +1415,11 @@ function detectCreateRuleIntent(normalizedText: string): boolean {
  *
  * Devuelve null si no matchea — nunca se adivina el tipo.
  */
+/** Respuesta cuando el mensaje no encaja con nada (ni con un movimiento pendiente). */
+const NOT_UNDERSTOOD_MESSAGE =
+  "No te entendí 🤔. Escribe *ayuda* para ver lo que puedo hacer. " +
+  "Si querías responder a un movimiento pendiente, dime su monto o el nombre del comercio.";
+
 const MANUAL_EXPENSE_DECLARATIVE_VERBS = [
   "gaste", "pague", "compre", "consumi", "me cobraron", "me descontaron",
 ];
@@ -1447,6 +1452,10 @@ function detectManualTransactionIntent(normalizedText: string): { type: "EXPENSE
     if (/\d/.test(normalizedText)) return { type: "EXPENSE" };
     return null;
   }
+
+  // "ingreso 500 de sueldo" / "gasto 20 taxi": el sustantivo pelado + monto al inicio, sin verbo.
+  if (/^ingresos?\s+(?:de\s+)?(?:s\/\.?\s*)?\d/.test(normalizedText)) return { type: "INCOME" };
+  if (/^gastos?\s+(?:de\s+)?(?:s\/\.?\s*)?\d/.test(normalizedText)) return { type: "EXPENSE" };
 
   // Una PREGUNTA ("cuánto gasté en comida", "cuánto recibí este mes") no es un movimiento nuevo:
   // la maneja la consulta por categoría/comercio o el resumen. Solo las frases declarativas
@@ -3592,7 +3601,12 @@ export async function handleIncomingMessage(
   });
 
   if (allPendingForFallback.length === 0) {
-    await sendTextMessage(from, "No tienes ninguna transacción pendiente de confirmar por ahora.");
+    await sendTextMessage(
+      from,
+      CONFIRM_WORDS.has(normalized)
+        ? "No tienes ninguna transacción pendiente de confirmar por ahora."
+        : NOT_UNDERSTOOD_MESSAGE
+    );
     return;
   }
 
@@ -3619,7 +3633,7 @@ export async function handleIncomingMessage(
     console.log(`WhatsApp: FALLBACK con ${allPendingForFallback.length} pendientes y mensaje no reconocido ("${normalized}") — se pide aclarar en vez de adivinar.`);
     await sendTextMessage(
       from,
-      "No logré identificar a qué movimiento te referías. ¿Me dices el monto o el nombre del comercio para encontrarlo?"
+      NOT_UNDERSTOOD_MESSAGE
     );
     return;
   }
