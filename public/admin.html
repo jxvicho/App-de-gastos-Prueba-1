@@ -216,6 +216,7 @@ ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;fo
         row("Movimientos manuales y por chat web",function(){return yn(true)},"Transacción manual, importar y chat")+
         grp("Chat web")+
         row("Mensajes al día",function(p){return '<b>'+p.features.webChatDailyCap+'</b>'},"Tope por día (hora de Lima)")+
+        row("Notas de voz y fotos en el chat",function(p){return yn(p.features.chatMedia)},"Registrar por audio o foto de boleta/captura")+
         row("Avisos de consumos en el chat web",function(p){return yn(p.features.emailSync)},"Llegan al leer el correo; no cuestan Meta")+
         grp("WhatsApp")+
         row("Usar el bot por WhatsApp",function(p){return yn(p.features.whatsapp)})+

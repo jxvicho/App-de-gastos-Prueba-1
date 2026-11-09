@@ -5238,7 +5238,7 @@ body.wc-big{overflow:hidden;}
   input.addEventListener("keydown",e=>{ if(e.key==="Enter" && !e.shiftKey && !touchDevice && !e.isComposing){ e.preventDefault(); form.requestSubmit(); } });
   form.addEventListener("submit",e=>{ e.preventDefault(); const t=input.value.trim(); if(!t) return; input.value=""; input.style.height=""; disableOldButtons(); send({text:t}); });
   // El botón solo aparece si el backend tiene el chat web habilitado.
-  api("/chat/config").then(c=>{ if(c && c.enabled){ fab.classList.add("show"); loadHistory(); } }).catch(()=>{});
+  api("/chat/config").then(c=>{ if(c && c.enabled){ if(!c.media){ document.getElementById("wcAttach").style.display="none"; document.getElementById("wcMic").style.display="none"; } fab.classList.add("show"); loadHistory(); } }).catch(()=>{});
 })();
 </script>
 <!-- ===== Mascota guía del chat: pasea una vez al día y se queda junto al botón del chat ===== -->

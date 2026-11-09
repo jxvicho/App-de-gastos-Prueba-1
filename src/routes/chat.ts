@@ -28,6 +28,12 @@ async function capFor(userId: string): Promise<number> {
   return PLAN_FEATURES[(await getEffectivePlan(u)).plan].webChatDailyCap;
 }
 
+async function canUseMedia(userId: string): Promise<boolean> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planOverride: true, planOverrideUntil: true } });
+  if (!u) return false;
+  return PLAN_FEATURES[(await getEffectivePlan(u)).plan].chatMedia;
+}
+
 function requireEnabled() {
   if (!env.WEB_CHAT_ENABLED) throw new AppError("El chat web no está habilitado", 404);
 }
@@ -65,7 +71,7 @@ const AUDIO_TYPES = ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audi
 chatRouter.get(
   "/config",
   asyncHandler(async (req, res) => {
-    res.json({ enabled: env.WEB_CHAT_ENABLED, dailyCap: await capFor(req.userId!), media: true });
+    res.json({ enabled: env.WEB_CHAT_ENABLED, dailyCap: await capFor(req.userId!), media: await canUseMedia(req.userId!) });
   })
 );
 
@@ -176,6 +182,9 @@ chatRouter.post(
   express.raw({ type: ["image/*", "audio/*"], limit: "6mb" }),
   asyncHandler(async (req, res) => {
     requireEnabled();
+    if (!(await canUseMedia(req.userId!))) {
+      throw new AppError("Las notas de voz y las fotos son parte del plan Pro. En Gratis puedes escribir tus gastos.", 403, "PLAN_FEATURE");
+    }
     const mime = String(req.headers["content-type"] ?? "").split(";")[0].trim().toLowerCase();
     const isImage = IMAGE_TYPES.includes(mime);
     const isAudio = AUDIO_TYPES.includes(mime);
