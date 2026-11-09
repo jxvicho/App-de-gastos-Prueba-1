@@ -1790,6 +1790,13 @@ function slugify(name){
   return key;
 }
 
+/* Categorías por tipo: egreso -> las de gasto, ingreso -> las de ingreso, "todos" -> todas.
+   `keep` conserva una categoría actual aunque sea de otro tipo (datos antiguos), para no dejar un select vacío o mal marcado. */
+function catKeysForType(type, keep){
+  const kind = type === "ingreso" ? "INCOME" : type === "egreso" ? "EXPENSE" : null;
+  return Object.keys(CAT_META).filter(k=> k === keep || !kind || (CAT_META[k].kind || "EXPENSE") === kind);
+}
+
 function findKeyByLabel(label){
   return Object.keys(CAT_META).find(k => CAT_META[k].label === label);
 }
@@ -2390,7 +2397,8 @@ function renderChips(){
   const wrap = document.getElementById("chipRow");
   wrap.innerHTML = "";
   const catsPresent = new Set(getFiltered(true, false, true).map(t=>t.category));
-  const cats = ["all", ...Object.keys(CAT_META).filter(k=>catsPresent.has(k))];
+  const allowed = new Set(catKeysForType(state.txType));
+  const cats = ["all", ...Object.keys(CAT_META).filter(k=>catsPresent.has(k) && allowed.has(k))];
   cats.forEach(c=>{
     const chip = document.createElement("div");
     chip.className = "chip" + (state.category===c ? " active" : "");
@@ -2491,7 +2499,7 @@ function renderTable(){
 
     const meta = CAT_META[t.category] || {label:t.category, color:"#1a5da8", icon:""};
     if(meta.excluded) tr.classList.add("excluded-row");
-    const options = Object.keys(CAT_META).map(key=>{
+    const options = catKeysForType(t.type, t.category).map(key=>{
       const m = CAT_META[key];
       return `<option value="${key}" ${key===t.category?"selected":""}>${escHtml(m.icon)} ${escHtml(m.label)}</option>`;
     }).join("");
@@ -2523,7 +2531,7 @@ function renderTable(){
       const newKey = this.value;
       const prevKey = TXNS[idx].category;
       const prevType = TXNS[idx].type;
-      const isIncome = CAT_META[newKey] && CAT_META[newKey].label === "Ingresos";
+      const isIncome = !!CAT_META[newKey] && (CAT_META[newKey].kind === "INCOME" || CAT_META[newKey].label === "Ingresos");
       TXNS[idx].category = newKey;
       TXNS[idx].type = isIncome ? "ingreso" : "egreso";
       renderAll();
@@ -2896,7 +2904,7 @@ document.getElementById("closeCatModalX").addEventListener("click", ()=>closeCat
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && document.getElementById("catModalOverlay").classList.contains("open") && !document.getElementById("iconPop").classList.contains("open")) closeCatModal(); });
 
 function openCatModal(){
-  catFilterMode = "all"; catKind = "EXPENSE"; syncCatKindUI(); document.getElementById("catSearch").value = "";
+  catFilterMode = "all"; catKind = state.txType === "ingreso" ? "INCOME" : "EXPENSE"; syncCatKindUI(); document.getElementById("catSearch").value = "";
   document.querySelectorAll("#catFilter button").forEach(x=>x.classList.toggle("on", x.dataset.f==="all"));
   renderExistingCats();
   document.getElementById("newCatForm").classList.remove("open");
@@ -4300,6 +4308,7 @@ async function loadCategoryRules(){
 function populateRuleCategorySelect(){
   const select = document.getElementById("newRuleCategory");
   select.innerHTML = Object.entries(CAT_META)
+    .filter(([key])=> (CAT_META[key].kind || "EXPENSE") === "EXPENSE")
     .map(([key, meta])=> `<option value="${key}">${escHtml(meta.icon)} ${escHtml(meta.label)}</option>`)
     .join("");
 }
@@ -4673,7 +4682,7 @@ async function loadReview(){
     const sym = c => c === "USD" ? "$" : "S/";
     const shown = REVIEW_EXPANDED ? items : items.slice(0, REVIEW_COLLAPSED_ROWS);
     list.innerHTML = shown.map(t=>{
-      const catOptions = Object.keys(CAT_META).map(k=>`<option value="${k}" ${k===t.categoryId?"selected":""}>${escHtml(CAT_META[k].icon)} ${escHtml(CAT_META[k].label)}</option>`).join("");
+      const catOptions = catKeysForType(t.type === "INCOME" ? "ingreso" : "egreso", t.categoryId).map(k=>`<option value="${k}" ${k===t.categoryId?"selected":""}>${escHtml(CAT_META[k].icon)} ${escHtml(CAT_META[k].label)}</option>`).join("");
       const isPend = t.status === "PENDING_CONFIRMATION";
       const bank = txnAccountLabel(t);
       return `<div class="rv-row" data-id="${t.id}">
