@@ -3119,7 +3119,7 @@ async function loadEmailAccounts(){
     b.title = planLocked ? "Conectar tu correo es parte del plan Pro." : full ? "Ya conectaste 2 correos. Desconecta uno para agregar otro." : "";
   });
   const cnt = document.getElementById("email-limit-note");
-  if(cnt) cnt.textContent = `${EMAIL_ACCOUNTS.length} de 2 correos conectados` + (full ? " · desconecta uno para agregar otro" : "");
+  if(cnt) cnt.textContent = planLocked ? "🔒 Conectar tu correo es parte del plan Pro. Tu plan Gratis incluye el dashboard y el chat web." : `${EMAIL_ACCOUNTS.length} de 2 correos conectados` + (full ? " · desconecta uno para agregar otro" : "");
 
   wrap.innerHTML = "";
   if(!EMAIL_ACCOUNTS.length){
@@ -3246,7 +3246,8 @@ async function renderPrefs(){
   wrap.querySelectorAll("button[data-pref]").forEach(b=>b.addEventListener("click",()=>open[b.dataset.pref]()));
 
   const wa = document.getElementById("waStatus");
-  if(state.whatsappPhone){ wa.classList.remove("off"); document.getElementById("waStatusText").textContent = "Vinculado a " + state.whatsappPhone; }
+  if(state.features && state.features.canUseWhatsapp === false){ wa.classList.add("off"); document.getElementById("waStatusText").textContent = "WhatsApp es parte del plan Pro"; }
+  else if(state.whatsappPhone){ wa.classList.remove("off"); document.getElementById("waStatusText").textContent = "Vinculado a " + state.whatsappPhone; }
   else { wa.classList.add("off"); document.getElementById("waStatusText").textContent = "Sin número de WhatsApp vinculado"; }
 }
 
@@ -3362,7 +3363,7 @@ function renderAutoRegister(){
   const fixed = document.getElementById("autoFixed");
   toggle.style.display = can ? "" : "none";
   fixed.style.display = can ? "none" : "";
-  fixed.textContent = can ? "" : "Manual en tu plan Básico. Con el plan Pro puedes activar el registro automático.";
+  fixed.textContent = can ? "" : "Manual en tu plan " + ((state.profile && state.profile.planLabel) || "actual") + ". Con el plan Pro puedes activar el registro automático.";
   toggle.classList.toggle("on", on);
   toggle.setAttribute("aria-checked", on ? "true" : "false");
   document.getElementById("autoRegisterLabel").textContent = on ? "Activado" : "Desactivado";
@@ -3415,11 +3416,14 @@ function renderDaily(){
   const fixedHour = document.getElementById("dailyHourFixed");
   sel.style.display = "none"; // hora fija para todos
   fixedHour.style.display = "";
-  fixedHour.textContent = basic ? "Tu resumen semanal llega los domingos a las 8:00 p. m." : "Todos los días a las 9:00 a. m. (hora de Lima)";
-  document.getElementById("dailyExplain").textContent = basic
+  const noWa = f.canUseWhatsapp === false;
+  fixedHour.textContent = noWa ? "Los resúmenes por WhatsApp son parte del plan Pro." : basic ? "Tu resumen semanal llega los domingos a las 8:00 p. m." : "Todos los días a las 9:00 a. m. (hora de Lima)";
+  document.getElementById("dailyExplain").textContent = noWa
+    ? "Tu plan Gratis incluye el dashboard y el chat web. Con el plan Pro Gastia te escribe por WhatsApp con tus resúmenes y avisos."
+    : basic
     ? "El resumen diario es parte del plan Pro. Con tu plan recibes cada domingo un resumen de la semana por WhatsApp: cuánto gastaste, tu categoría con más gasto y cuántos movimientos esperan tu confirmación."
     : "Cada mañana te escribimos por WhatsApp con lo que gastaste ayer, tu categoría con más gasto y cuántos movimientos esperan tu confirmación. Si ayer no hubo movimientos, no te enviamos nada.";
-  document.getElementById("dailyOptHint").style.display = ((on || basic) && !state.whatsappOptIn) ? "" : "none";
+  document.getElementById("dailyOptHint").style.display = (!noWa && (on || basic) && !state.whatsappOptIn) ? "" : "none";
 }
 async function saveDaily(next){
   const f = state.features || {};
