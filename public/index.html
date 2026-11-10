@@ -776,7 +776,15 @@ tbody tr:hover{background:#f7faff;}
 #rulesModalOverlay .modal-box .modal-sub{font-size:13.5px;}
 #rulesModalOverlay .cat-item{gap:12px;padding:12px 10px;}
 #rulesModalOverlay .cat-item .nm{font-size:14.5px;}
-@media (max-width:640px){#rulesModalOverlay .modal-box{padding:20px 16px;}}
+@media (max-width:640px){
+  #rulesModalOverlay .modal-box{padding:20px 16px;}
+  /* Celular: el texto de la regla ocupa todo el ancho y los controles pasan a una segunda línea. */
+  #rulesModalOverlay .cat-item{flex-wrap:wrap;row-gap:8px;padding:12px 6px;}
+  #rulesModalOverlay .cat-item .ic{width:32px;height:32px;}
+  #rulesModalOverlay .cat-item .nm{flex:1 1 calc(100% - 48px);min-width:0;font-size:15px;line-height:1.35;}
+  #rulesModalOverlay .cat-item .move-rule-up{margin-left:auto;}
+  #rulesModalOverlay .cat-item .icon-btn{width:38px;height:38px;}
+}
 .modal-box.cat-modal{max-width:560px;padding:0;display:flex;flex-direction:column;max-height:90vh;max-height:90dvh;overflow:hidden;}
 .cm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 22px 8px;}
 .cm-head h4{font-size:18px;margin:0;}
