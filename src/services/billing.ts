@@ -36,9 +36,11 @@ export function priceCents(plan: SellablePlan, period: BillingPeriod): number {
    --------------------------------------------------------------- */
 
 /**
- * true si el usuario está en modo solo lectura: desde el 3.er cobro fallido, o con la suscripción cancelada y
- * el periodo ya pagado terminado. Solo aplica a quien tiene una suscripción de pasarela (culqiSubscriptionId):
- * los usuarios sin pasarela (equipo, testers, plan asignado a mano) nunca se limitan.
+ * true si el usuario está en modo solo lectura: SOLO en los días de gracia de un cobro fallido (desde el 3.er fallo
+ * hasta que se agotan los reintentos). Una suscripción cancelada nunca queda en solo lectura: conserva el acceso
+ * completo hasta que termina el periodo pagado y entonces pasa al plan Gratis (ver downgradeExpiredSubscriptions).
+ * Solo aplica a quien tiene una suscripción de pasarela (culqiSubscriptionId): los usuarios sin pasarela
+ * (equipo, testers, plan asignado a mano) nunca se limitan.
  */
 export async function isAccessRestricted(userId: string): Promise<boolean> {
   if (!env.PAYMENTS_ENABLED) return false;
@@ -47,12 +49,36 @@ export async function isAccessRestricted(userId: string): Promise<boolean> {
     select: { culqiSubscriptionId: true, restrictedAt: true, status: true, currentPeriodEnd: true, trialEndsAt: true },
   });
   if (!sub?.culqiSubscriptionId) return false;
-  if (sub.restrictedAt) return true;
-  if (sub.status === "CANCELED") {
+  if (sub.status === "CANCELED") return false;
+  return !!sub.restrictedAt;
+}
+
+/** Devuelve al usuario al plan Gratis y levanta el solo lectura. No borra ningún dato suyo. */
+export async function downgradeToFree(userId: string): Promise<void> {
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { plan: "FREE" } }),
+    prisma.subscription.updateMany({ where: { userId }, data: { restrictedAt: null } }),
+  ]);
+}
+
+/**
+ * Pasa a Gratis a quien canceló y ya terminó su periodo pagado (o su prueba). Los que se agotaron por cobros
+ * fallidos ya pasaron a Gratis en el momento. Corre cada hora; solo toca suscripciones de pasarela con plan de pago.
+ */
+export async function downgradeExpiredSubscriptions(now: Date = new Date()): Promise<number> {
+  const subs = await prisma.subscription.findMany({
+    where: { status: "CANCELED", culqiSubscriptionId: { not: null }, user: { plan: { in: ["BASIC", "PRO"] } } },
+    include: { user: true },
+  });
+  let n = 0;
+  for (const sub of subs) {
     const until = sub.currentPeriodEnd ?? sub.trialEndsAt;
-    return !until || until.getTime() <= Date.now();
+    if (until && until.getTime() > now.getTime()) continue; // todavía tiene acceso pagado
+    await downgradeToFree(sub.userId);
+    n++;
+    if (sub.cancelAtPeriodEnd) await sendBillingNotice(sub.user, "DOWNGRADED");
   }
-  return false;
+  return n;
 }
 
 /* ---------------------------------------------------------------
@@ -277,6 +303,7 @@ async function onChargeFailed(sub: SubWithUser, charge: culqi.CulqiCharge) {
       console.error("No se pudo cancelar en Culqi tras agotar reintentos (puede que ya esté cancelada):", err);
     }
     await prisma.subscription.update({ where: { id: sub.id }, data: { status: "CANCELED", canceledAt: new Date() } });
+    await downgradeToFree(sub.userId);
     await sendBillingNotice(sub.user, "CANCELED_AUTO");
   } else if (attempts === DUNNING.RESTRICT_AT_ATTEMPT) {
     await sendBillingNotice(sub.user, "RESTRICTED");

@@ -12,7 +12,7 @@ import { scheduleWeeklyReportRepeatable } from "./queues/weeklyReportQueue";
 import { dailyReportWorker } from "./queues/dailyReportWorker";
 import { scheduleDailyReportRepeatable } from "./queues/dailyReportQueue";
 import { keepDatabaseAwake } from "./config/keepAlive";
-import { sendPreChargeNotices } from "./services/billing";
+import { sendPreChargeNotices, downgradeExpiredSubscriptions } from "./services/billing";
 import { rateLimit } from "./middleware/rateLimit";
 
 const app = express();
@@ -106,6 +106,14 @@ if (env.PAYMENTS_ENABLED) {
   const runPreCharge = () => sendPreChargeNotices().catch((err) => console.error("❌ Error enviando avisos previos de cobro:", err));
   setTimeout(runPreCharge, 60_000);
   setInterval(runPreCharge, 3_600_000);
+
+  // Quien canceló y ya terminó su periodo pagado pasa al plan Gratis (sin borrar nada).
+  const runDowngrades = () =>
+    downgradeExpiredSubscriptions()
+      .then((n) => { if (n > 0) console.log(`⬇️  ${n} usuario(s) pasaron al plan Gratis por fin de suscripción.`); })
+      .catch((err) => console.error("❌ Error pasando suscripciones vencidas a Gratis:", err));
+  setTimeout(runDowngrades, 90_000);
+  setInterval(runDowngrades, 3_600_000);
 }
 
 scheduleEmailSyncRepeatable().catch((err) => {

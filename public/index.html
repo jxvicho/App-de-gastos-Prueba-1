@@ -759,6 +759,7 @@ tbody tr:hover{background:#f7faff;}
 
 /* --- Íconos de acción y filas de listas --- */
 .icon-btn{width:34px;height:34px;border-radius:10px;border:1px solid #dbe4f0;color:#33455c;}
+.icon-btn:disabled{opacity:.3;cursor:default;pointer-events:none}
 .icon-btn svg{width:16px;height:16px;}
 .icon-btn.danger:hover{background:#fdeceb;color:#c0392b;border-color:#f3c9c4;}
 .cat-item .lock{display:inline-flex;color:#8b96a5;}
@@ -1746,6 +1747,7 @@ body.cal-open .controls{z-index:70;}
     <div class="modal-sub">Cuando un movimiento nuevo coincide con una regla, Gastia lo categoriza directo — tienen prioridad sobre lo que sugiera la IA.</div>
     <div class="modal-sub" id="rulesActiveCount" style="margin-top:-10px;color:var(--blue-700);font-weight:700;"></div>
 
+    <div class="modal-sub" id="rulesOrderHint" style="margin-top:-6px;font-size:12.5px;" hidden>Se aplica la <b>primera</b> regla que coincida, de arriba hacia abajo. Usa las flechas para cambiar el orden.</div>
     <div class="modal-list" id="rulesList"></div>
 
     <div class="divider"></div>
@@ -3634,7 +3636,8 @@ document.getElementById("recZoom").addEventListener("click", e=>{
 
 function renderRecurring(){
   const active = REC.filter(r=>r.isActive);
-  document.getElementById("recCount").textContent = REC.length === 1 ? "1 pago" : REC.length + " pagos";
+  { const mx = ((state.features || {}).limits || {}).recurring; const n = REC.length;
+    document.getElementById("recCount").textContent = (n === 1 ? "1 pago" : n + " pagos") + (mx != null ? " de " + mx : ""); }
 
   // KPIs
   const tot = {PEN:0, USD:0};
@@ -3851,7 +3854,8 @@ function renderDebts(){
     const rank = d=>{ const i = dueInfo(d); return i.days === null ? 99999 : i.days; };
     const op = open.filter(d=>d.direction===dir).sort((a,b)=>rank(a)-rank(b));
     const dn = DEBTS.filter(d=>d.settledAt && d.direction===dir);
-    document.getElementById("debtTot"+k).textContent = op.length ? `${op.length} ${op.length===1?"pendiente":"pendientes"} · ${fmt(dir)}` : "Sin pendientes";
+    const mxDebt = ((state.features || {}).limits || {}).debtsPerDirection;
+    document.getElementById("debtTot"+k).textContent = (op.length ? `${op.length}${mxDebt != null ? " de " + mxDebt : ""} ${op.length===1?"pendiente":"pendientes"} · ${fmt(dir)}` : "Sin pendientes") + (mxDebt != null && !op.length ? ` (hasta ${mxDebt} en Gratis)` : "");
     document.getElementById("debtList"+k).innerHTML = (op.length ? op.map(d=>debtRow(d,dir)).join("") : `<div class="rec-empty">${empty}</div>`)
       + (dn.length ? `<button type="button" class="debt-more" data-more="${k}">${showSettled[k] ? "Ocultar" : "Ver"} saldadas (${dn.length})</button>` + (showSettled[k] ? dn.map(d=>debtRow(d,dir)).join("") : "") : "");
   });
@@ -3955,6 +3959,8 @@ function renderGoals(){
   document.querySelectorAll("#goalCurSwitch button").forEach(b=>b.classList.toggle("active", b.dataset.cur === goalCur));
   document.getElementById("goalAmount").placeholder = "Monto mensual (" + (goalCur === "USD" ? "$" : "S/") + ")";
   document.getElementById("goalsCount").textContent = goals.length === 1 ? "1 meta" : goals.length + " metas";
+  { const mx = ((state.features || {}).limits || {}).goals;
+    if(mx != null) document.getElementById("goalsNote").textContent += " Plan Gratis: " + allGoals.length + " de " + mx + " metas en uso (soles y dólares juntos)."; }
   const list = document.getElementById("goalList");
   list.innerHTML = goals.length ? goals.map(g=>{
     const m = CAT_META[g.categoryId], cur = g.currency || "PEN";
@@ -4405,7 +4411,15 @@ async function loadCategoryRules(){
     return;
   }
 
-  rules.forEach(rule=>{
+  document.getElementById("rulesOrderHint").hidden = rules.length < 2;
+  const moveRule = async (i, delta)=>{
+    const j = i + delta; if(j < 0 || j >= rules.length) return;
+    const ids = rules.map(r=>r.id); [ids[i], ids[j]] = [ids[j], ids[i]];
+    try { await api("/category-rules/order", { method:"PUT", body: JSON.stringify({ ids }) }); await loadCategoryRules(); }
+    catch(err){ uiAlert("No se pudo cambiar el orden: " + err.message); }
+  };
+
+  rules.forEach((rule, idx)=>{
     const catMeta = CAT_META[rule.categoryId];
     const catLabel = catMeta ? `${escHtml(catMeta.icon)} ${escHtml(catMeta.label)}` : (rule.category ? escHtml(rule.category.name) : "Sin categoría");
     const criterion = escHtml((RULE_TYPE_LABELS[rule.type] || (v=>v))(rule.value));
@@ -4415,7 +4429,9 @@ async function loadCategoryRules(){
     row.className = "cat-item";
     row.innerHTML = `
       <div class="ic">${RULE_TYPE_ICON[rule.type] || "🏷️"}</div>
-      <span class="nm">${criterion} → ${catLabel}<br><span style="font-weight:400;color:var(--ink-faint);font-size:11px;">${sourceTag}</span></span>
+      <span class="nm"><span style="color:var(--ink-faint);font-weight:700;">${idx+1}.</span> ${criterion} → ${catLabel}<br><span style="font-weight:400;color:var(--ink-faint);font-size:11px;">${sourceTag}</span></span>
+      <button class="icon-btn move-rule-up" title="Subir (se evalúa antes)" aria-label="Subir regla" ${idx===0?"disabled":""}><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="m6 14 6-6 6 6"/></svg></button>
+      <button class="icon-btn move-rule-down" title="Bajar (se evalúa después)" aria-label="Bajar regla" ${idx===rules.length-1?"disabled":""}><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="m6 10 6 6 6-6"/></svg></button>
       <label class="toggle-wrap ${rule.isActive?"on":""}" data-id="${rule.id}" style="cursor:pointer;">
         <span class="toggle"></span>
       </label>
@@ -4423,6 +4439,8 @@ async function loadCategoryRules(){
       <button class="icon-btn danger del-rule-btn" data-id="${rule.id}" title="Eliminar regla" aria-label="Eliminar regla"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
     `;
     row.querySelector(".edit-rule-btn").addEventListener("click", ()=> startEditRule(rule));
+    row.querySelector(".move-rule-up").addEventListener("click", ()=> moveRule(idx, -1));
+    row.querySelector(".move-rule-down").addEventListener("click", ()=> moveRule(idx, 1));
     wrap.appendChild(row);
   });
 

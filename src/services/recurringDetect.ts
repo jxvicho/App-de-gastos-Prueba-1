@@ -1,5 +1,6 @@
 import { prisma } from "../config/prisma";
 import { normalizeText } from "../utils/text";
+import { getUserLimits } from "./planLimits";
 
 /** Clave estable de un comercio: minúsculas, sin tildes, sin números ni símbolos. */
 export function merchantKeyOf(raw: string): string {
@@ -48,9 +49,13 @@ export async function detectRecurringPayments(userId: string): Promise<number> {
   const existing = await prisma.recurringPayment.findMany({ where: { userId } });
   const known = new Set(existing.map((r) => `${r.merchantKey}|${r.currency}`));
   let added = 0;
+  // Gratis: la detección se detiene al llegar al tope (los pagos quitados por el usuario no cuentan).
+  const { recurring: maxRecurring } = await getUserLimits(userId);
+  let room = maxRecurring === null ? Infinity : Math.max(0, maxRecurring - existing.filter((r) => !r.ignored).length);
 
   for (const [k, list] of groups) {
     if (known.has(k)) continue;
+    if (room <= 0) break;
     const months = new Set(list.map((t) => `${t.occurredAt.getUTCFullYear()}-${t.occurredAt.getUTCMonth()}`));
     if (months.size < 2) continue;
 
@@ -82,6 +87,7 @@ export async function detectRecurringPayments(userId: string): Promise<number> {
         },
       });
       added++;
+      room--;
     } catch {
       /* carrera con otra detección: se ignora */
     }

@@ -73,6 +73,7 @@ profileRouter.get(
         canUseWhatsapp: PLAN_FEATURES[eff.plan].whatsapp,
         webChatDailyCap: PLAN_FEATURES[eff.plan].webChatDailyCap,
         premiumPets: feats.premiumPets,
+        limits: { recurring: feats.maxRecurring, goals: feats.maxGoals, debtsPerDirection: feats.maxDebtsPerDirection },
       },
     });
   })

@@ -1,3 +1,4 @@
+import { RULE_ORDER_BY } from "./ruleOrder";
 import { Prisma, type EmailAccount, type BankSender, type User } from "@prisma/client";
 import type { gmail_v1 } from "googleapis";
 import { prisma } from "../config/prisma";
@@ -61,7 +62,7 @@ export async function syncGmailAccount(account: EmailAccountWithSenders): Promis
   const activeRules = await prisma.categoryRule.findMany({
     where: { userId: account.userId, isActive: true },
     include: { category: { select: { id: true, name: true } } },
-    orderBy: { createdAt: "desc" },
+    orderBy: RULE_ORDER_BY,
   });
 
   const query = `from:(${terms.join(" OR ")}) after:${afterEpoch}`;

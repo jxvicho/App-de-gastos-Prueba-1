@@ -1,6 +1,7 @@
 import { isAccessRestricted } from "./billing";
 import { getEffectivePlan } from "./plans";
 import { PLAN_FEATURES } from "../config/plans";
+import { RULE_ORDER_BY, topRulePosition } from "./ruleOrder";
 import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { env } from "../config/env";
@@ -1752,7 +1753,7 @@ async function findConfirmedByCategory(
   return prisma.transaction.findMany({
     where: {
       userId,
-      status: "CONFIRMED",
+      status: { in: [...COUNTED_STATUSES] },
       deletedAt: null,
       categoryId,
       occurredAt: { gte: dateRange.start, lt: dateRange.end },
@@ -1814,7 +1815,7 @@ async function findConfirmedByMerchant(
   const candidates = await prisma.transaction.findMany({
     where: {
       userId,
-      status: { in: ["CONFIRMED", "PENDING_CONFIRMATION"] },
+      status: { in: ["CONFIRMED", "AUTO_CONFIRMED", "PENDING_CONFIRMATION"] },
       deletedAt: null,
       ...(dateRange ? { occurredAt: { gte: dateRange.start, lt: dateRange.end } } : {}),
     },
@@ -1823,7 +1824,7 @@ async function findConfirmedByMerchant(
   });
   const matches = candidates.filter((t) => t.merchant && textContainsAllWords(t.merchant, queryWords));
   return {
-    confirmed: matches.filter((t) => t.status === "CONFIRMED"),
+    confirmed: matches.filter((t) => t.status === "CONFIRMED" || t.status === "AUTO_CONFIRMED"),
     pending: matches.filter((t) => t.status === "PENDING_CONFIRMATION"),
   };
 }
@@ -2130,7 +2131,7 @@ async function resolveExpenseCategoryForImage(
   const activeRules = await prisma.categoryRule.findMany({
     where: { userId, isActive: true },
     include: { category: { select: { id: true, name: true } } },
-    orderBy: { createdAt: "desc" },
+    orderBy: RULE_ORDER_BY,
   });
   for (const rule of activeRules) {
     if (transactionMatchesRule(rule, { merchant: recipient ?? null, amount })) return rule.category;
@@ -2662,6 +2663,7 @@ export async function handleIncomingMessage(
           type: ruleData.type,
           value: ruleData.value,
           categoryId: matchedCategory.id,
+          position: await topRulePosition(user.id),
           source: "WHATSAPP",
         },
       });
@@ -2769,7 +2771,7 @@ export async function handleIncomingMessage(
     const activeRulesForManual = await prisma.categoryRule.findMany({
       where: { userId: user.id, isActive: true },
       include: { category: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy: RULE_ORDER_BY,
     });
     let manualCategory: { id: string; name: string } | undefined;
     for (const rule of activeRulesForManual) {

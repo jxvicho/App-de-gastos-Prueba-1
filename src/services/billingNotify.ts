@@ -8,7 +8,7 @@ import { isWindowOpen, sendTemplateMessage, sendTextMessage } from "./whatsapp";
  *  - Cancelación tras agotar los reintentos: correo + WhatsApp.
  * WhatsApp fuera de la ventana de 24 h solo admite la plantilla aprobada (WHATSAPP_TEMPLATE_BILLING).
  */
-export type BillingNoticeKind = "FAILED_1" | "FAILED_2" | "RESTRICTED" | "CANCELED_AUTO" | "RECOVERED" | "PRECHARGE_ANNUAL";
+export type BillingNoticeKind = "FAILED_1" | "FAILED_2" | "RESTRICTED" | "CANCELED_AUTO" | "RECOVERED" | "PRECHARGE_ANNUAL" | "DOWNGRADED";
 
 export interface NoticeUser {
   name: string;
@@ -48,8 +48,14 @@ function copy(kind: BillingNoticeKind, firstName: string, extra?: NoticeExtra): 
     case "CANCELED_AUTO":
       return {
         subject: "Tu suscripción de Gastia fue cancelada",
-        text: `Hola ${firstName}, como no logramos cobrar tu suscripción después de varios intentos, la cancelamos. Tus datos se conservan por un tiempo: puedes volver cuando quieras creando una nueva suscripción en Configuración > Plan y suscripción.`,
-        short: "cancelamos tu suscripción tras varios cobros fallidos. Tus datos se conservan; puedes volver creando una nueva suscripción en tu dashboard",
+        text: `Hola ${firstName}, como no logramos cobrar tu suscripción después de varios intentos, la cancelamos y tu cuenta pasó al plan Gratis. No perdiste nada: tus datos se conservan y sigues usando el dashboard y el chat web. Puedes volver a Pro cuando quieras en Configuración > Plan y suscripción.`,
+        short: "cancelamos tu suscripción tras varios cobros fallidos y pasaste al plan Gratis. Tus datos se conservan; puedes volver a Pro desde tu dashboard",
+      };
+    case "DOWNGRADED":
+      return {
+        subject: "Tu cuenta de Gastia pasó al plan Gratis",
+        text: `Hola ${firstName}, terminó tu periodo de Gastia Pro y tu cuenta pasó al plan Gratis. Tus datos se conservan y sigues usando el dashboard y el chat web. Pro lee tus correos, escribe por WhatsApp y manda resúmenes: puedes volver cuando quieras en Configuración > Plan y suscripción.`,
+        short: "tu cuenta pasó al plan Gratis",
       };
     case "PRECHARGE_ANNUAL":
       return {

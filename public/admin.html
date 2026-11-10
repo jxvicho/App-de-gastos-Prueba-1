@@ -204,6 +204,7 @@ ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;fo
       function yn(v,extra){return v?'<span class="yes">✔</span>'+(extra?'<small> '+extra+'</small>':''):'<span class="no">✘</span>'}
       function head(){return '<thead><tr><th></th>'+P.map(function(p){return '<th class="c'+cls(p)+'">'+esc(p.label)+(p.visible?'':'<small>oculto</small>')+'</th>'}).join("")+'</tr></thead>'}
       function row(label,fn,hint){return '<tr><td>'+esc(label)+(hint?'<small>'+esc(hint)+'</small>':'')+'</td>'+P.map(function(p){return '<td class="c'+cls(p)+'">'+fn(p)+'</td>'}).join("")+'</tr>'}
+      function lim(v){return v===null||v===undefined?'Sin tope':'hasta <b>'+v+'</b>'}
       function grp(t){return '<tr class="grp"><td colspan="'+(P.length+1)+'">'+esc(t)+'</td></tr>'}
       $("planTiles").innerHTML=P.filter(function(p){return p.visible}).map(function(p){
         var m=p.prices?p.prices.MONTHLY:null;
@@ -226,6 +227,10 @@ ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;fo
         row("Alertas de gasto alto",function(p){return yn(p.features.alerts)})+
         grp("Dashboard")+
         row("Dashboard, deudas, pagos fijos y metas",function(){return yn(true)})+
+        row("Pagos fijos mensuales",function(p){return lim(p.features.maxRecurring)},"Detectados o agregados a mano; los quitados no cuentan")+
+        row("Metas por categoría",function(p){return lim(p.features.maxGoals)},"Suma de metas en soles y en dólares")+
+        row("Deudas por cobrar abiertas",function(p){return lim(p.features.maxDebtsPerDirection)},"Las saldadas no cuentan")+
+        row("Deudas por pagar abiertas",function(p){return lim(p.features.maxDebtsPerDirection)},"Las saldadas no cuentan")+
         row("Crear categorías propias",function(p){return yn(p.features.createCategories)},"Todos pueden usar las predefinidas")+
         row("Mascotas disponibles",function(p){return p.features.premiumPets?'Todas <small>perro, gato, chancho, capibara</small>':'Perro, gato o ninguna'},"Chancho y capibara se desbloquean en Pro")+
         grp("Cuenta y vinculación")+
@@ -243,12 +248,14 @@ ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;fo
       $("planPrices").innerHTML=pr;
       var D=G.dunning;
       $("planConds").innerHTML=[
-        "<b>Gratis:</b> todo usuario nuevo empieza aquí. Dashboard y chat web con "+P[0].features.webChatDailyCap+" mensajes al día. Sin correo, sin WhatsApp (queda apagado \"acepto mensajes\") y sin crear categorías. Mascotas: perro, gato o ninguna. Sin prueba y sin cobro.",
+        "<b>Gratis:</b> todo usuario nuevo empieza aquí. Dashboard y chat web con "+P[0].features.webChatDailyCap+" mensajes al día. Sin correo, sin WhatsApp (queda apagado \"acepto mensajes\") y sin crear categorías. Mascotas: perro, gato o ninguna. Topes: hasta "+P[0].features.maxRecurring+" pagos fijos, "+P[0].features.maxGoals+" metas (entre soles y dólares), "+P[0].features.maxDebtsPerDirection+" deudas por cobrar y "+P[0].features.maxDebtsPerDirection+" por pagar abiertas. Sin prueba y sin cobro.",
+        "<b>Al llegar al tope (Gratis):</b> no se puede agregar uno nuevo y el panel avisa que pase a Pro. Editar, saldar o quitar lo existente siempre se puede. Si un usuario baja de Pro a Gratis con más de lo permitido, no se borra nada: conserva todo y solo queda sin poder agregar más hasta bajar del tope.",
         "<b>Registro:</b> el formulario solo pide nombre, correo y contraseña; no pide celular ni correo del banco. Quien elige Pro se registra igual y vincula todo desde Configuración.",
         "<b>Pro:</b> todo lo anterior más lectura de correo, registro automático opcional, resumen diario, alertas, WhatsApp, categorías propias y todas las mascotas. Al iniciar sesión el chat web le explica cómo vincular correo y WhatsApp.",
         "<b>Verificación de WhatsApp:</b> al vincular un número se envía un código de 6 dígitos (plantilla de autenticación, vence en 10 min, 5 intentos, 5 códigos por hora y 1 por minuto por número). Hasta confirmarlo el número no se guarda.",
         "<b>Prueba:</b> "+PL.map(function(k){return G.periodLabels[k].toLowerCase()+" "+P[2].trialDays[k]+" días"}).join(", ")+". Cancelando antes de que termine no se cobra. El plan anual no tiene reembolso: la prueba más larga ocupa su lugar.",
-        "<b>Cobro fallido:</b> "+D.MAX_ATTEMPTS+" intentos en total (el cobro inicial y reintentos diarios). Desde el intento "+D.RESTRICT_AT_ATTEMPT+" el acceso pasa a solo lectura; al intento "+D.MAX_ATTEMPTS+" la suscripción se cancela.",
+        "<b>Cobro fallido:</b> "+D.MAX_ATTEMPTS+" intentos en total (el cobro inicial y reintentos diarios). Desde el intento "+D.RESTRICT_AT_ATTEMPT+" el acceso pasa a solo lectura (días de gracia); al intento "+D.MAX_ATTEMPTS+" la suscripción se cancela y la cuenta pasa al plan Gratis, sin borrar datos.",
+        "<b>Cancelación voluntaria:</b> conserva el acceso completo hasta el fin del periodo pagado (o de la prueba); luego pasa al plan Gratis automáticamente (revisión cada hora) y recibe un correo. Los datos se conservan; si tiene más pagos fijos, metas o deudas que el tope de Gratis, no se borra nada y solo queda sin poder agregar más. Si vuelve a suscribirse, recupera Pro al instante.",
         "<b>Pagos:</b> "+(G.paymentsEnabled?"activados.":"desactivados todavía (PAYMENTS_ENABLED=false): nadie puede suscribirse.")+" Los planes Básico y Unlimited siguen existiendo para usuarios actuales y para asignarlos desde Usuarios o Promociones.",
         "<b>Promociones y planes temporales:</b> mientras estén vigentes reemplazan el plan base del usuario y se aplican sus funciones y topes.",
         "<b>Planes anteriores:</b> los usuarios existentes conservan su plan; Gratis también se puede poner desde Usuarios (plan temporal) o promoción. Un usuario Gratis con correo ya conectado queda en pausa, sin perder datos."

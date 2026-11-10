@@ -4,6 +4,7 @@ import { prisma } from "../config/prisma";
 import { AppError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { assertUnderLimit, getUserLimits } from "../services/planLimits";
 
 export const debtsRouter = Router();
 debtsRouter.use(requireAuth);
@@ -61,6 +62,15 @@ const createSchema = z.object({
   phone: phoneSchema,
 });
 
+/** Falla si el usuario ya tiene el máximo de deudas abiertas (sin saldar) en esa dirección. */
+async function assertDebtRoom(userId: string, direction: string) {
+  const { debtsPerDirection } = await getUserLimits(userId);
+  if (debtsPerDirection === null) return;
+  const open = await prisma.debt.count({ where: { userId, direction, settledAt: null } });
+  const label = direction === "RECEIVABLE" ? "por cobrar" : "por pagar";
+  assertUnderLimit(debtsPerDirection, open, `El plan Gratis permite hasta ${debtsPerDirection} deudas ${label} abiertas. Salda o elimina una, o pasa a Pro para agregar más.`);
+}
+
 const toDate = (s?: string | null) => (s ? new Date(s + "T12:00:00-05:00") : null);
 
 debtsRouter.post(
@@ -68,6 +78,7 @@ debtsRouter.post(
   asyncHandler(async (req, res) => {
     const p = createSchema.safeParse(req.body);
     if (!p.success) throw new AppError(p.error.issues[0]?.message ?? "Datos inválidos", 422);
+    await assertDebtRoom(req.userId!, p.data.direction);
     const d = await prisma.debt.create({
       data: {
         userId: req.userId!,
@@ -100,6 +111,7 @@ debtsRouter.patch(
     const p = patchSchema.safeParse(req.body);
     if (!p.success) throw new AppError(p.error.issues[0]?.message ?? "Datos inválidos", 422);
     const cur = await loadOwned(req.userId!, req.params.id);
+    if (p.data.settled === false && cur.settledAt) await assertDebtRoom(req.userId!, cur.direction); // reabrir cuenta como una abierta más
     const { dueDate, settled, ...rest } = p.data;
     const data: any = { ...rest };
     if (dueDate !== undefined) data.dueDate = toDate(dueDate);

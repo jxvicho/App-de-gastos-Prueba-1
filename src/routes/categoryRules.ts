@@ -5,6 +5,7 @@ import { AppError } from "../middleware/errorHandler";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { findEquivalentRule } from "../services/ruleDedup";
+import { RULE_ORDER_BY, topRulePosition } from "../services/ruleOrder";
 
 export const categoryRulesRouter = Router();
 
@@ -16,9 +17,25 @@ categoryRulesRouter.get(
     const rules = await prisma.categoryRule.findMany({
       where: { userId: req.userId },
       include: { category: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: RULE_ORDER_BY,
     });
     res.json(rules);
+  })
+);
+
+// Reordena las reglas: `ids` es la lista completa en el orden deseado (la primera se evalúa primero).
+categoryRulesRouter.put(
+  "/order",
+  asyncHandler(async (req, res) => {
+    const parsed = z.object({ ids: z.array(z.string().uuid()).min(1).max(500) }).safeParse(req.body);
+    if (!parsed.success) throw new AppError("Lista de reglas inválida", 422);
+    const ids = parsed.data.ids;
+    const owned = await prisma.categoryRule.findMany({ where: { userId: req.userId, id: { in: ids } }, select: { id: true } });
+    if (owned.length !== new Set(ids).size) throw new AppError("Alguna regla no existe", 404);
+    await prisma.$transaction(
+      ids.map((id, i) => prisma.categoryRule.updateMany({ where: { id, userId: req.userId }, data: { position: i } }))
+    );
+    res.json({ ok: true });
   })
 );
 
@@ -60,6 +77,7 @@ categoryRulesRouter.post(
         type: parsed.data.type,
         value: parsed.data.value,
         categoryId: category.id,
+        position: await topRulePosition(req.userId!),
         source: "DASHBOARD",
       },
       include: { category: true },

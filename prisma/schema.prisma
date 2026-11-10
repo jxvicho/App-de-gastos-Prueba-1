@@ -363,6 +363,7 @@ model CategoryRule {
   category   Category   @relation(fields: [categoryId], references: [id])
   isActive   Boolean    @default(true)
   source     RuleSource @default(DASHBOARD)
+  position   Int        @default(0) // orden de evaluación: 0 = primera; gana la primera regla que coincide
   createdAt  DateTime   @default(now())
 
   @@index([userId, isActive])

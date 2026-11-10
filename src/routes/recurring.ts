@@ -5,6 +5,7 @@ import { AppError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { detectRecurringPayments, merchantKeyOf } from "../services/recurringDetect";
+import { assertUnderLimit, getUserLimits } from "../services/planLimits";
 
 export const recurringRouter = Router();
 recurringRouter.use(requireAuth);
@@ -41,6 +42,10 @@ recurringRouter.post(
       where: { userId_merchantKey_currency: { userId: req.userId!, merchantKey, currency: parsed.data.currency } },
     });
     if (existing && !existing.ignored) throw new AppError("Ya tienes un pago recurrente con ese nombre", 409);
+
+    const { recurring: maxRecurring } = await getUserLimits(req.userId!);
+    const inUse = await prisma.recurringPayment.count({ where: { userId: req.userId, ignored: false } });
+    assertUnderLimit(maxRecurring, inUse, `El plan Gratis permite hasta ${maxRecurring} pagos fijos mensuales. Quita uno o pasa a Pro para agregar más.`);
 
     const data = { ...parsed.data, merchantKey, source: "MANUAL", ignored: false, isActive: true };
     const row = existing

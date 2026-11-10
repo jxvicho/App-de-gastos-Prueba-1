@@ -1,3 +1,4 @@
+import { RULE_ORDER_BY } from "./ruleOrder";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { Prisma, type EmailAccount, type BankSender, type User, type CategoryRule } from "@prisma/client";
 import { prisma } from "../config/prisma";
@@ -92,7 +93,7 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
   const activeRules = await prisma.categoryRule.findMany({
     where: { userId: account.userId, isActive: true },
     include: { category: { select: { id: true, name: true } } },
-    orderBy: { createdAt: "desc" },
+    orderBy: RULE_ORDER_BY,
   });
 
   let allMessages: any[] = [];
