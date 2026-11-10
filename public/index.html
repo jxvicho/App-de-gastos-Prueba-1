@@ -4212,7 +4212,7 @@ function payChooserHtml(){
     <div class="pay-opts two" id="payPlans">${planOpts}</div>
     <div class="pay-opts" id="payPeriods">${perOpts}</div>
     <div class="pay-note" id="paySummary">${paySummary()}</div>
-    <label class="pay-terms"><input type="checkbox" id="payTyc"> <span>Acepto los términos y condiciones y autorizo el cobro automático y recurrente a mi tarjeta según el plan elegido.</span></label>
+    <label class="pay-terms"><input type="checkbox" id="payTyc"> <span>Acepto los <a href="/terminos" target="_blank" rel="noopener">términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener">política de privacidad</a>, y autorizo el cobro automático y recurrente a mi tarjeta según el plan elegido.</span></label>
     <button class="pay-btn" id="paySubscribe" disabled>${c.trialAvailable ? "Probar " + c.trialDaysByPeriod[PAY.period] + " días gratis" : "Suscribirme"}</button>`;
 }
 function payActionsHtml(s){

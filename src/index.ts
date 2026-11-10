@@ -79,6 +79,8 @@ app.get("/restablecer", (_req, res) => {
 const publicDir = path.join(__dirname, "..", "public");
 app.get("/", (_req, res) => res.sendFile(path.join(publicDir, "landing.html")));
 app.get("/empezar", (_req, res) => res.sendFile(path.join(publicDir, "empezar.html")));
+app.get("/privacidad", (_req, res) => res.sendFile(path.join(publicDir, "privacidad.html")));
+app.get("/terminos", (_req, res) => res.sendFile(path.join(publicDir, "terminos.html")));
 app.get(/^\/app(\/.*)?$/, (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
 // index:false para que "/" no sirva index.html (el dashboard) por defecto.
 app.use(express.static(publicDir, { index: false }));

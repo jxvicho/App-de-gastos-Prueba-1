@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from "../config/legal";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -61,6 +62,8 @@ const registerSchema = z.object({
   // Mascota elegida en /empezar. Gratis solo admite perro, gato o ninguna; el resto se desbloquea con Pro.
   petType: z.enum(["dog", "cat", "none"]).optional(),
   petName: z.string().trim().max(14).optional(),
+  // Consentimiento expreso a los términos y la política de privacidad (se guarda con fecha y versión).
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: "Debes aceptar los términos y la política de privacidad" }) }),
 });
 
 authRouter.post(
@@ -91,6 +94,8 @@ authRouter.post(
         data: {
           name,
           passwordHash,
+          termsAcceptedAt: new Date(),
+          termsVersion: TERMS_VERSION,
           ...(parsed.data.petType ? { petType: parsed.data.petType } : {}),
           ...(parsed.data.petName ? { petName: parsed.data.petName } : {}),
         },
@@ -110,6 +115,8 @@ authRouter.post(
         email,
         passwordHash,
         phoneNumber,
+        termsAcceptedAt: new Date(),
+        termsVersion: TERMS_VERSION,
         ...(parsed.data.petType ? { petType: parsed.data.petType } : {}),
         ...(parsed.data.petName ? { petName: parsed.data.petName } : {}),
         onboarding: { create: {} },

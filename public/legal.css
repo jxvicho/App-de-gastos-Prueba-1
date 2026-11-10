@@ -1,0 +1,57 @@
+/* Páginas legales de Gastia (privacidad y términos). Mismo azul y tipografía que la landing. */
+:root{
+  --navy:#0b2545; --blue-700:#164b8a; --blue-600:#1a5da8; --blue-500:#2472c8; --blue-200:#c3daf3; --blue-100:#eaf2fb;
+  --ink:#101828; --ink-soft:#4f5b6b; --ink-faint:#8b96a5; --line:#e3e9f1; --bg:#f4f7fb; --gold:#7a5200; --gold-bg:#fff6dc;
+  font-size:16px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;font-family:"Inter","Segoe UI",Helvetica,Arial,sans-serif;background:#fff;color:var(--ink);line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--blue-600)}
+a:hover{color:var(--blue-700)}
+:focus-visible{outline:3px solid var(--blue-500);outline-offset:3px;border-radius:6px}
+.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .in{width:min(1080px,100% - 32px);margin:0 auto;height:60px;display:flex;align-items:center;gap:16px}
+.top .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:20px;color:var(--blue-700);text-decoration:none;margin-right:auto}
+.top a.nav{font-weight:600;font-size:14.5px;color:var(--ink-soft);text-decoration:none;padding:8px 10px;border-radius:8px;white-space:nowrap}
+.top a.nav:hover{background:var(--blue-100);color:var(--blue-700)}
+.top a.nav[aria-current="page"]{color:var(--blue-700);background:var(--blue-100)}
+.page{width:min(1080px,100% - 32px);margin:0 auto;padding:40px 0 72px;display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;align-items:start}
+.toc{position:sticky;top:84px;font-size:14px;max-height:calc(100vh - 110px);overflow:auto}
+.toc b{display:block;font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
+.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.toc a{display:block;text-decoration:none;color:var(--ink-soft);padding:5px 10px;border-radius:8px;border-left:2px solid transparent}
+.toc a:hover{background:var(--blue-100);color:var(--blue-700)}
+main{min-width:0;max-width:760px}
+.eyebrow{font-size:13px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--blue-600)}
+h1{font-size:clamp(30px,5vw,42px);line-height:1.12;margin:6px 0 10px;color:var(--navy);letter-spacing:-.5px;text-wrap:balance}
+.meta{color:var(--ink-soft);font-size:14.5px;margin:0 0 26px}
+h2{font-size:22px;line-height:1.25;color:var(--navy);margin:44px 0 10px;letter-spacing:-.2px}
+h3{font-size:16.5px;color:var(--navy);margin:22px 0 6px}
+p{margin:0 0 14px}
+ul,ol.n{margin:0 0 16px;padding-left:22px}
+li{margin:0 0 6px}
+.sumbox{background:var(--blue-100);border:1px solid var(--blue-200);border-radius:16px;padding:20px 22px;margin:0 0 8px}
+.sumbox h2{margin:0 0 8px;font-size:18px}
+.sumbox ul{margin:0;padding-left:20px}
+.tablewrap{overflow-x:auto;margin:0 0 18px;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14.5px}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+th{background:var(--bg);color:var(--navy);font-size:13px}
+tr:last-child td{border-bottom:0}
+.pend{background:var(--gold-bg);color:var(--gold);border-radius:6px;padding:1px 6px;font-weight:600}
+.note{background:var(--gold-bg);border-radius:12px;padding:12px 16px;font-size:14.5px;color:#5b4300;margin:0 0 18px}
+footer{background:var(--navy);color:#9fb2cc;padding:30px 0 36px;font-size:14px}
+footer .in{width:min(1080px,100% - 32px);margin:0 auto;display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between}
+footer a{color:#cfe0f5;text-decoration:none;margin-right:16px}
+footer a:hover{text-decoration:underline}
+@media(max-width:860px){
+  .page{grid-template-columns:1fr;gap:20px;padding-top:24px}
+  .toc{position:static;max-height:none;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .toc summary{cursor:pointer;font-weight:700;color:var(--navy)}
+  .toc ol{margin-top:8px}
+}
+@media(min-width:861px){.toc details>summary{display:none}}
+@media(max-width:520px){.top a.nav.hide-s{display:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media(max-width:860px){.toc b{display:none}}

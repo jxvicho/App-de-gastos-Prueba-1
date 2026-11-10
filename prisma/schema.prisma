@@ -29,6 +29,8 @@ model User {
   email        String   @unique // correo de login del producto (puede ser distinto al correo bancario)
   passwordHash String? // null si el usuario se registró solo con Google/Outlook
   emailVerifiedAt DateTime? // null = el correo aún no se verificó con el código; no puede iniciar sesión
+  termsAcceptedAt  DateTime? // cuándo aceptó los términos y la política de privacidad (constancia del consentimiento)
+  termsVersion     String? // versión que aceptó (ver config/legal.ts)
   phoneNumber  String?  @unique // número de WhatsApp en formato E.164, ej. +51987654321
   timezone     String   @default("America/Lima")
   currency     String   @default("PEN")

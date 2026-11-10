@@ -125,6 +125,7 @@
   .auth-verify input[type="checkbox"]{
     width:19px;height:19px;margin:0;cursor:pointer;accent-color:var(--blue-700);flex-shrink:0;
   }
+  .auth-verify label a{color:var(--blue-700);font-weight:600;}
   .auth-verify label{
     font-size:13px;color:var(--ink-soft);cursor:pointer;user-select:none;
   }
@@ -182,6 +183,10 @@
       <div class="auth-verify">
         <input type="checkbox" id="humanCheck">
         <label for="humanCheck">Verifiquemos que eres humano</label>
+      </div>
+      <div class="auth-verify">
+        <input type="checkbox" id="termsCheck">
+        <label for="termsCheck">Acepto los <a href="/terminos" target="_blank" rel="noopener">términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener">política de privacidad</a></label>
       </div>
       <button type="submit" class="auth-btn" id="registerSubmitBtn" disabled>Crear cuenta</button>
     </form>
@@ -254,8 +259,11 @@ document.querySelectorAll(".auth-pw-toggle").forEach(btn=>{
 // adelante sin tocar el resto del formulario).
 const humanCheck = document.getElementById("humanCheck");
 const registerSubmitBtn = document.getElementById("registerSubmitBtn");
+const termsCheck = document.getElementById("termsCheck");
+const canSubmit = ()=> humanCheck.checked && termsCheck.checked;
+termsCheck.addEventListener("change", ()=>{ registerSubmitBtn.disabled = !canSubmit(); });
 humanCheck.addEventListener("change", ()=>{
-  registerSubmitBtn.disabled = !humanCheck.checked;
+  registerSubmitBtn.disabled = !canSubmit();
 });
 
 document.getElementById("formRegister").addEventListener("submit", async (e)=>{
@@ -285,6 +293,7 @@ document.getElementById("formRegister").addEventListener("submit", async (e)=>{
         name: form.get("name"),
         email,
         password,
+        acceptTerms: true,
         ...(PET_PARAM ? { petType: PET_PARAM } : {}),
         ...(PET_NAME ? { petName: PET_NAME } : {}),
       }),
@@ -295,7 +304,7 @@ document.getElementById("formRegister").addEventListener("submit", async (e)=>{
     location.href = "/app";
   } catch(err) {
     showAuthError(err.message);
-    registerSubmitBtn.disabled = !humanCheck.checked;
+    registerSubmitBtn.disabled = !canSubmit();
   }
 });
 
@@ -324,7 +333,7 @@ document.getElementById("resendBtn").addEventListener("click", resendCode);
 document.getElementById("verifyBack").addEventListener("click", () => {
   clearInterval(resendTimer); formVerify.hidden = true; formRegister.hidden = false;
   document.querySelector(".auth-sub").hidden = false; document.getElementById("authSwitch").hidden = false;
-  document.getElementById("authError").hidden = true; registerSubmitBtn.disabled = !humanCheck.checked;
+  document.getElementById("authError").hidden = true; registerSubmitBtn.disabled = !canSubmit();
 });
 formVerify.addEventListener("submit", async (e) => {
   e.preventDefault(); document.getElementById("authError").hidden = true;
