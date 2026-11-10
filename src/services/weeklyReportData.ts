@@ -1,3 +1,4 @@
+import { fmtNum } from "../utils/money";
 import type { TransactionStatus } from "@prisma/client";
 import { prisma } from "../config/prisma";
 
@@ -61,7 +62,7 @@ export function currentLimaHour(reference: Date = new Date()): number {
 
 /** "S/ 1,234.50" o "$ 10.00" (soles/dólares nunca se suman entre sí). */
 export function formatMoneyPlain(amount: number, currency: string): string {
-  const n = amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const n = fmtNum(amount);
   return `${currency === "USD" ? "$" : "S/"} ${n}`;
 }
 

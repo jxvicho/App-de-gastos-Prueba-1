@@ -1,6 +1,7 @@
 import { isAccessRestricted } from "./billing";
 import { getEffectivePlan } from "./plans";
 import { PLAN_FEATURES } from "../config/plans";
+import { fmtNum } from "../utils/money";
 import { RULE_ORDER_BY, topRulePosition } from "./ruleOrder";
 import type { Transaction } from "@prisma/client";
 import { prisma } from "../config/prisma";
@@ -130,7 +131,7 @@ function sameCalendarDay(a: Date, b: Date): boolean {
 function formatTotalsByCurrency(items: { currency: string; amount: number }[]): string {
   const totals = new Map<string, number>();
   for (const it of items) totals.set(it.currency, (totals.get(it.currency) ?? 0) + it.amount);
-  return [...totals.entries()].map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`).join(" + ");
+  return [...totals.entries()].map(([currency, amount]) => `${currency} ${fmtNum(amount)}`).join(" + ");
 }
 
 /**
@@ -643,7 +644,7 @@ async function buildSummaryReply(
   }
   const sorted = [...byCategory.values()].sort((a, b) => b.amount - a.amount);
 
-  const totalLine = [...totalsByCurrency.entries()].map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`).join(" + ");
+  const totalLine = [...totalsByCurrency.entries()].map(([currency, amount]) => `${currency} ${fmtNum(amount)}`).join(" + ");
 
   const lines = [
     `📊 *Resumen — ${label}*`,
@@ -656,7 +657,7 @@ async function buildSummaryReply(
     const detail = showPercentages
       ? `${Math.round((c.amount / grandTotal) * 100)}%`
       : `${c.count} mov.`;
-    lines.push(`${c.icon} ${c.name}: ${c.currency} ${c.amount.toFixed(2)} (${detail})`);
+    lines.push(`${c.icon} ${c.name}: ${c.currency} ${fmtNum(c.amount)} (${detail})`);
   });
 
   return lines.join("\n");
@@ -727,7 +728,7 @@ async function buildMonthlySummaryReply(
       const arrow = pct > 0 ? "📈" : pct < 0 ? "📉" : "➖";
       const sign = pct > 0 ? "+" : "";
       const prevName = MONTH_FULL_NAMES_ES[(month + 11) % 12];
-      lines.push(`${arrow} *Vs. ${prevName}${isPartial ? " (mismo tramo)" : ""}:* ${sign}${pct}% (${currency} ${prevTotal.toFixed(2)})`);
+      lines.push(`${arrow} *Vs. ${prevName}${isPartial ? " (mismo tramo)" : ""}:* ${sign}${pct}% (${currency} ${fmtNum(prevTotal)})`);
     }
   }
 
@@ -775,7 +776,7 @@ async function buildMonthlySummaryReply(
   const grandTotal = transactions.reduce((acc, t) => acc + Number(t.amount), 0);
   lines.push("", "🗂️ *Por categoría*");
   const pctOf = (amount: number) => (singleCurrency && grandTotal > 0 ? ` (${Math.round((amount / grandTotal) * 100)}%)` : "");
-  shown.forEach((c) => lines.push(` ${c.icon} ${c.name}: ${c.currency} ${c.amount.toFixed(2)}${pctOf(c.amount)}`));
+  shown.forEach((c) => lines.push(` ${c.icon} ${c.name}: ${c.currency} ${fmtNum(c.amount)}${pctOf(c.amount)}`));
   if (rest.length > 0) {
     const restTotal = formatTotalsByCurrency(rest.map((c) => ({ currency: c.currency, amount: c.amount })));
     const restAmount = rest.reduce((acc, c) => acc + c.amount, 0);
@@ -796,7 +797,7 @@ async function buildMonthlySummaryReply(
     }
     const topDay = [...byDay.values()].sort((a, b) => b.amount - a.amount)[0];
     lines.push(
-      `📆 *Día más ${summaryType === "INCOME" ? "alto" : "caro"}:* ${DAY_NAMES_ES[topDay.date.getDay()].slice(0, 3)} ${topDay.date.getDate()} ${MONTH_NAMES_ES[topDay.date.getMonth()]}, ${[...currencies][0]} ${topDay.amount.toFixed(2)}`
+      `📆 *Día más ${summaryType === "INCOME" ? "alto" : "caro"}:* ${DAY_NAMES_ES[topDay.date.getDay()].slice(0, 3)} ${topDay.date.getDate()} ${MONTH_NAMES_ES[topDay.date.getMonth()]}, ${[...currencies][0]} ${fmtNum(topDay.amount)}`
     );
   }
 
@@ -819,7 +820,7 @@ function buildHourlySummaryReply(transactions: PendingTransaction[], label: stri
   for (const t of transactions) {
     totalsByCurrency.set(t.currency, (totalsByCurrency.get(t.currency) ?? 0) + Number(t.amount));
   }
-  const totalLine = [...totalsByCurrency.entries()].map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`).join(" + ");
+  const totalLine = [...totalsByCurrency.entries()].map(([currency, amount]) => `${currency} ${fmtNum(amount)}`).join(" + ");
 
   const lines = [`📊 *Resumen — ${label}* (por hora)`, ""];
   sorted.forEach((t) => {
@@ -890,7 +891,7 @@ function buildDailyGroupedSummaryReply(transactions: PendingTransaction[], label
   const sortedCategories = [...byCategory.values()].sort((a, b) => b.amount - a.amount);
   lines.push("", "*Por categoría:*");
   sortedCategories.forEach((c) => {
-    lines.push(`${c.icon} ${c.name}: ${c.currency} ${c.amount.toFixed(2)}`);
+    lines.push(`${c.icon} ${c.name}: ${c.currency} ${fmtNum(c.amount)}`);
   });
 
   const lateConfirmed = transactions.filter((t) => t.confirmedAt && !sameCalendarDay(t.confirmedAt, t.occurredAt));
@@ -1913,7 +1914,7 @@ function buildCategoryGroupingReply(merchant: string, transactions: ConfirmedTxW
 
   const lines = [`🏷️ *Categoría de tus gastos hacia ${merchant}*`, ""];
   sorted.forEach((c) => {
-    lines.push(`${c.icon} ${c.name}: ${c.currency} ${c.amount.toFixed(2)} (${c.count} mov.)`);
+    lines.push(`${c.icon} ${c.name}: ${c.currency} ${fmtNum(c.amount)} (${c.count} mov.)`);
   });
   if (sorted.length === 1) lines.push("", "Todos están en la misma categoría.");
   return lines.join("\n");
@@ -2179,7 +2180,7 @@ async function finalizeImageTransaction(
   const descriptionParts: string[] = [];
   if (pending.bankOrWallet) descriptionParts.push(pending.bankOrWallet);
   if (pending.operationNumber) descriptionParts.push(`Op. ${pending.operationNumber}`);
-  if (pending.fee) descriptionParts.push(`Comisión ${pending.currency} ${pending.fee.toFixed(2)}`);
+  if (pending.fee) descriptionParts.push(`Comisión ${pending.currency} ${fmtNum(pending.fee)}`);
 
   // TRASPASO no tiene su propio TransactionType en el schema (solo
   // EXPENSE/INCOME) — se guarda como EXPENSE, igual que ya se hace con las
@@ -2217,12 +2218,12 @@ async function sumConfirmedAllTimeByCurrency(userId: string, categoryId: string)
     where: { userId, categoryId, status: { in: ["CONFIRMED", "AUTO_CONFIRMED"] }, deletedAt: null },
     select: { currency: true, amount: true },
   });
-  if (rows.length === 0) return "0.00";
+  if (rows.length === 0) return fmtNum(0);
   return formatTotalsByCurrency(rows.map((r) => ({ currency: r.currency, amount: Number(r.amount) })));
 }
 
 function formatAmount(t: Pick<Transaction, "currency" | "amount">): string {
-  return `${t.currency} ${Number(t.amount).toFixed(2)}`;
+  return `${t.currency} ${fmtNum(Number(t.amount))}`;
 }
 
 function formatShortDate(d: Date): string {
@@ -2320,7 +2321,7 @@ async function confirmTransaction(
   if (categoryId && categoryName) {
     const monthTotal = await sumConfirmedThisMonth(userId, categoryId);
     if (monthTotal !== null) {
-      reply += `\nLlevas ${pending.currency} ${monthTotal.toFixed(2)} en ${categoryName} este mes.`;
+      reply += `\nLlevas ${pending.currency} ${fmtNum(monthTotal)} en ${categoryName} este mes.`;
     }
   }
 
@@ -2351,7 +2352,7 @@ async function recategorizeConfirmedTransaction(
 
   const monthTotal = await sumConfirmedThisMonth(userId, category.id);
   if (monthTotal !== null) {
-    reply += `\nLlevas ${pending.currency} ${monthTotal.toFixed(2)} en ${category.name} este mes.`;
+    reply += `\nLlevas ${pending.currency} ${fmtNum(monthTotal)} en ${category.name} este mes.`;
   }
 
   await sendTextMessage(from, reply);
@@ -2626,7 +2627,7 @@ export async function handleIncomingMessage(
 
     const ruleData = merchantCriterion
       ? { type: "MERCHANT_CONTAINS" as const, value: merchantCriterion, description: `el comercio contenga "${merchantCriterion}"` }
-      : { type: amountCriterion!.type, value: String(amountCriterion!.amount), description: `el monto sea ${amountCriterion!.label} ${amountCriterion!.amount}` };
+      : { type: amountCriterion!.type, value: String(amountCriterion!.amount), description: `el monto sea ${amountCriterion!.label} ${fmtNum(amountCriterion!.amount)}` };
 
     // Anti-duplicados: si ya existe una regla con el mismo criterio, no se
     // crea otra igual (pasaba al repetir el mismo pedido dos veces).
@@ -3715,7 +3716,7 @@ export async function handleIncomingImage(
         },
       });
       console.log(`WhatsApp: boleta leída de ${from} -> ${created.id} (${currency} ${receipt.total}, ${merchantName}, categoría: ${rules?.name ?? "ninguna"})`);
-      await sendTextMessage(from, `🧾 Leí la boleta: ${currency} ${receipt.total.toFixed(2)} en ${merchantName}.`);
+      await sendTextMessage(from, `🧾 Leí la boleta: ${currency} ${fmtNum(receipt.total)} en ${merchantName}.`);
       await notifyPendingTransaction(
         { ...created, category: rules ? { name: rules.name } : null },
         from,
@@ -3741,7 +3742,7 @@ export async function handleIncomingImage(
 
   const who = extracted.recipient ? ` a ${extracted.recipient}` : "";
   const bank = extracted.bankOrWallet ? ` (${extracted.bankOrWallet})` : "";
-  const amountLine = `${extracted.currency ?? "PEN"} ${extracted.amount.toFixed(2)}`;
+  const amountLine = `${extracted.currency ?? "PEN"} ${fmtNum(extracted.amount)}`;
 
   console.log(`WhatsApp: captura leída de ${from} -> ${amountLine}${who}${bank}, preguntando tipo de movimiento.`);
 

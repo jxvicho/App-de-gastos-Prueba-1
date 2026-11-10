@@ -1,3 +1,4 @@
+import { fmtNum } from "../utils/money";
 import { createCanvas, SKRSContext2D } from "@napi-rs/canvas";
 import type { WeeklyReportData } from "./weeklyReportData";
 
@@ -39,7 +40,7 @@ function currencySymbol(currency: string): string {
 }
 
 function money(amount: number, currency: string): string {
-  return `${currencySymbol(currency)} ${amount.toFixed(2)}`;
+  return `${currencySymbol(currency)} ${fmtNum(amount)}`;
 }
 
 function drawText(
