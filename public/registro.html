@@ -162,7 +162,7 @@
   </div>
   <div class="auth-card">
     <h1 style="display:flex;align-items:center;gap:10px"><img src="/icons/logo-gastia.svg" alt="" width="40" height="40">Gastia</h1>
-    <p class="auth-sub">Crea tu cuenta gratis y empieza a ordenar tus gastos. Después, con el plan Pro, podrás conectar tu correo y tu WhatsApp desde Configuración.</p>
+    <p class="auth-sub">Crea tu cuenta gratis y empieza a ordenar tus gastos. Te enviaremos un código para verificar tu correo. Después, con el plan Pro, podrás conectar tu correo y tu WhatsApp desde Configuración.</p>
     <form id="formRegister" class="auth-form">
       <label>Nombre y apellido<input type="text" name="name" required placeholder="Javier Chapoñán"></label>
       <label>Correo<input type="email" name="email" required placeholder="tu@correo.com"></label>
@@ -185,8 +185,17 @@
       </div>
       <button type="submit" class="auth-btn" id="registerSubmitBtn" disabled>Crear cuenta</button>
     </form>
+    <form id="formVerify" class="auth-form" hidden>
+      <p class="auth-sub" id="verifyText" style="margin-bottom:6px"></p>
+      <label>Código de 6 dígitos
+        <input type="text" id="verifyCode" name="code" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" placeholder="000000" required style="letter-spacing:6px;font-size:22px;text-align:center;font-weight:700">
+      </label>
+      <button type="submit" class="auth-btn" id="verifyBtn">Verificar y entrar</button>
+      <button type="button" id="resendBtn" class="auth-btn" style="background:transparent;color:var(--blue-700);border:2px solid var(--blue-200)" disabled>Reenviar código</button>
+      <button type="button" id="verifyBack" style="border:0;background:none;color:var(--ink-soft);font-size:13px;cursor:pointer;padding:6px">← Usar otro correo</button>
+    </form>
     <p id="authError" class="auth-error" hidden></p>
-    <p class="auth-switch">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a></p>
+    <p class="auth-switch" id="authSwitch">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a></p>
   </div>
 </section>
 
@@ -280,6 +289,7 @@ document.getElementById("formRegister").addEventListener("submit", async (e)=>{
         ...(PET_NAME ? { petName: PET_NAME } : {}),
       }),
     });
+    if (data.needsVerification) { showVerify(data.email, false); return; }
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
     location.href = "/app";
@@ -288,6 +298,47 @@ document.getElementById("formRegister").addEventListener("submit", async (e)=>{
     registerSubmitBtn.disabled = !humanCheck.checked;
   }
 });
+
+// ---- Verificación del correo ----
+let verifyEmail = "", resendTimer = null;
+const formVerify = document.getElementById("formVerify"), formRegister = document.getElementById("formRegister");
+function startResendCountdown(sec) {
+  const btn = document.getElementById("resendBtn"); clearInterval(resendTimer); let left = sec;
+  const tick = () => { btn.disabled = left > 0; btn.textContent = left > 0 ? `Reenviar código (${left} s)` : "Reenviar código"; left--; };
+  tick(); resendTimer = setInterval(() => { tick(); if (left < -1) clearInterval(resendTimer); }, 1000);
+}
+async function resendCode() {
+  document.getElementById("authError").hidden = true;
+  try { await api("/auth/resend-verification", { method:"POST", body: JSON.stringify({ email: verifyEmail }) }); } catch(err) { showAuthError(err.message); }
+  startResendCountdown(60);
+}
+function showVerify(email, requestNew) {
+  verifyEmail = email;
+  formRegister.hidden = true; document.querySelector(".auth-sub").hidden = true; document.getElementById("authSwitch").hidden = true;
+  formVerify.hidden = false; document.getElementById("authError").hidden = true;
+  document.getElementById("verifyText").textContent = "Te enviamos un código de 6 dígitos a " + email + ". Revisa también la carpeta de spam. Vence en 15 minutos.";
+  document.getElementById("verifyCode").focus();
+  if (requestNew) resendCode(); else startResendCountdown(60);
+}
+document.getElementById("resendBtn").addEventListener("click", resendCode);
+document.getElementById("verifyBack").addEventListener("click", () => {
+  clearInterval(resendTimer); formVerify.hidden = true; formRegister.hidden = false;
+  document.querySelector(".auth-sub").hidden = false; document.getElementById("authSwitch").hidden = false;
+  document.getElementById("authError").hidden = true; registerSubmitBtn.disabled = !humanCheck.checked;
+});
+formVerify.addEventListener("submit", async (e) => {
+  e.preventDefault(); document.getElementById("authError").hidden = true;
+  const btn = document.getElementById("verifyBtn"); btn.disabled = true;
+  try {
+    const data = await api("/auth/verify-email", { method:"POST", body: JSON.stringify({ email: verifyEmail, code: document.getElementById("verifyCode").value.trim() }) });
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    location.href = "/app";
+  } catch(err) { showAuthError(err.message); btn.disabled = false; }
+});
+// Viene del login con una cuenta sin verificar: ir directo al código.
+const verificarParam = QS.get("verificar");
+if (verificarParam) showVerify(verificarParam, true);
 </script>
 </body>
 </html>

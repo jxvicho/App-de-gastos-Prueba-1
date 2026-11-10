@@ -69,3 +69,24 @@ export async function sendHtmlEmail(to: string, subject: string, html: string): 
     return false;
   }
 }
+
+
+/** Código de 6 dígitos para verificar el correo al crear la cuenta. Sin RESEND_API_KEY solo lo deja en el log. */
+export async function sendVerificationCodeEmail(to: string, name: string, code: string): Promise<boolean> {
+  if (!resend) {
+    console.log(`✉️  [dev] Sin RESEND_API_KEY. Código de verificación para ${to}: ${code}`);
+    return true;
+  }
+  const safeName = name.replace(/[<>&"]/g, "");
+  return sendHtmlEmail(
+    to,
+    `${code} es tu código de Gastia`,
+    `<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#101828;">
+      <h1 style="color:#164b8a;font-size:22px;margin:0 0 16px;">Gastia</h1>
+      <p style="font-size:14px;line-height:1.6;">Hola ${safeName},</p>
+      <p style="font-size:14px;line-height:1.6;">Usa este código para verificar tu correo y activar tu cuenta (vence en 15 minutos):</p>
+      <p style="text-align:center;margin:26px 0;"><span style="display:inline-block;background:#eaf2fb;color:#0b2545;font-size:32px;font-weight:bold;letter-spacing:8px;padding:14px 22px;border-radius:12px;">${code}</span></p>
+      <p style="font-size:12.5px;line-height:1.6;color:#5b6675;">Si tú no creaste una cuenta en Gastia, ignora este correo: nadie podrá usar tu dirección sin este código.</p>
+    </div>`
+  );
+}

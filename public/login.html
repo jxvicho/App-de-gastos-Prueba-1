@@ -203,7 +203,7 @@ async function api(path, options = {}) {
   let data = {};
   try { data = await res.json(); }
   catch { throw new Error(`Respuesta inesperada del servidor (código ${res.status})`); }
-  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+  if (!res.ok) { const e = new Error(data.error || `Error ${res.status}`); e.code = data.code; throw e; }
   return data;
 }
 
@@ -250,7 +250,11 @@ document.getElementById("formLogin").addEventListener("submit", async (e)=>{
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
     location.href = "/app";
-  } catch(err) { showAuthError(err.message); }
+  } catch(err) {
+    // Cuenta sin verificar: se lleva al paso del código (el correo ya se escribió aquí).
+    if (err.code === "EMAIL_NOT_VERIFIED") { location.href = "/registro?verificar=" + encodeURIComponent(String(form.get("email")).trim()); return; }
+    showAuthError(err.message);
+  }
 });
 </script>
 </body>
