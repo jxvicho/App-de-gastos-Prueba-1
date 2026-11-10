@@ -81,6 +81,9 @@
   .hero-stage .pipo{--s:210px;transition:transform 1.9s cubic-bezier(.3,.6,.3,1);}
   .hero-stage .pipo.away{transform:translateX(-120vw);transition:none;}
   .shadow{position:absolute;bottom:2px;width:110px;height:14px;border-radius:50%;background:rgba(11,37,69,.14);filter:blur(3px);}
+  h1:focus,h2:focus{outline:none;}
+  .homelink{align-self:flex-start;color:var(--ink-soft);font-size:14px;font-weight:700;text-decoration:none;padding:10px 4px;margin-bottom:4px;}
+  .homelink:hover{color:var(--blue-700);}
   .trio{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0 0;}
   .pill{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:12.5px;font-weight:600;color:var(--ink-soft);}
 
@@ -186,6 +189,7 @@
     <button class="icon-btn" id="back" aria-label="Volver">←</button>
     <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="barWrap"><i id="barFill"></i></div>
     <button class="skip" id="skip">Saltar</button>
+    <a class="icon-btn" href="/" aria-label="Salir al inicio" title="Salir al inicio" style="text-decoration:none">✕</a>
   </header>
 
   <div class="guide" id="guide" hidden>
@@ -196,7 +200,8 @@
   <main id="main">
     <!-- 0 · BIENVENIDA -->
     <section class="step on" id="s0" aria-labelledby="t0">
-      <div class="brand"><img src="/icons/logo-gastia.svg" width="34" height="34" alt="">Gastia</div>
+      <a class="homelink" href="/">← Volver al inicio</a>
+      <a class="brand" href="/" style="text-decoration:none"><img src="/icons/logo-gastia.svg" width="34" height="34" alt="">Gastia</a>
       <div class="hero-stage" aria-hidden="true">
         <div class="shadow"></div>
         <div class="pipo away" id="heroPipo"><div class="pipo-s"></div><div class="coin">S/</div></div>
@@ -212,7 +217,7 @@
       <div class="opts" role="radiogroup" aria-label="¿Qué quieres lograr?" id="goals">
         <button class="opt" role="radio" aria-checked="false" data-g="ver"><span class="em">🔎</span><span>Saber en qué se me va la plata<small>Ver todo ordenado, sin hacer cuentas</small></span></button>
         <button class="opt" role="radio" aria-checked="false" data-g="hormiga"><span class="em">🐜</span><span>Controlar mis gastos hormiga<small>Cafés, taxis, delivery… lo pequeño que suma</small></span></button>
-        <button class="opt" role="radio" aria-checked="false" data-g="ahorro"><span class="em">🎯</span><span>Ahorrar para algo<small>Una meta, un viaje, un colchón</small></span></button>
+        <button class="opt" role="radio" aria-checked="false" data-g="ahorro"><span class="em">🎯</span><span>Ponerle tope a mis gastos<small>Cuánto gastar al mes en comida, taxi, salidas…</small></span></button>
         <button class="opt" role="radio" aria-checked="false" data-g="deudas"><span class="em">🧾</span><span>Ordenar mis deudas<small>Saber a quién le debo y cuánto</small></span></button>
       </div>
     </section>
@@ -263,7 +268,7 @@ ayer gastaste S/ 45.90 en Alimentación</div>
       <h2 id="t4">Empiezas gratis. Pro, cuando quieras</h2>
       <p class="lead">Tu cuenta nace en el plan Gratis: sin tarjeta y sin vencimiento.</p>
       <div class="trust">
-        <div class="tcard yes"><span class="ti">🆓</span><div><b>Gratis · S/ 0</b><span>Dashboard, registro manual, chat con tu mascota (5 mensajes al día), resumen semanal en el chat, metas, pagos fijos y deudas.</span></div></div>
+        <div class="tcard yes"><span class="ti">🆓</span><div><b>Gratis · S/ 0</b><span>Dashboard, registro manual, chat con tu mascota (5 mensajes al día), resumen semanal en el chat, topes por categoría, pagos fijos y deudas.</span></div></div>
         <div class="tcard you"><span class="ti">⭐</span><div><b>Pro · desde S/ 19.90 al mes</b><span>Conecta tu correo y se anotan solos, resúmenes por WhatsApp, categorías propias y todas las mascotas. 7 días de prueba sin cobro (14 en el anual).</span></div></div>
         <div class="tcard"><span class="ti" style="background:var(--blue-100)">💳</span><div><b>Pagas con Yape o tarjeta</b><span>Y cancelas cuando quieras. Tu privacidad primero: nunca pedimos claves de tu banco.</span></div></div>
       </div>
@@ -395,7 +400,7 @@ ayer gastaste S/ 45.90 en Alimentación</div>
   }
 
   /* ---------- 1 · objetivo ---------- */
-  var GOAL_MSG = { ver:"¡Perfecto! Todo en un solo lugar, ordenado por categorías.", hormiga:"¡A cazar hormigas! Te mostraré lo pequeño que suma.", ahorro:"¡Buena meta! Vamos a ponerle número y fecha.", deudas:"Ordenar deudas es el primer paso para dormir tranquilo." };
+  var GOAL_MSG = { ver:"¡Perfecto! Todo en un solo lugar, ordenado por categorías.", hormiga:"¡A cazar hormigas! Te mostraré lo pequeño que suma.", ahorro:"¡Buena idea! Te ayudo a ponerle un tope mensual a cada categoría.", deudas:"Ordenar deudas es el primer paso para dormir tranquilo." };
   $("#goals").addEventListener("click",function(e){
     var b=e.target.closest(".opt"); if(!b) return;
     $$("#goals .opt").forEach(function(o){ o.setAttribute("aria-checked", o===b?"true":"false"); });
