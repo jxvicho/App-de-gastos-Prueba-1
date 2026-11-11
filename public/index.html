@@ -3753,7 +3753,7 @@ function mtSetType(t){
   mtType = t;
   document.querySelectorAll("#mtType button").forEach(b=>b.classList.toggle("active", b.dataset.type === t));
   document.getElementById("mtMerchantLbl").textContent = t === "INCOME" ? "Origen o concepto" : "Comercio o concepto";
-  document.getElementById("mtMerchant").placeholder = t === "INCOME" ? "Ej. Sueldo de noviembre, cliente Juan…" : "Ej. Bodega, almuerzo, taxi…";
+  document.getElementById("mtMerchant").placeholder = t === "INCOME" ? "Ej. Sueldo de noviembre, cliente Carlos…" : "Ej. Bodega, almuerzo, taxi…";
   mtFillCats();
 }
 function mtSetCur(c){
