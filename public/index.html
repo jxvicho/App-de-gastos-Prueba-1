@@ -988,7 +988,7 @@ body.cal-open .controls{z-index:70;}
 
 
 /* ---- Transacción manual ---- */
-.sbx-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+.ctl-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
 .mt-seg{display:flex;gap:4px;background:#eef2f8;border-radius:999px;padding:4px;margin-bottom:14px;}
 .mt-seg button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 10px;font:700 13px inherit;font-family:inherit;color:#5a6a80;cursor:pointer;}
 .mt-seg button.active{background:#fff;color:#0b2545;box-shadow:0 2px 8px -2px rgba(11,37,69,.25);}
@@ -1012,8 +1012,8 @@ body.cal-open .controls{z-index:70;}
   #mtModalOverlay .modal-field{margin-bottom:12px;}
 }
 #mtModalOverlay .modal-box{max-width:420px;max-height:92vh;max-height:92dvh;overflow:auto;}
-/* ---- Sandbox / Perfil / Plan ---- */
-.sbx-col{flex:1 1 460px !important;}
+/* ---- Control / Perfil / Plan ---- */
+.ctl-col{flex:1 1 460px !important;}
 .rec-kpis{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0 6px 0;}
 .rec-kpi{flex:1 1 150px;background:#f4f8fd;border:1px solid #e1e9f4;border-radius:14px;padding:11px 14px;min-width:0;}
 .rec-kpi span{display:block;font-size:11.5px;font-weight:700;color:#5a6a80;text-transform:uppercase;letter-spacing:.03em;}
@@ -1161,7 +1161,7 @@ body.cal-open .controls{z-index:70;}
 .cfg-head{flex-wrap:wrap;gap:10px;}
 .rec-kpi b{font-size:clamp(14px,2.2cqi,17px);}
 @media(max-width:1100px){
-  .sbx-col{flex:1 1 100% !important;}
+  .ctl-col{flex:1 1 100% !important;}
 }
 </style>
 </head>
@@ -1183,8 +1183,8 @@ body.cal-open .controls{z-index:70;}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
         <span class="sidebar-label">Inicio</span>
       </button>
-      <button class="sidebar-item" data-view="sandbox">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6L4.8 18.2A1.6 1.6 0 0 0 6.2 20.6h11.6a1.6 1.6 0 0 0 1.4-2.4L14 9V3"/><path d="M7.5 15h9"/></svg>
+      <button class="sidebar-item" data-view="control">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9"/><path d="M17 6h3"/><circle cx="15" cy="6" r="2"/><path d="M4 12h3"/><path d="M11 12h9"/><circle cx="9" cy="12" r="2"/><path d="M4 18h11"/><path d="M19 18h1"/><circle cx="17" cy="18" r="2"/></svg>
         <span class="sidebar-label">Control</span>
       </button>
       <button class="sidebar-item" data-view="config">
@@ -1375,9 +1375,9 @@ body.cal-open .controls{z-index:70;}
   </div>
   </div><!-- /#viewHome -->
 
-  <div id="viewSandbox" hidden>
+  <div id="viewControl" hidden>
   <div class="wrap">
-    <div class="sbx-top">
+    <div class="ctl-top">
       <div>
         <h1 class="cfg-title">Control</h1>
         <p class="cfg-lead">Revisa lo pendiente, controla tus pagos fijos y ponle metas a tus categorías</p>
@@ -1385,7 +1385,7 @@ body.cal-open .controls{z-index:70;}
       <button class="btn-save" id="mtOpenBtn" type="button" style="flex:none;width:auto;padding:10px 18px;">＋ Transacción manual</button>
     </div>
     <div class="cfg-grid">
-      <div class="cfg-col sbx-col">
+      <div class="cfg-col ctl-col">
   <div class="card review-card" id="reviewCard">
     <div class="review-head">
       <div>
@@ -1397,7 +1397,7 @@ body.cal-open .controls{z-index:70;}
     <div id="reviewList" class="review-list"></div>
   </div>
       </div>
-      <div class="cfg-col sbx-col">
+      <div class="cfg-col ctl-col">
         <div class="card" id="recCard">
           <div class="cfg-head">
             <div><h3>Pagos mensuales fijos</h3><div class="card-sub" style="margin-bottom:0;">Gastia detecta los cobros que se repiten cada mes. También puedes agregarlos y editarlos.</div></div>
@@ -1453,7 +1453,7 @@ body.cal-open .controls{z-index:70;}
       </div>
     </div>
   </div>
-  </div><!-- /#viewSandbox -->
+  </div><!-- /#viewControl -->
 
   <div id="viewConfig" hidden>
   <div class="wrap">
@@ -3335,12 +3335,12 @@ document.getElementById("waCodeBtn").addEventListener("click", async ()=>{
 // (correos conectados + bancos), sin recargar la página.
 function showView(view){
   document.getElementById("viewHome").hidden = view !== "home";
-  document.getElementById("viewSandbox").hidden = view !== "sandbox";
+  document.getElementById("viewControl").hidden = view !== "control";
   document.getElementById("viewConfig").hidden = view !== "config";
   document.querySelectorAll(".sidebar-item[data-view]").forEach(btn=>{
     btn.classList.toggle("active", btn.dataset.view === view);
   });
-  if(view === "sandbox"){ loadSandbox(); }
+  if(view === "control"){ loadControl(); }
   if(view === "config"){ renderPrefs(); renderDaily(); renderProfile(); loadSubscription(); loadEmailAccounts().then(loadBankCatalog); }
 }
 document.querySelectorAll(".sidebar-item[data-view]").forEach(btn=>{
@@ -3539,7 +3539,7 @@ document.getElementById("dailyToggle").addEventListener("keydown", e=>{ if(e.key
 document.getElementById("dailyHour").addEventListener("change", e=> saveDaily({ enabled: !!state.dailyOn, hour: Number(e.target.value) }));
 
 /* =========================================================
-   SANDBOX: pagos recurrentes + metas por categoría
+   CONTROL: pagos recurrentes + metas por categoría
    Perfil + plan/suscripción (Configuración)
    ========================================================= */
 const sbEsc = s=>String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -3548,7 +3548,7 @@ const sbDate = (d, opts)=> new Date(d).toLocaleDateString("es-PE", opts || {day:
 const REC_COLORS = ["#1a5da8","#e5484d","#12a150","#f08c00","#7c3aed","#0e9aa7","#d6336c","#5c6b7a"];
 let REC = [], GOALS = [], goalCur = "PEN";
 
-async function loadSandbox(){
+async function loadControl(){
   loadReview();
   await Promise.all([loadRecurring(), loadGoals(), loadDebts()]);
 }
@@ -3799,7 +3799,7 @@ document.getElementById("mtSave").addEventListener("click", async ()=>{
     await api("/transactions", { method:"POST", body: JSON.stringify(body) });
     closeMtModal();
     await loadData();
-    if(typeof loadSandbox === "function") loadReview();
+    if(typeof loadControl === "function") loadReview();
   } catch(e){ err.textContent = e.message; }
   finally { btn.disabled = false; }
 });

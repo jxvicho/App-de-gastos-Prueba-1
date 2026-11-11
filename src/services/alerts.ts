@@ -96,7 +96,7 @@ export async function processAlertsForTransaction(
 
     const checks: { label: string; limit: number; categoryId?: string; keyId: string }[] = [];
     if (budget) checks.push({ label: "tu presupuesto del mes", limit: Number(budget.totalAmount), keyId: "total" });
-    // Meta mensual de la categoría (sección "Metas por categoría" del Sandbox).
+    // Meta mensual de la categoría (sección "Metas por categoría" de Control).
     const goal = category
       ? await prisma.categoryGoal.findUnique({ where: { userId_categoryId_currency: { userId: user.id, categoryId: category.id, currency: tx.currency } } })
       : null;
