@@ -4,16 +4,19 @@ import { redisConnection } from "../queues/redisConnection";
 import { isWindowOpen, sendTextMessage } from "./whatsapp";
 import { limaMonthStart, getEffectivePlan } from "./plans";
 import { formatMoneyPlain } from "./weeklyReportData";
+import { recordWebBotMessage } from "./webChatNotify";
 
 const ALERT_KEY_TTL_SECONDS = 40 * 24 * 3600;
 const PENDING_ALERTS_TTL_SECONDS = 3 * 24 * 3600;
 
 /**
- * Entrega una alerta: con la ventana de 24 h abierta va como mensaje de
+ * Entrega una alerta: siempre al chat web y además por WhatsApp: con la ventana de 24 h abierta va como mensaje de
  * servicio (kind "alert"); si está cerrada se guarda para incluirla en el
  * resumen diario (nunca se envía fuera de ventana ni se pierde).
  */
 async function deliverAlert(user: User, text: string): Promise<void> {
+  // Chat web: siempre (gratis para nosotros, sin Meta); así llega aunque no haya WhatsApp vinculado.
+  await recordWebBotMessage(user.id, text);
   if (!user.phoneNumber) return;
   // Planes sin respuestas del bot por WhatsApp (tope 0): la alerta va siempre en el resumen diario.
   const canSendNow = (await getEffectivePlan(user)).monthlyReplies !== 0;
