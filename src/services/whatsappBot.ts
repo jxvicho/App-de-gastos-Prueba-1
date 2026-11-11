@@ -406,7 +406,7 @@ function detectSummaryType(normalizedText: string): "EXPENSE" | "INCOME" {
 // en vez de confirmar o rechazar un movimiento puntual — es una intención
 // completamente distinta, se detecta antes que todo lo demás.
 const SUMMARY_INTENT_PHRASES = [
-  "resumen", "cuanto gaste", "cuanto he gastado", "cuanto llevo", "cuanto gasto",
+  "resumen", "cuanto gaste", "cuanto he gastado", "cuanto llevo", "cuanto gasto", "cuanto voy",
   "cuanto llevo gastado", "cuanto va", "como voy", "gastos de", "resumen de", "total gastado", "cuanto se gasto",
   "desglose",
   ...INCOME_SUMMARY_PHRASES,
@@ -1579,6 +1579,13 @@ function extractRecategorizeIdentificationText(normalizedText: string): string {
 const MERCHANT_QUERY_PAGE_SIZE = 10;
 
 /**
+ * "cuánto gasté/he gastado/llevo gastado/voy gastando/llevo gastando/voy en X": misma
+ * intención que "gastos en X". Texto ya normalizado (sin tildes, minúsculas).
+ */
+const HOW_MUCH_SPENT_ON =
+  /cuanto\s+(?:(?:he|llevo|voy|ando|estoy)\s+)?(?:gast(?:e|o|ado|ando)|invertido|invirtiendo)\s+(?:ya\s+|hasta\s+ahora\s+|este\s+mes\s+)?(?:en|de|por)\s+(.+)/;
+
+/**
  * "detalle de gastos hacia/en/a/con X", "gastos hacia/en/a/con X",
  * "cuánto le he pagado a X", "cuánto le pagué a X" -> "X" (recortado de
  * coletillas de cortesía y signos de puntuación al final). Nace como una
@@ -1692,7 +1699,7 @@ function extractMerchantQuery(normalizedText: string): { merchant: string; dateR
     /cuanto\s+(?:le\s+)?(?:he\s+)?pagad[oa]\s+a\s+(.+)/,
     /cuanto\s+le\s+pague\s+a\s+(.+)/,
     // "cuánto (he) gastado en Rappi": solo llega acá si X NO resolvió a una categoría (se prueba antes).
-    /cuanto\s+(?:he\s+|llevo\s+)?gast(?:e|o|ado)\s+en\s+(.+)/,
+    HOW_MUCH_SPENT_ON,
   ];
   for (const pattern of patterns) {
     const match = textForMerchant.match(pattern);
@@ -1726,8 +1733,8 @@ function extractCategoryQuery(
 
   const patterns = [
     /(?:detalle de )?gastos?\s+(?:hacia|en|con|a)\s+(.+)/,
-    /cuanto\s+(?:he\s+|llevo\s+)?gast(?:e|o|ado)\s+en\s+(.+)/,
-    /cuanto\s+llevo\s+en\s+(.+)/,
+    HOW_MUCH_SPENT_ON,
+    /cuanto\s+(?:llevo|voy)\s+en\s+(.+)/,
     /resumen\s+de\s+(.+)/,
     /detalle\s+de\s+(.+)/,
   ];
