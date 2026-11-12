@@ -1071,9 +1071,13 @@ interface PendingImageClassification {
   operationNumber?: string;
   suggestedCategory?: string;
   createdAt: number;
+  /** id del mensaje con botones que se le mandó al usuario (para ligar su respuesta a ESTA captura). */
+  messageId?: string;
 }
 const PENDING_IMAGE_TTL_MS = 10 * 60 * 1000;
-const pendingImageByUserId = new ChannelMap<PendingImageClassification>();
+// Una COLA por usuario: si manda varias capturas seguidas, cada una espera su propia respuesta
+// (antes había un solo espacio y la segunda captura pisaba a la primera).
+const pendingImageByUserId = new ChannelMap<PendingImageClassification[]>();
 
 /**
  * Contexto de una conversación de seguimiento que NO es una desambiguación
@@ -2551,20 +2555,25 @@ export async function handleIncomingMessage(
   // interpretación por accidente. Si la respuesta no es clara, se vuelve a
   // preguntar (nunca se adivina), y el estado NO se borra para poder seguir
   // esperando la respuesta correcta.
-  const pendingImage = pendingImageByUserId.get(user.id);
-  if (pendingImage) {
-    const imageExpired = Date.now() - pendingImage.createdAt > PENDING_IMAGE_TTL_MS;
-    if (imageExpired) {
-      pendingImageByUserId.delete(user.id);
-      console.log(`WhatsApp: había una clasificación de imagen pendiente para ${from} pero expiró (TTL), se descarta.`);
-    } else {
-      const kind = detectImageTransactionKind(normalized);
-      if (kind) {
-        pendingImageByUserId.delete(user.id);
-        console.log(`WhatsApp: clasificación de imagen resuelta -> ${kind}.`);
-        await finalizeImageTransaction(user.id, user.phoneNumber, petLabel, pendingImage, kind);
-        return;
-      }
+  const pendingQueue = (pendingImageByUserId.get(user.id) ?? []).filter((p) => Date.now() - p.createdAt <= PENDING_IMAGE_TTL_MS);
+  if (pendingQueue.length === 0) pendingImageByUserId.delete(user.id);
+  else pendingImageByUserId.set(user.id, pendingQueue);
+  if (pendingQueue.length > 0) {
+    const kind = detectImageTransactionKind(normalized);
+    if (kind) {
+      // Si la respuesta cita una captura concreta, se resuelve ESA; si no, la más antigua.
+      const byContext = contextMessageId ? pendingQueue.find((p) => p.messageId === contextMessageId) : undefined;
+      const pendingImage = byContext ?? pendingQueue[0];
+      const rest = pendingQueue.filter((p) => p !== pendingImage);
+      if (rest.length > 0) pendingImageByUserId.set(user.id, rest);
+      else pendingImageByUserId.delete(user.id);
+      console.log(`WhatsApp: clasificación de imagen resuelta -> ${kind} (${byContext ? "por context.id" : "la más antigua"}, quedan ${rest.length}).`);
+      await finalizeImageTransaction(user.id, user.phoneNumber, petLabel, pendingImage, kind);
+      return;
+    }
+    // Solo se vuelve a preguntar si el mensaje no trae un context.id de otra cosa (p. ej. botones Anotar/Descartar).
+    const isOtherContext = contextMessageId && !pendingQueue.some((p) => p.messageId === contextMessageId);
+    if (!isOtherContext) {
       console.log(`WhatsApp: había una clasificación de imagen pendiente para ${from}, pero "${normalized}" no fue gasto/traspaso/ingreso claro; se vuelve a preguntar.`);
       await sendTextMessage(from, "No entendí. ¿Ese movimiento es un *gasto*, un *traspaso* entre tus propias cuentas, o un *ingreso*?");
       return;
@@ -3735,7 +3744,7 @@ export async function handleIncomingImage(
     return;
   }
 
-  pendingImageByUserId.set(user.id, {
+  const pendingEntry: PendingImageClassification = {
     amount: extracted.amount,
     currency: extracted.currency ?? "PEN",
     recipient: extracted.recipient,
@@ -3745,7 +3754,8 @@ export async function handleIncomingImage(
     operationNumber: extracted.operationNumber,
     suggestedCategory: extracted.suggestedCategory,
     createdAt: Date.now(),
-  });
+  };
+  pendingImageByUserId.set(user.id, [...(pendingImageByUserId.get(user.id) ?? []), pendingEntry]);
 
   const who = extracted.recipient ? ` a ${extracted.recipient}` : "";
   const bank = extracted.bankOrWallet ? ` (${extracted.bankOrWallet})` : "";
@@ -3753,11 +3763,12 @@ export async function handleIncomingImage(
 
   console.log(`WhatsApp: captura leída de ${from} -> ${amountLine}${who}${bank}, preguntando tipo de movimiento.`);
 
-  await sendInteractiveButtons(from, `📸 Leí la captura: ${amountLine}${who}${bank}. ¿Qué tipo de movimiento es?`, [
+  const sentId = await sendInteractiveButtons(from, `📸 Leí la captura: ${amountLine}${who}${bank}. ¿Qué tipo de movimiento es?`, [
     { id: BUTTON_ID_IMAGE_EXPENSE, title: "💸 Gasto" },
     { id: BUTTON_ID_IMAGE_TRANSFER, title: "🔄 Traspaso propio" },
     { id: BUTTON_ID_IMAGE_INCOME, title: "💰 Ingreso" },
   ]);
+  if (sentId && sentId !== "web") pendingEntry.messageId = sentId;
 }
 
 /**
