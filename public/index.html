@@ -591,6 +591,7 @@ body{
   order:1;display:flex;align-items:center;gap:12px;padding:0;
   font-size:21px;font-weight:800;letter-spacing:-.02em;color:#0b2545;
 }
+a.sidebar-brand{text-decoration:none;cursor:pointer;}
 .sidebar-brand::before{
   content:"";width:42px;height:42px;flex:none;
   background:url("/icons/logo-gastia.svg") center/contain no-repeat;
@@ -1172,7 +1173,7 @@ body.cal-open .controls{z-index:70;}
 <div id="appRoot" hidden>
 <div class="app-shell">
   <nav class="sidebar">
-    <div class="sidebar-brand">Gastia</div>
+    <a class="sidebar-brand" href="/" title="Ir a la página de Gastia" aria-label="Ir a la página de Gastia">Gastia</a>
     <div class="sys-status" id="sysStatus">
       <button class="sys-pill" id="sysPill" aria-haspopup="true" aria-expanded="false" title="Estado del sistema">
         <i class="sys-dot" id="sysDot"></i><span class="sys-text" id="sysText">Verificando…</span>
@@ -1373,7 +1374,7 @@ body.cal-open .controls{z-index:70;}
     <button class="export-btn" id="exportBtn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14"/></svg>Descargar Excel</button>
   </div>
 
-  <footer>Gastia · tus finanzas, claras y sin contraseñas de banco. Solo leemos los avisos de consumo de tu correo y nunca te pedimos las claves de tus cuentas. <a href="/privacidad" target="_blank" rel="noopener">Política de privacidad</a> · <a href="/terminos" target="_blank" rel="noopener">Términos y condiciones</a></footer>
+  <footer>Gastia · tus movimientos claros y sin contraseñas de banco. Nunca te pedimos las claves de tus cuentas. <a href="/privacidad" target="_blank" rel="noopener">Política de privacidad</a> · <a href="/terminos" target="_blank" rel="noopener">Términos y condiciones</a></footer>
   </div>
   </div><!-- /#viewHome -->
 
