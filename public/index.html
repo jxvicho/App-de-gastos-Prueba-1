@@ -3171,7 +3171,7 @@ async function loadEmailAccounts(){
     row.className = "acc";
     row.innerHTML = `
       <div class="tile" style="${tileStyle}"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="m4 8 8 6 8-6"/></svg></div>
-      <div class="who"><b>${escHtml(acc.emailAddress)}</b><span>${isOutlook ? "Outlook" : "Gmail"} · ${syncLabel(acc.lastSyncedAt)}</span></div>
+      <div class="who"><b>${escHtml(acc.emailAddress)}</b><span>${isOutlook ? "Outlook" : "Gmail"} · ${acc.paused === "PLAN" ? "en pausa (tu plan no incluye lectura de correo)" : acc.paused === "RESTRICTED" ? "en pausa (pago pendiente)" : syncLabel(acc.lastSyncedAt)}</span></div>
       <span class="chip-ok">Activo</span>
       <button class="icon-btn danger disconnect-account-btn" data-id="${acc.id}" title="Desconectar" aria-label="Desconectar ${escHtml(acc.emailAddress)}"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
     `;
@@ -4979,8 +4979,11 @@ function renderSysStatus(){
       row("Servidor", "ok", "En línea") +
       row("Base de datos", sysStatus.db ? "ok" : "err", sysStatus.db ? "Conectada" : "Sin conexión") +
       row("Procesos en segundo plano", sysStatus.redis ? "ok" : "err", sysStatus.redis ? "Activos" : "Detenidos") +
-      row("Lectura de correo", e.accounts === 0 ? "warn" : (e.stale ? "warn" : "ok"),
-        e.accounts === 0 ? "Sin correo conectado" : "Última revisión " + agoText(e.lastSyncedAt));
+      row("Lectura de correo", e.accounts === 0 || e.paused ? "warn" : (e.stale ? "warn" : "ok"),
+        e.accounts === 0 ? "Sin correo conectado"
+          : e.paused === "PLAN" ? "En pausa: tu plan no incluye lectura de correo"
+          : e.paused === "RESTRICTED" ? "En pausa: hay un pago pendiente"
+          : "Última revisión " + agoText(e.lastSyncedAt));
     if(sysStatus.tunnel && sysStatus.tunnel.configured){
       rows += row("WhatsApp (conexión externa)", sysStatus.tunnel.up ? "ok" : "err", sysStatus.tunnel.up ? "Conectada" : "Sin conexión");
       if(!sysStatus.tunnel.up) rows += `<div class="sys-foot" style="margin-top:6px;">Gastia no recibe mensajes de WhatsApp mientras el túnel (ngrok) esté apagado.</div>`;

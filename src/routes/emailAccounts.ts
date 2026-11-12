@@ -1,3 +1,4 @@
+import { emailPauseReason } from "./health";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
@@ -58,7 +59,8 @@ emailAccountsRouter.get(
         bankSenders: true,
       },
     });
-    res.json(accounts);
+    const paused = accounts.length ? await emailPauseReason(req.userId!) : null;
+    res.json(accounts.map((a) => ({ ...a, paused })));
   })
 );
 

@@ -4,6 +4,18 @@ import { redisConnection } from "../queues/redisConnection";
 import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { env } from "../config/env";
+import { getEffectivePlan } from "../services/plans";
+import { isAccessRestricted } from "../services/billing";
+import { PLAN_FEATURES } from "../config/plans";
+
+/** Por qué no se lee el correo de este usuario aunque tenga cuentas conectadas (null = se lee con normalidad). */
+export async function emailPauseReason(userId: string): Promise<"PLAN" | "RESTRICTED" | null> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return null;
+  if (await isAccessRestricted(userId)) return "RESTRICTED";
+  const eff = await getEffectivePlan(user);
+  return PLAN_FEATURES[eff.plan].emailSync ? null : "PLAN";
+}
 
 export const healthRouter = Router();
 
@@ -84,8 +96,11 @@ healthRouter.get(
       }
     }
 
+    // Si el plan (Gratis) o un cobro pendiente pausan la lectura, el worker salta la cuenta a propósito:
+    // no es una falla, así que no se marca como atrasado.
+    const paused = db && emailAccounts > 0 ? await emailPauseReason(req.userId!) : null;
     const emailStale =
-      emailAccounts > 0 && (!lastSyncedAt || Date.now() - lastSyncedAt.getTime() > EMAIL_SYNC_STALE_MS);
+      !paused && emailAccounts > 0 && (!lastSyncedAt || Date.now() - lastSyncedAt.getTime() > EMAIL_SYNC_STALE_MS);
 
     const tunnel = await checkTunnel();
 
@@ -97,7 +112,7 @@ healthRouter.get(
       level,
       db,
       redis,
-      email: { accounts: emailAccounts, lastSyncedAt: lastSyncedAt ? lastSyncedAt.toISOString() : null, stale: emailStale },
+      email: { accounts: emailAccounts, lastSyncedAt: lastSyncedAt ? lastSyncedAt.toISOString() : null, stale: emailStale, paused },
       tunnel,
       timestamp: new Date().toISOString(),
     });
