@@ -16,6 +16,9 @@ function wall(t: { occurredAt: Date; source?: string | null }): Date {
 }
 const ymKey = (y: number, m: number) => y * 12 + m;
 const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+const norm = (x: string | null | undefined) => (x ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const isSalaryCat = (name: string | null | undefined) => norm(name) === "sueldo";
+const isRefundCat = (name: string | null | undefined) => norm(name).startsWith("reembolso");
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const median = (xs: number[]) => {
   const a = [...xs].sort((x, y) => x - y);
@@ -97,8 +100,9 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
   let spentFixed = 0;
   const chargedKeys = new Set<string>();
   const incomeByMonth = new Map<number, number>();
+  const salaryByMonth = new Map<number, number>(); // lo que el usuario clasificó como "Sueldo"
   const incomeItemsByMonth = new Map<number, Map<string, number[]>>();
-  const thisMonthIncome: { name: string; key: string; amount: number }[] = [];
+  const thisMonthIncome: { name: string; key: string; amount: number; salary: boolean }[] = [];
   const last30: { key: string; name: string; amount: number }[] = [];
 
   for (const t of txns) {
@@ -107,12 +111,14 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
     const amount = Number(t.amount);
     const k = ymKey(ty, tm);
     if (t.type === "INCOME") {
+      if (isRefundCat(t.category?.name)) continue; // una devolución no es ingreso
       incomeByMonth.set(k, (incomeByMonth.get(k) ?? 0) + amount);
+      if (isSalaryCat(t.category?.name)) salaryByMonth.set(k, (salaryByMonth.get(k) ?? 0) + amount);
       const key = keyOf(t);
       const byKey = incomeItemsByMonth.get(k) ?? new Map<string, number[]>();
       byKey.set(key, [...(byKey.get(key) ?? []), amount]);
       incomeItemsByMonth.set(k, byKey);
-      if (ty === y && tm === m) thisMonthIncome.push({ name: nameOf(t), key, amount });
+      if (ty === y && tm === m) thisMonthIncome.push({ name: nameOf(t), key, amount, salary: isSalaryCat(t.category?.name) });
       continue;
     }
     const catId = t.category?.id ?? "none";
@@ -166,7 +172,10 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
   const kThis = ymKey(y, m);
   const prevKeys = [1, 2, 3, 4, 5, 6].map((i) => kThis - i);
   const histIncome = prevKeys.map((k) => incomeByMonth.get(k) ?? 0).reverse(); // del más viejo al más reciente
-  // Un ingreso es "sueldo" (se repite) si el mismo origen aparece en 3 o más de los últimos 6 meses.
+  // Sueldo = lo que el usuario clasificó en la categoría "Sueldo". Se toma lo de este mes si ya llegó; si no, lo típico
+  // (mediana) de los últimos 6 meses. Si nunca usó esa categoría, se recurre a los ingresos que se repiten (3 o más meses).
+  const salaryMonths = [kThis, ...prevKeys].map((k) => salaryByMonth.get(k) ?? 0).filter((v) => v > 0);
+  const hasSalaryCat = salaryMonths.length > 0;
   const monthsSeen = new Map<string, number[]>();
   for (const k of [kThis, ...prevKeys]) {
     for (const [key, arr] of incomeItemsByMonth.get(k) ?? []) {
@@ -175,10 +184,12 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
     }
   }
   const recurringIncome = new Set([...monthsSeen].filter(([, v]) => v.length >= 3).map(([key]) => key));
-  const baseSalary = r2([...recurringIncome].reduce((s, key) => s + median(monthsSeen.get(key)!), 0));
+  const baseSalary = hasSalaryCat
+    ? r2(salaryByMonth.get(kThis) ?? median(salaryMonths))
+    : r2([...recurringIncome].reduce((sum, key) => sum + median(monthsSeen.get(key)!), 0));
   const incomeItems = thisMonthIncome
     .sort((a, b) => b.amount - a.amount)
-    .map((i) => ({ name: i.name, amount: r2(i.amount), kind: recurringIncome.has(i.key) ? "SALARY" : "EXTRA" }));
+    .map((i) => ({ name: i.name, amount: r2(i.amount), kind: (hasSalaryCat ? i.salary : recurringIncome.has(i.key)) ? "SALARY" : "EXTRA" }));
   const histWith = histIncome.filter((v) => v > 0);
   const incomeThisMonth = r2(incomeByMonth.get(kThis) ?? 0);
 
