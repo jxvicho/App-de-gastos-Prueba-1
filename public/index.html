@@ -8,6 +8,7 @@
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#2472c8">
+<script>try{var __t=localStorage.getItem("gastia-theme");if(__t==="rosa"){document.documentElement.setAttribute("data-theme","rosa");document.querySelector('meta[name="theme-color"]').setAttribute("content","#d9457f");}}catch(e){}</script>
 <meta name="apple-mobile-web-app-title" content="Gastia">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1167,6 +1168,47 @@ body.cal-open .controls{z-index:70;}
   .ctl-col{flex:1 1 100% !important;}
 }
 </style>
+<style id="theme-css">
+/* ===== Temas: "Clásico" es el de siempre (sin reglas). "Rosa" cambia fondo, ícono del chat y títulos. ===== */
+:root[data-theme="rosa"]{--bg:#fdf3f7;--line:#f1e1e8;--accent-chat:#d9457f;}
+:root[data-theme="rosa"] body{
+  background:radial-gradient(900px 520px at 88% 100%,#ffe6d2 0%,rgba(255,230,210,0) 70%),
+             radial-gradient(900px 440px at 0% 0%,#fbd3e4 0%,rgba(251,211,228,0) 70%),#fff7fa;
+  background-attachment:fixed;color:#2a1420;
+}
+:root[data-theme="rosa"] .sidebar{background:rgba(255,247,250,.9);border-bottom-color:#f6dfe8;}
+:root[data-theme="rosa"] .sidebar-nav{background:#fbe6ef;}
+:root[data-theme="rosa"] .sidebar-item{color:#7a5a6b;}
+:root[data-theme="rosa"] .sidebar-item:hover{background:rgba(255,255,255,.7);}
+:root[data-theme="rosa"] .sidebar-item.active{color:#7a1f4d;}
+:root[data-theme="rosa"] .sidebar-brand,
+:root[data-theme="rosa"] .brand h1,
+:root[data-theme="rosa"] .cfg-title,
+:root[data-theme="rosa"] .hero .cell .val,
+:root[data-theme="rosa"] .hero .cell.main .val,
+:root[data-theme="rosa"] .cat-donut .c-val,
+:root[data-theme="rosa"] .plan-price{color:#7a1f4d;}
+:root[data-theme="rosa"] .brand p{color:#7a5a6b;}
+:root[data-theme="rosa"] .controls{background:rgba(255,255,255,.78);border-color:#f3dbe6;}
+:root[data-theme="rosa"] .type-seg{background:#fbeaf1;}
+:root[data-theme="rosa"] .sidebar-pet-row{border-color:#f3dbe6;}
+:root[data-theme="rosa"] .sidebar-logout:hover{background:#fbe6ef;color:#7a1f4d;}
+:root[data-theme="rosa"] #wcFab{background:var(--accent-chat);box-shadow:0 10px 24px -8px rgba(217,69,127,.6);}
+/* selector de estilo en Configuración */
+.theme-opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px;}
+.theme-opt{min-width:0;display:flex;flex-direction:column;gap:8px;text-align:left;border:2px solid var(--line);border-radius:14px;background:#fff;padding:10px;cursor:pointer;font:inherit;color:inherit;}
+.theme-opt:hover{border-color:#c3d3e8;}
+.theme-opt[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px rgba(36,114,200,.12);}
+.theme-opt .tp{height:54px;border-radius:9px;position:relative;overflow:hidden;border:1px solid rgba(0,0,0,.06);}
+.theme-opt .tp i{position:absolute;left:8px;top:8px;width:34px;height:7px;border-radius:4px;}
+.theme-opt .tp b{position:absolute;right:8px;bottom:8px;width:18px;height:18px;border-radius:50%;}
+.theme-opt .tn{font-weight:700;font-size:13.5px;display:flex;justify-content:space-between;align-items:center;gap:6px;}
+.theme-opt .tn small{font-weight:600;font-size:11px;color:var(--ink-faint);}
+.tp-classic{background:radial-gradient(90px 50px at 100% 100%,#fff1bd,rgba(255,241,189,0)),radial-gradient(90px 50px at 0 0,#d9e9fb,rgba(217,233,251,0)),#f7faff;}
+.tp-classic i{background:#0b2545;} .tp-classic b{background:#2472c8;}
+.tp-rosa{background:radial-gradient(90px 50px at 100% 100%,#ffe6d2,rgba(255,230,210,0)),radial-gradient(90px 50px at 0 0,#fbd3e4,rgba(251,211,228,0)),#fff7fa;}
+.tp-rosa i{background:#7a1f4d;} .tp-rosa b{background:#d9457f;}
+</style>
 </head>
 <body>
 
@@ -1558,6 +1600,14 @@ body.cal-open .controls{z-index:70;}
           <h3>Preferencias</h3>
           <div class="card-sub" style="margin-bottom:6px;">Atajos a lo que más personalizas</div>
           <div id="prefsList"></div>
+        </div>
+        <div class="card" id="themeCard">
+          <h3>Estilo del panel</h3>
+          <div class="card-sub" style="margin-bottom:6px;">Elige cómo se ve Gastia en este dispositivo.</div>
+          <div class="theme-opts" role="group" aria-label="Estilo del panel">
+            <button type="button" class="theme-opt" data-theme-opt="clasico" aria-pressed="true"><span class="tp tp-classic"><i></i><b></b></span><span class="tn">Clásico<small>Por defecto</small></span></button>
+            <button type="button" class="theme-opt" data-theme-opt="rosa" aria-pressed="false"><span class="tp tp-rosa"><i></i><b></b></span><span class="tn">Rosa<small>Nuevo</small></span></button>
+          </div>
         </div>
         <div class="card wa-card">
           <div class="wa-head">
@@ -4645,7 +4695,7 @@ async function api(path, options = {}) {
 }
 
 function logout(){
-  localStorage.clear();
+  { let th=null; try{ th=localStorage.getItem("gastia-theme"); }catch(e){} localStorage.clear(); try{ if(th) localStorage.setItem("gastia-theme",th); }catch(e){} }
   location.href = "/login";
 }
 document.getElementById("sidebarLogoutBtn").addEventListener("click", logout);
@@ -5444,6 +5494,25 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
     const orig=window.renderSidebarPet;
     window.renderSidebarPet=function(){ orig.apply(this,arguments); refresh(); };
   }
+})();
+</script>
+<script>
+(function(){
+  function current(){ return document.documentElement.getAttribute("data-theme")==="rosa" ? "rosa" : "clasico"; }
+  function paint(){
+    document.querySelectorAll("[data-theme-opt]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-theme-opt")===current() ? "true" : "false"); });
+  }
+  function apply(t){
+    var rosa = t==="rosa";
+    if(rosa) document.documentElement.setAttribute("data-theme","rosa"); else document.documentElement.removeAttribute("data-theme");
+    var m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", rosa ? "#d9457f" : "#2472c8");
+    try{ localStorage.setItem("gastia-theme", t); }catch(e){}
+    paint();
+  }
+  document.addEventListener("click",function(e){
+    var b=e.target.closest&&e.target.closest("[data-theme-opt]"); if(b) apply(b.getAttribute("data-theme-opt"));
+  });
+  paint();
 })();
 </script>
 </body>
