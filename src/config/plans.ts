@@ -118,6 +118,8 @@ export interface PlanFeatures {
   webChatDailyCap: number;
   /** Máximo de correos conectados (0 = no puede). */
   maxEmailAccounts: number;
+  /** Pestaña Análisis del dashboard (proyección del mes, presupuesto por categoría, ingreso repartido, metas de ahorro). */
+  analysis: boolean;
   /** Notas de voz y fotos (boletas, capturas) en el chat web. Gratis solo escribe texto. */
   chatMedia: boolean;
   /** Mascotas premium (chancho y capibara). Gratis solo tiene perro, gato o ninguna. */
@@ -134,10 +136,10 @@ export interface PlanFeatures {
 export const FREE_LIMIT = 5;
 
 export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
-  FREE: { emailSync: false, whatsapp: false, autoRegister: false, dailySummary: false, alerts: false, createCategories: false, perTxnWhatsapp: false, webChatDailyCap: 5, maxEmailAccounts: 0, premiumPets: false, chatMedia: false, maxRecurring: FREE_LIMIT, maxGoals: FREE_LIMIT, maxDebtsPerDirection: FREE_LIMIT },
-  BASIC: { emailSync: true, whatsapp: true, autoRegister: false, dailySummary: false, alerts: false, createCategories: true, perTxnWhatsapp: false, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
-  PRO: { emailSync: true, whatsapp: true, autoRegister: true, dailySummary: true, alerts: true, createCategories: true, perTxnWhatsapp: false, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
-  UNLIMITED: { emailSync: true, whatsapp: true, autoRegister: true, dailySummary: true, alerts: true, createCategories: true, perTxnWhatsapp: true, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
+  FREE: { emailSync: false, analysis: false, whatsapp: false, autoRegister: false, dailySummary: false, alerts: false, createCategories: false, perTxnWhatsapp: false, webChatDailyCap: 5, maxEmailAccounts: 0, premiumPets: false, chatMedia: false, maxRecurring: FREE_LIMIT, maxGoals: FREE_LIMIT, maxDebtsPerDirection: FREE_LIMIT },
+  BASIC: { emailSync: true, analysis: false, whatsapp: true, autoRegister: false, dailySummary: false, alerts: false, createCategories: true, perTxnWhatsapp: false, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
+  PRO: { emailSync: true, analysis: true, whatsapp: true, autoRegister: true, dailySummary: true, alerts: true, createCategories: true, perTxnWhatsapp: false, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
+  UNLIMITED: { emailSync: true, analysis: true, whatsapp: true, autoRegister: true, dailySummary: true, alerts: true, createCategories: true, perTxnWhatsapp: true, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
 };
 
 /** Planes visibles hoy en la web (Básico y Unlimited quedan ocultos; siguen existiendo para datos y overrides). */

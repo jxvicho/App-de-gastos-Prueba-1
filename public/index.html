@@ -1230,6 +1230,151 @@ body.cal-open .controls{z-index:70;}
 .tp-rosa{background:radial-gradient(90px 50px at 100% 100%,#ffe6d2,rgba(255,230,210,0)),radial-gradient(90px 50px at 0 0,#fbd3e4,rgba(251,211,228,0)),#fff7fa;}
 .tp-rosa i{background:#7a1f4d;} .tp-rosa b{background:#d9457f;}
 </style>
+<style id="analysis-css">
+/* ===== Pestaña Análisis ===== */
+#viewAnalysis{--an-brand:#164b8a;--an-brand-soft:#eaf2fb;--an-ok:#1a8a5e;--an-ok-soft:#e3f5ec;--an-warn:#b8860b;--an-warn-soft:#fbf3e2;--an-bad:#c0392b;--an-bad-soft:#fbe6e4;--an-muted:#5b6675;--an-line:#e3e9f1;--an-ink:#101828;}
+#viewAnalysis .an-col{display:flex;flex-direction:column;gap:18px;margin-top:20px;}
+#viewAnalysis .an-num{font-variant-numeric:tabular-nums;}
+#viewAnalysis .an-sub{font-size:12.5px;color:var(--an-muted);margin:0 0 14px;}
+#viewAnalysis .an-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;}
+#viewAnalysis .an-chips{display:flex;gap:6px;flex-wrap:wrap;}
+#viewAnalysis .an-chip{border:1px solid var(--an-line);background:#fff;border-radius:999px;padding:6px 12px;font:600 12px inherit;font-family:inherit;color:var(--an-muted);cursor:pointer;}
+#viewAnalysis .an-chip.on{background:var(--an-brand);border-color:var(--an-brand);color:#fff;}
+#viewAnalysis .an-pill{display:inline-block;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px;background:#eef2f8;color:var(--an-muted);}
+#viewAnalysis .an-pill.ok{background:var(--an-ok-soft);color:var(--an-ok);} #viewAnalysis .an-pill.warn{background:var(--an-warn-soft);color:var(--an-warn);} #viewAnalysis .an-pill.bad{background:var(--an-bad-soft);color:var(--an-bad);}
+#viewAnalysis .an-callout{margin-top:14px;padding:12px 14px;border-radius:10px;background:#f4f7fb;border:1px solid var(--an-line);font-size:14px;line-height:1.5;}
+#viewAnalysis .an-empty{padding:22px 10px;text-align:center;color:var(--an-muted);font-size:14px;}
+#viewAnalysis .an-btn{border:0;border-radius:10px;padding:9px 15px;font:700 13.5px inherit;font-family:inherit;cursor:pointer;background:var(--an-brand);color:#fff;}
+#viewAnalysis .an-btn.sm{padding:7px 12px;font-size:12.5px;} #viewAnalysis .an-btn.ghost{background:var(--an-brand-soft);color:var(--an-brand);}
+#viewAnalysis .an-btn[disabled]{opacity:.55;cursor:default;}
+/* hero */
+#viewAnalysis .an-hero{background:linear-gradient(160deg,#0e2f5a,#1a5da8);border-radius:22px;padding:26px 28px;color:#fff;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);grid-template-areas:"m k" "b b";gap:22px 30px;position:relative;overflow:hidden;}
+#viewAnalysis .an-hero::after{content:"";position:absolute;right:-70px;top:-90px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.06);}
+#viewAnalysis .an-hh-main{grid-area:m;position:relative;z-index:1;min-width:0;}
+#viewAnalysis .an-hh-kpis{grid-area:k;position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-self:end;}
+#viewAnalysis .an-hh-bar{grid-area:b;position:relative;z-index:1;border-top:1px solid rgba(255,255,255,.18);padding-top:16px;}
+#viewAnalysis .an-hero .lbl{font-size:12.5px;opacity:.82;margin-bottom:6px;}
+#viewAnalysis .an-hero .val{font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1.05;}
+#viewAnalysis .an-hero .sub{font-size:12px;margin-top:8px;}
+#viewAnalysis .an-hero .an-pill{background:rgba(255,255,255,.18);color:#fff;}
+#viewAnalysis .an-hero .an-pill.bad{background:#ffd9d4;color:#8f1d12;} #viewAnalysis .an-hero .an-pill.ok{background:#d6f3e6;color:#0b5a3b;}
+#viewAnalysis .an-kpi{background:rgba(255,255,255,.1);border-radius:14px;padding:12px 14px;min-width:0;}
+#viewAnalysis .an-kpi .lbl{font-size:11.5px;margin-bottom:4px;}
+#viewAnalysis .an-kpi .v{font-size:22px;font-weight:700;letter-spacing:-.01em;}
+#viewAnalysis .an-kpi .s{font-size:11.5px;opacity:.9;margin-top:3px;}
+#viewAnalysis .an-hb-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;}
+#viewAnalysis .an-hb-top span{opacity:.85;}
+#viewAnalysis .an-hbar{display:flex;height:16px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,.16);margin:8px 0 10px;}
+#viewAnalysis .an-hbar i{display:block;height:100%;}
+#viewAnalysis .an-hbar .b1{background:#fff;} #viewAnalysis .an-hbar .b2{background:repeating-linear-gradient(45deg,#9cc3ee,#9cc3ee 4px,#3f7fc4 4px,#3f7fc4 8px);}
+#viewAnalysis .an-hleg{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;}
+#viewAnalysis .an-hleg span{display:inline-flex;align-items:center;gap:7px;}
+#viewAnalysis .an-hleg i{width:12px;height:12px;border-radius:3px;display:inline-block;}
+#viewAnalysis .an-hleg i.s1{background:#fff;} #viewAnalysis .an-hleg i.s2{background:repeating-linear-gradient(45deg,#9cc3ee,#9cc3ee 3px,#3f7fc4 3px,#3f7fc4 6px);} #viewAnalysis .an-hleg i.s3{background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.4);}
+#viewAnalysis .an-hchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center;font-size:12px;}
+#viewAnalysis .an-hchips b{font-weight:600;opacity:.85;margin-right:2px;}
+#viewAnalysis .an-hchip{background:rgba(255,255,255,.13);border-radius:999px;padding:4px 11px;white-space:nowrap;}
+#viewAnalysis .an-hchip em{font-style:normal;opacity:.8;}
+#viewAnalysis .an-hero .an-btn{background:#fff;color:#0e2f5a;margin-top:10px;}
+@media(max-width:820px){#viewAnalysis .an-hero{grid-template-columns:1fr;grid-template-areas:"m" "k" "b";padding:22px;}#viewAnalysis .an-hh-kpis{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));}#viewAnalysis .an-hero .val{font-size:38px;}}
+/* gráfico del ritmo */
+#viewAnalysis .an-scroll{overflow-x:auto;}
+#viewAnalysis #anPace{width:100%;height:auto;min-width:560px;display:block;}
+#viewAnalysis .an-gl{stroke:#e6edf6;stroke-width:1;} #viewAnalysis .an-tk{font-size:11px;fill:var(--an-muted);font-family:inherit;}
+#viewAnalysis .an-bud{stroke:var(--an-bad);stroke-width:1.5;stroke-dasharray:6 4;} #viewAnalysis .an-budl{font-size:11px;font-weight:700;fill:var(--an-bad);font-family:inherit;}
+#viewAnalysis .an-prev{fill:none;stroke:#b8c4d4;stroke-width:2;}
+#viewAnalysis .an-act{fill:none;stroke:var(--an-brand);stroke-width:3;stroke-linejoin:round;}
+#viewAnalysis .an-area{fill:var(--an-brand-soft);opacity:.7;stroke:none;}
+#viewAnalysis .an-proj{fill:none;stroke:var(--an-brand);stroke-width:3;stroke-dasharray:7 5;}
+#viewAnalysis .an-today{stroke:#e5484d;stroke-width:1.5;stroke-dasharray:4 3;} #viewAnalysis .an-todayl{font-size:11px;font-weight:700;fill:#e5484d;font-family:inherit;}
+#viewAnalysis .an-endbad{fill:var(--an-bad);} #viewAnalysis .an-endok{fill:var(--an-ok);} #viewAnalysis .an-endl{font-size:13px;font-weight:700;fill:var(--an-ink);font-family:inherit;}
+#viewAnalysis .an-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--an-muted);margin-top:8px;}
+#viewAnalysis .an-legend span{display:inline-flex;align-items:center;gap:6px;}
+#viewAnalysis .an-legend i{display:inline-block;width:12px;height:4px;border-radius:2px;}
+#viewAnalysis .an-legend i.dash{height:0;border-top:3px dashed;background:none;width:14px;}
+#viewAnalysis .an-legend i.hatch{height:10px;width:12px;border-radius:3px;background:repeating-linear-gradient(45deg,#c3daf3,#c3daf3 3px,#fff 3px,#fff 6px);border:1px solid #c3daf3;}
+#viewAnalysis .an-legend i.tickk{width:3px;height:12px;background:var(--an-ink);border-radius:2px;} #viewAnalysis .an-legend i.bl{width:2px;height:12px;background:var(--an-bad);}
+/* filas */
+#viewAnalysis .an-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start;}
+#viewAnalysis .an-row.wide{grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);}
+@media(max-width:900px){#viewAnalysis .an-row,#viewAnalysis .an-row.wide{grid-template-columns:1fr;}}
+/* categorías */
+#viewAnalysis .an-cat-head,#viewAnalysis .an-cat-row{display:grid;grid-template-columns:92px minmax(0,1fr) 98px 132px;gap:10px;align-items:center;}
+#viewAnalysis .an-cat-head{font-size:10.5px;font-weight:700;color:var(--an-muted);text-transform:uppercase;letter-spacing:.05em;padding:2px 0 8px;border-bottom:1px solid var(--an-line);}
+#viewAnalysis .an-cat-head span:nth-child(3),#viewAnalysis .an-cat-head span:nth-child(4){text-align:right;}
+#viewAnalysis .an-cat-row{padding:9px 0;border-bottom:1px solid var(--an-line);font-size:13px;} #viewAnalysis .an-cat-row:last-child{border-bottom:0;}
+#viewAnalysis .an-cat-row .cn{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#viewAnalysis .an-ct{position:relative;height:16px;border-radius:8px;background:#eef2f8;overflow:hidden;}
+#viewAnalysis .an-ct i{position:absolute;top:0;bottom:0;display:block;}
+#viewAnalysis .an-ct .cf{left:0;background:var(--an-brand);border-radius:8px 0 0 8px;}
+#viewAnalysis .an-ct .ch{background:repeating-linear-gradient(45deg,#c3daf3,#c3daf3 4px,#eef2f8 4px,#eef2f8 8px);} #viewAnalysis .an-ct .ch.over{background:repeating-linear-gradient(45deg,#f3b8b1,#f3b8b1 4px,#fbe6e4 4px,#fbe6e4 8px);}
+#viewAnalysis .an-ct .cb{width:2px;background:var(--an-bad);} #viewAnalysis .an-ct .co{width:3px;background:var(--an-ink);box-shadow:0 0 0 1px #fff;border-radius:2px;z-index:2;}
+#viewAnalysis .an-cat-row .ca{text-align:right;font-weight:700;white-space:nowrap;} #viewAnalysis .an-cat-row .ca small{display:block;font-weight:500;color:var(--an-muted);font-size:11px;}
+#viewAnalysis .an-dl{display:flex;flex-direction:column;align-items:flex-end;text-align:right;line-height:1.25;} #viewAnalysis .an-dl b{font-size:12.5px;} #viewAnalysis .an-dl small{font-size:11px;color:var(--an-muted);}
+#viewAnalysis .an-dl.up b{color:var(--an-bad);} #viewAnalysis .an-dl.up2 b{color:var(--an-warn);} #viewAnalysis .an-dl.dn b{color:var(--an-ok);} #viewAnalysis .an-dl.eq b{color:var(--an-muted);}
+@media(max-width:560px){#viewAnalysis .an-cat-head{display:none;}#viewAnalysis .an-cat-row{grid-template-columns:78px minmax(0,1fr) 90px;row-gap:4px;}#viewAnalysis .an-cat-row .cn{white-space:normal;word-break:break-word;}#viewAnalysis .an-dl{grid-column:2/-1;flex-direction:row;gap:8px;align-items:baseline;justify-content:flex-start;text-align:left;}}
+/* calendario */
+#viewAnalysis .an-heat{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;}
+#viewAnalysis .an-dow{font-size:10.5px;color:var(--an-muted);text-align:center;padding-bottom:2px;}
+#viewAnalysis .an-hd{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;color:var(--an-ink);position:relative;}
+#viewAnalysis .an-hd.l0{background:#f1f4f9;} #viewAnalysis .an-hd.l1{background:#eaf2fb;} #viewAnalysis .an-hd.l2{background:#c3daf3;} #viewAnalysis .an-hd.l3{background:#5b93d3;color:#fff;} #viewAnalysis .an-hd.l4{background:#164b8a;color:#fff;}
+#viewAnalysis .an-hd.lf{background:transparent;border:1px dashed var(--an-line);color:var(--an-muted);opacity:.75;}
+#viewAnalysis .an-hd.fx::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--an-warn);}
+#viewAnalysis .an-scale{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--an-muted);margin-top:10px;}
+#viewAnalysis .an-scale i{width:16px;height:16px;border-radius:5px;display:inline-block;}
+#viewAnalysis .an-scale .fxl{display:inline-flex;align-items:center;gap:6px;margin-left:auto;} #viewAnalysis .an-scale .fxl i{width:8px;height:8px;border-radius:50%;background:var(--an-warn);}
+/* ingreso */
+#viewAnalysis .an-flow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0;}
+@media(max-width:700px){#viewAnalysis .an-flow{grid-template-columns:1fr;}}
+#viewAnalysis .an-fl{border:1px solid var(--an-line);border-radius:12px;padding:12px 14px;background:#fff;min-width:0;}
+#viewAnalysis .an-fl.fin{border-top:3px solid var(--an-ok);} #viewAnalysis .an-fl.fout{border-top:3px solid var(--an-brand);}
+#viewAnalysis .an-fh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;}
+#viewAnalysis .an-ft{font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;} #viewAnalysis .an-fl.fin .an-ft{color:var(--an-ok);} #viewAnalysis .an-fl.fout .an-ft{color:var(--an-brand);}
+#viewAnalysis .an-fh b{font-size:18px;}
+#viewAnalysis .an-lg{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:13px;border-top:1px solid var(--an-line);} #viewAnalysis .an-lg:first-of-type{border-top:0;}
+#viewAnalysis .an-lg span{display:inline-flex;align-items:center;gap:8px;min-width:0;} #viewAnalysis .an-lg span i.sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none;}
+#viewAnalysis .an-lg small{font-weight:500;color:var(--an-muted);} #viewAnalysis .an-lg.dim{color:var(--an-muted);}
+#viewAnalysis .an-tg{font-style:normal;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;margin-left:6px;background:var(--an-ok-soft);color:var(--an-ok);white-space:nowrap;} #viewAnalysis .an-lg.dim .an-tg{background:#eef2f8;color:var(--an-muted);}
+#viewAnalysis .an-tot{display:flex;justify-content:space-between;gap:12px;padding:8px 0 2px;margin-top:4px;border-top:2px solid var(--an-line);font-size:13px;font-weight:700;}
+#viewAnalysis .an-free{display:flex;justify-content:space-between;gap:12px;padding:8px 10px;margin-top:8px;border-radius:9px;background:var(--an-brand-soft);font-size:13px;font-weight:700;}
+#viewAnalysis .an-cmhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:13px;margin-top:4px;} #viewAnalysis .an-cmhead b{font-size:15px;} #viewAnalysis .an-cmhead span{color:var(--an-muted);}
+#viewAnalysis .an-stack{display:flex;height:22px;border-radius:11px;overflow:hidden;background:#eef2f8;margin:8px 0 14px;} #viewAnalysis .an-stack i{display:block;height:100%;transition:width .3s;}
+#viewAnalysis .an-range{display:grid;grid-template-columns:150px minmax(0,1fr) 54px;gap:10px;align-items:center;font-size:13px;margin-top:8px;} #viewAnalysis .an-range output{text-align:right;font-weight:600;}
+#viewAnalysis input[type=range]{width:100%;accent-color:var(--an-brand);}
+/* hormiga */
+#viewAnalysis .an-ant{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding:12px 0;border-top:1px solid var(--an-line);} #viewAnalysis .an-ant:first-of-type{border-top:0;}
+#viewAnalysis .an-ant .t{flex:1 1 200px;min-width:0;font-weight:600;} #viewAnalysis .an-ant .t small{display:block;color:var(--an-muted);font-size:12px;font-weight:500;}
+#viewAnalysis .an-opts{display:inline-flex;border:1px solid var(--an-line);border-radius:9px;overflow:hidden;} #viewAnalysis .an-opts button{border:0;background:none;color:var(--an-muted);padding:6px 11px;font:600 12px inherit;font-family:inherit;cursor:pointer;} #viewAnalysis .an-opts button.on{background:var(--an-brand-soft);color:var(--an-brand);}
+#viewAnalysis .an-saving{margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--an-ok-soft);color:var(--an-ok);font-weight:600;font-size:14px;}
+/* metas de ahorro */
+#viewAnalysis .an-mform{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;} @media(max-width:480px){#viewAnalysis .an-mform{grid-template-columns:1fr;}}
+#viewAnalysis .an-mform label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--an-muted);}
+#viewAnalysis .an-mform input,#viewAnalysis #anAmt{border:1px solid var(--an-line);border-radius:10px;padding:9px 12px;font:500 14px inherit;font-family:inherit;color:var(--an-ink);background:#fff;min-width:0;width:100%;}
+#viewAnalysis .an-mcur{display:flex;align-items:center;gap:8px;} #viewAnalysis .an-mcur b{color:var(--an-ink);font-size:14px;}
+#viewAnalysis .an-mprog{margin:14px 0 6px;} #viewAnalysis .an-mtrack{position:relative;height:14px;border-radius:7px;background:#eef2f8;} #viewAnalysis .an-mtrack i{position:absolute;left:0;top:0;bottom:0;background:var(--an-ok);border-radius:7px;display:block;transition:width .3s;} #viewAnalysis .an-mtrack b{position:absolute;top:-5px;bottom:-5px;width:3px;margin-left:-1px;background:var(--an-ink);border-radius:2px;display:block;}
+#viewAnalysis .an-mticks{position:relative;height:16px;font-size:10.5px;color:var(--an-muted);margin-top:4px;} #viewAnalysis .an-mticks span{position:absolute;transform:translateX(-50%);} #viewAnalysis .an-mticks span:nth-child(1){left:25%;} #viewAnalysis .an-mticks span:nth-child(2){left:50%;} #viewAnalysis .an-mticks span:nth-child(3){left:75%;}
+#viewAnalysis .an-mlog{margin-top:14px;padding-top:12px;border-top:1px solid var(--an-line);}
+#viewAnalysis .an-hrow{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:7px 0;border-top:1px solid var(--an-line);color:var(--an-muted);} #viewAnalysis .an-hrow:first-of-type{margin-top:10px;} #viewAnalysis .an-hrow b{color:var(--an-ok);}
+#viewAnalysis .an-goaltop{display:flex;flex-wrap:wrap;gap:6px 20px;justify-content:space-between;align-items:center;}
+#viewAnalysis .an-del{border:0;background:none;color:var(--an-bad);font:600 12px inherit;font-family:inherit;cursor:pointer;padding:6px 0;text-decoration:underline;}
+/* insights */
+#viewAnalysis .an-insights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;} @media(max-width:820px){#viewAnalysis .an-insights{grid-template-columns:1fr;}}
+#viewAnalysis .an-insight{background:#fff;border:1px solid var(--an-line);border-left:4px solid var(--an-brand);border-radius:10px;padding:16px 18px;} #viewAnalysis .an-insight.warn{border-left-color:var(--an-warn);} #viewAnalysis .an-insight.ok{border-left-color:var(--an-ok);}
+#viewAnalysis .an-insight .itag{font-size:11.5px;font-weight:700;color:var(--an-brand);margin-bottom:6px;} #viewAnalysis .an-insight.warn .itag{color:var(--an-warn);} #viewAnalysis .an-insight.ok .itag{color:var(--an-ok);}
+#viewAnalysis .an-insight p{margin:0;font-size:13px;line-height:1.5;}
+/* bloqueo Gratis */
+#viewAnalysis .an-lock{margin-top:24px;text-align:center;padding:34px 22px;border:1px dashed #c3d3e8;border-radius:18px;background:#fff;} #viewAnalysis .an-lock b{display:block;font-size:18px;margin-bottom:6px;} #viewAnalysis .an-lock p{margin:0 auto 14px;max-width:460px;color:var(--an-muted);font-size:14px;}
+/* tema Rosa */
+:root[data-theme="rosa"] #viewAnalysis{--an-brand:#b83a73;--an-brand-soft:#fce6f0;}
+:root[data-theme="rosa"] #viewAnalysis .an-hero{background:linear-gradient(160deg,#6b1b44 0%,#d9457f 100%);}
+:root[data-theme="rosa"] #viewAnalysis .an-hero .an-btn{color:#7a1f4d;}
+:root[data-theme="rosa"] #viewAnalysis .an-hbar .b2,:root[data-theme="rosa"] #viewAnalysis .an-hleg i.s2{background:repeating-linear-gradient(45deg,#ffc9de,#ffc9de 4px,#e0679a 4px,#e0679a 8px);}
+:root[data-theme="rosa"] #viewAnalysis .an-hd.l4{background:#7a1f4d;} :root[data-theme="rosa"] #viewAnalysis .an-hd.l3{background:#d9769f;}
+:root[data-theme="rosa"] #viewAnalysis .an-hd.l2{background:#f6c8da;} :root[data-theme="rosa"] #viewAnalysis .an-hd.l1{background:#fdeaf1;}
+:root[data-theme="rosa"] #viewAnalysis .an-callout{background:#fdf3f7;border-color:#f1e1e8;}
+:root[data-theme="rosa"] #viewAnalysis .an-act,:root[data-theme="rosa"] #viewAnalysis .an-proj{stroke:#b83a73;}
+:root[data-theme="rosa"] #viewAnalysis .an-ct .cf{background:#b83a73;} :root[data-theme="rosa"] #viewAnalysis .an-ct .ch{background:repeating-linear-gradient(45deg,#f6c8da,#f6c8da 4px,#fdf0f5 4px,#fdf0f5 8px);}
+</style>
 </head>
 <body>
 
@@ -1248,6 +1393,10 @@ body.cal-open .controls{z-index:70;}
       <button class="sidebar-item active" data-view="home">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
         <span class="sidebar-label">Inicio</span>
+      </button>
+      <button class="sidebar-item" data-view="analysis">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>
+        <span class="sidebar-label">Análisis</span>
       </button>
       <button class="sidebar-item" data-view="control">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9"/><path d="M17 6h3"/><circle cx="15" cy="6" r="2"/><path d="M4 12h3"/><path d="M11 12h9"/><circle cx="9" cy="12" r="2"/><path d="M4 18h11"/><path d="M19 18h1"/><circle cx="17" cy="18" r="2"/></svg>
@@ -1440,6 +1589,14 @@ body.cal-open .controls{z-index:70;}
   <footer>Gastia · tus movimientos claros y sin contraseñas de banco. Nunca te pedimos las claves de tus cuentas. <a href="/privacidad" target="_blank" rel="noopener">Política de privacidad</a> · <a href="/terminos" target="_blank" rel="noopener">Términos y condiciones</a></footer>
   </div>
   </div><!-- /#viewHome -->
+
+  <div id="viewAnalysis" hidden>
+  <div class="wrap">
+    <h1 class="cfg-title">Análisis</h1>
+    <p class="cfg-lead">Qué va a pasar con tu plata este mes y los próximos, no solo qué ya gastaste</p>
+    <div id="anBody"></div>
+  </div>
+  </div><!-- /#viewAnalysis -->
 
   <div id="viewControl" hidden>
   <div class="wrap">
@@ -3409,11 +3566,13 @@ document.getElementById("waCodeBtn").addEventListener("click", async ()=>{
 // (correos conectados + bancos), sin recargar la página.
 function showView(view){
   document.getElementById("viewHome").hidden = view !== "home";
+  document.getElementById("viewAnalysis").hidden = view !== "analysis";
   document.getElementById("viewControl").hidden = view !== "control";
   document.getElementById("viewConfig").hidden = view !== "config";
   document.querySelectorAll(".sidebar-item[data-view]").forEach(btn=>{
     btn.classList.toggle("active", btn.dataset.view === view);
   });
+  if(view === "analysis"){ loadAnalysis(); }
   if(view === "control"){ loadControl(); }
   if(view === "config"){ renderPrefs(); renderDaily(); renderProfile(); loadSubscription(); loadEmailAccounts().then(loadBankCatalog); }
 }
@@ -5516,6 +5675,413 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
     window.renderSidebarPet=function(){ orig.apply(this,arguments); refresh(); };
   }
 })();
+</script>
+<script>
+/* =========================================================
+   ANÁLISIS (Pro): todo se calcula en /api/analysis; aquí solo se dibuja
+   ========================================================= */
+let AN = null, anScenario = "actual", anIncMode = "sueldo", anXtra = 30, anGoalIdx = 0, anChoice = {}, anSaveTimer = null;
+const anId = id => document.getElementById(id);
+const anCur = ()=> state.heroCurrency === "USD" ? "USD" : "PEN";
+const anSym = ()=> anCur() === "USD" ? "$" : "S/";
+const anS = n => anSym() + " " + Math.round(Number(n)).toLocaleString("en-US");
+const anS2 = n => anSym() + " " + Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const anCap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const AN_MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const anCum = a => { let t = 0; return a.map(v => t += v); };
+
+function anLock(){
+  anId("anBody").innerHTML = `<div class="an-lock"><b>Análisis es parte de Pro</b><p>Proyección del mes, presupuesto por categoría, calendario de gasto, ingreso repartido y metas de ahorro. Pruébalo 7 días sin costo.</p><button type="button" class="an-btn" id="anGoPro">Ver mi plan</button></div>`;
+  anId("anGoPro").onclick = ()=>{ showView("config"); setTimeout(()=>{ const c = anId("planCard"); if(c) c.scrollIntoView({behavior:"smooth",block:"center"}); }, 150); };
+}
+
+async function loadAnalysis(){
+  if((state.features || {}).canUseAnalysis === false){ anLock(); return; }
+  if(!AN) anId("anBody").innerHTML = `<div class="an-empty">Calculando tu análisis…</div>`;
+  try{
+    AN = await api("/analysis?currency=" + anCur());
+    anBuild();
+  }catch(e){
+    if(e.status === 403){ anLock(); return; }
+    anId("anBody").innerHTML = `<div class="an-empty">No pudimos cargar tu análisis (${escHtml(e.message)}).<br><button type="button" class="an-btn ghost sm" id="anRetry" style="margin-top:10px">Reintentar</button></div>`;
+    anId("anRetry").onclick = loadAnalysis;
+  }
+}
+
+/* ---------- esqueleto ---------- */
+function anBuild(){
+  const prev = anCap(AN.month.prevLabel);
+  anId("anBody").innerHTML = `<div class="an-col">
+    <section class="an-hero" aria-labelledby="anHLbl">
+      <div class="an-hh-main"><div class="lbl" id="anHLbl">Puedes gastar por día, hasta el ${AN.month.daysInMonth}</div><div class="val an-num" id="anDay">—</div><div class="sub" id="anDaySub"></div></div>
+      <div class="an-hh-kpis">
+        <div class="an-kpi"><div class="lbl">Cierre proyectado</div><div class="v an-num" id="anProj"></div><div class="s" id="anProjSub"></div></div>
+        <div class="an-kpi"><div class="lbl">Ahorro proyectado</div><div class="v an-num" id="anSave"></div><div class="s" id="anSaveSub"></div></div>
+        <div class="an-kpi"><div class="lbl">Fijos por venir</div><div class="v an-num" id="anFixed"></div><div class="s" id="anFixedSub"></div></div>
+      </div>
+      <div class="an-hh-bar" id="anHbarBox"></div>
+    </section>
+
+    <section class="card" aria-labelledby="anHRitmo">
+      <div class="an-head"><div><h3 id="anHRitmo">Ritmo del mes</h3><p class="an-sub" style="margin:0">Gasto acumulado día a día, comparado con ${AN_MESES[AN.month.month === 0 ? 11 : AN.month.month - 1]} y con tu presupuesto.</p></div>
+        <div class="an-chips" role="group" aria-label="Escenario"><button type="button" class="an-chip on" data-sc="actual">A mi ritmo actual</button><button type="button" class="an-chip" data-sc="recorte">Con mis recortes</button></div></div>
+      <div class="an-scroll"><svg id="anPace" viewBox="0 0 1000 260" role="img" aria-label="Gasto acumulado del mes con proyección"></svg></div>
+      <div class="an-legend"><span><i style="background:var(--an-brand)"></i>${anCap(AN_MESES[AN.month.month])} real</span><span><i class="dash" style="border-color:var(--an-brand)"></i>Proyección</span><span><i style="background:#b8c4d4"></i>${prev}</span><span><i class="dash" style="border-color:var(--an-bad)"></i>Presupuesto</span></div>
+      <div class="an-callout" id="anPaceMsg"></div>
+    </section>
+
+    <div class="an-row wide">
+      <section class="card" aria-labelledby="anHCats">
+        <h3 id="anHCats">Presupuesto por categoría</h3>
+        <p class="an-sub">Cada barra muestra lo que llevas y lo que llegarías a gastar a este ritmo. La marca oscura es lo que llevabas en ${AN_MESES[AN.month.month === 0 ? 11 : AN.month.month - 1]} el mismo día; a la derecha ves la diferencia en soles.</p>
+        <div id="anCats"></div>
+        <div class="an-legend" style="margin-top:12px"><span><i style="background:var(--an-brand)"></i>Gastado</span><span><i class="hatch"></i>A este ritmo</span><span><i class="tickk"></i>${prev}, mismo día</span><span><i class="bl"></i>Meta (si te pasas)</span></div>
+        <div class="an-callout" id="anCatsMsg" hidden></div>
+      </section>
+      <section class="card" aria-labelledby="anHCal">
+        <h3 id="anHCal">Cuándo gastas</h3>
+        <p class="an-sub">Cada día de ${AN_MESES[AN.month.month]} con todos tus gastos. El punto naranja marca un pago fijo.</p>
+        <div class="an-heat" id="anHeat"></div>
+        <div class="an-scale"><span>Menos</span><i style="background:#eaf2fb"></i><i style="background:#c3daf3"></i><i style="background:#5b93d3"></i><i style="background:#164b8a"></i><span>Más</span><span class="fxl"><i></i>Pago fijo</span></div>
+        <div class="an-callout" id="anHeatMsg"></div>
+      </section>
+    </div>
+
+    <section class="card" aria-labelledby="anHIng">
+      <h3 id="anHIng">Tu ingreso de ${AN_MESES[AN.month.month]}, repartido</h3>
+      <p class="an-sub" style="margin:0">A la izquierda lo que entra; a la derecha, lo que ya tiene dueño antes de que gastes. Separa tu sueldo de los extras para que el plan no dependa de plata que no es segura.</p>
+      <div id="anIncBox"></div>
+    </section>
+
+    <div class="an-row">
+      <section class="card" aria-labelledby="anHAnt">
+        <h3 id="anHAnt">Gastos hormiga y suscripciones</h3>
+        <p class="an-sub">Gastos chicos y repetidos que Gastia detectó. Elige qué harías con cada uno y mira el efecto en el gráfico de arriba.</p>
+        <div id="anAnts"></div>
+        <div class="an-saving" id="anSaving"></div>
+      </section>
+      <section class="card" aria-labelledby="anHMeta">
+        <h3 id="anHMeta">Metas de ahorro</h3>
+        <p class="an-sub" style="margin:0">Distintas a las metas por categoría: acá juntas plata en vez de limitar gasto.</p>
+        <div id="anMetaBox"></div>
+      </section>
+    </div>
+
+    <section aria-labelledby="anHIns" id="anInsBox" hidden>
+      <h3 id="anHIns" style="margin:0 0 10px;font-size:15px">Lo que Gastia notó este mes</h3>
+      <div class="an-insights" id="anIns"></div>
+    </section>
+  </div>`;
+  anBindStatic();
+  anRenderAll();
+}
+function anBindStatic(){
+  document.querySelectorAll("#anBody [data-sc]").forEach(b => b.onclick = ()=>{ anScenario = b.dataset.sc; anRenderAll(); });
+}
+function anRenderAll(){
+  anPace(); anCats(); anHeat(); anAnts(); anIncome(); anMetas(); anInsights();
+  document.querySelectorAll("#anBody [data-sc]").forEach(b => b.classList.toggle("on", b.dataset.sc === anScenario));
+}
+
+/* ---------- proyección ---------- */
+function anAntCut(a){ const c = anChoice[a.id]; return c === "cut" ? a.monthly : c === "half" ? a.monthly / 2 : 0; }
+function anSaved(){ return AN.ants.reduce((s, a) => s + anAntCut(a), 0); }
+function anProjection(){
+  const M = AN.month, done = M.today, dim = M.daysInMonth;
+  const sv = anScenario === "recorte" ? anSaved() : 0;
+  const baseRate = done > 0 ? AN.spentVariable / done : 0;
+  const rate = Math.max(0, baseRate - sv / 30);
+  const fixedByDay = {};
+  AN.fixedPending.forEach(f => { const d = Math.min(dim, Math.max(f.day, done + 1)); fixedByDay[d] = (fixedByDay[d] || 0) + f.amount; });
+  const cum = anCum(AN.daily);
+  let c = cum[done - 1] || 0;
+  const pts = [[done, c]];
+  for(let d = done + 1; d <= dim; d++){ c += rate + (fixedByDay[d] || 0); pts.push([d, c]); }
+  return { rate, baseRate, pts, total: c, cum };
+}
+function anNiceStep(max){
+  const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
+  const f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+}
+
+function anPace(){
+  const M = AN.month, P = anProjection(), prevCum = anCum(AN.prevDaily), dim = M.daysInMonth, done = M.today;
+  const budget = AN.budget, prevEnd = prevCum.length ? prevCum[prevCum.length - 1] : 0;
+  const W = 1000, H = 260, l = 58, r = 24, t = 16, b = 30, iw = W - l - r, ih = H - t - b;
+  const ymax0 = Math.max(P.total, budget || 0, prevEnd, 1) * 1.06, step = anNiceStep(ymax0), ymax = Math.ceil(ymax0 / step) * step;
+  const x = d => l + (d - 1) / Math.max(1, dim - 1) * iw, y = v => t + ih - (v / ymax) * ih;
+  let s = "";
+  for(let v = 0; v <= ymax + 0.001; v += step){ s += `<line class="an-gl" x1="${l}" x2="${W - r}" y1="${y(v)}" y2="${y(v)}"/><text class="an-tk" x="${l - 8}" y="${y(v) + 4}" text-anchor="end">${v ? anS(v) : 0}</text>`; }
+  [1,5,10,15,20,25,dim].forEach(d => { s += `<text class="an-tk" x="${x(d)}" y="${H - 8}" text-anchor="middle">${d}</text>`; });
+  if(budget) s += `<line class="an-bud" x1="${l}" x2="${W - r}" y1="${y(budget)}" y2="${y(budget)}"/><text class="an-budl" x="${l + 8}" y="${y(budget) - 6}">Presupuesto ${anS(budget)}</text>`;
+  if(prevCum.length) s += `<path class="an-prev" d="${prevCum.map((v, i) => (i ? "L" : "M") + x(i + 1) + " " + y(v)).join(" ")}"/>`;
+  const actPath = P.cum.map((v, i) => (i ? "L" : "M") + x(i + 1) + " " + y(v)).join(" ");
+  s += `<path class="an-area" d="${actPath} L${x(done)} ${y(0)} L${x(1)} ${y(0)} Z"/><path class="an-act" d="${actPath}"/>`;
+  if(P.pts.length > 1) s += `<path class="an-proj" d="${P.pts.map((p, i) => (i ? "L" : "M") + x(p[0]) + " " + y(p[1])).join(" ")}"/>`;
+  s += `<line class="an-today" x1="${x(done)}" x2="${x(done)}" y1="${t}" y2="${y(0)}"/><text class="an-todayl" x="${x(done) + 6}" y="${t + 10}">Hoy</text>`;
+  const over = budget ? P.total > budget : false;
+  s += `<circle cx="${x(dim)}" cy="${y(P.total)}" r="5" class="${over ? "an-endbad" : "an-endok"}"/><text class="an-endl" x="${x(dim) - 10}" y="${y(P.total) + (over ? -12 : 20)}" text-anchor="end">${anS(P.total)}</text>`;
+  anId("anPace").innerHTML = s;
+
+  const left = M.daysLeft, allowed = budget && left > 0 ? (budget - AN.spent - AN.fixedPendingTotal) / left : null;
+  const prevName = AN_MESES[M.month === 0 ? 11 : M.month - 1];
+  let msg;
+  if(!budget) msg = `A tu ritmo (<b>${anS2(P.rate)} por día</b> en gastos variables) cerrarías el mes en <b>${anS(P.total)}</b>. Define tu presupuesto mensual para ver cuánto puedes gastar por día. ${prevEnd ? `${anCap(prevName)} cerró en <b>${anS(prevEnd)}</b>.` : ""}`;
+  else if(left === 0) msg = `Hoy es el último día del mes: llevas <b>${anS(AN.spent)}</b> de tu presupuesto de ${anS(budget)}.`;
+  else if(P.total > budget) msg = `A tu ritmo (<b>${anS2(P.rate)} por día</b> en gastos variables) te pasas. ${allowed > 0 ? `Para llegar justo al presupuesto tendrías que gastar <b>${anS2(allowed)} por día</b> los ${left} días que faltan.` : `Ya no alcanza el presupuesto con los pagos fijos que faltan.`} ${prevEnd ? `${anCap(prevName)} cerró en <b>${anS(prevEnd)}</b>.` : ""}`;
+  else msg = `Con ${anScenario === "recorte" ? "tus recortes" : "tu ritmo"} cumples el presupuesto: puedes gastar hasta <b>${anS2(allowed)} por día</b> en variables y aun así llegar. ${prevEnd ? `${anCap(prevName)} cerró en <b>${anS(prevEnd)}</b>.` : ""}`;
+  if(done < 3) msg += ` <i>Van pocos días del mes: la proyección todavía es aproximada.</i>`;
+  anId("anPaceMsg").innerHTML = msg;
+  anHero(P, allowed);
+}
+
+/* ---------- hero ---------- */
+function anHero(P, allowed){
+  const M = AN.month, budget = AN.budget, spent = AN.spent, fp = AN.fixedPendingTotal;
+  const main = anId("anDay"), sub = anId("anDaySub");
+  if(!budget){
+    main.textContent = anS(P.rate);
+    sub.innerHTML = `<span class="an-pill">Es lo que gastas hoy por día</span><br><button type="button" class="an-btn sm" id="anSetBud">Definir mi presupuesto</button>`;
+    anId("anSetBud").onclick = ()=>{ if(typeof openBudgetModal === "function") openBudgetModal(); };
+    anId("anHLbl").textContent = "Gastas por día en promedio";
+  } else if(M.daysLeft === 0){
+    main.textContent = anS(spent); anId("anHLbl").textContent = "Gastado en el mes";
+    sub.innerHTML = `<span class="an-pill ${spent > budget ? "bad" : "ok"}">${spent > budget ? "Te pasaste " + anS(spent - budget) : "Te sobran " + anS(budget - spent)} del presupuesto</span>`;
+  } else {
+    anId("anHLbl").textContent = `Puedes gastar por día, hasta el ${M.daysInMonth}`;
+    main.textContent = anS(Math.max(0, allowed));
+    if(allowed < 0) sub.innerHTML = `<span class="an-pill bad">Con los fijos que faltan ya superas tu presupuesto en ${anS(-allowed * M.daysLeft)}</span>`;
+    else {
+      const gap = P.rate - allowed;
+      sub.innerHTML = gap > 0.5 ? `<span class="an-pill bad">Hoy gastas ${anS(P.rate)} al día: ${anS(gap)} más de lo que puedes</span>` : `<span class="an-pill ok">Hoy gastas ${anS(P.rate)} al día: te sobran ${anS(-gap)} por día</span>`;
+    }
+  }
+  anId("anProj").textContent = anS(P.total);
+  anId("anProjSub").textContent = budget ? (P.total > budget ? `${anS(P.total - budget)} sobre tu presupuesto` : `${anS(budget - P.total)} por debajo del presupuesto`) : "Si sigues a este ritmo";
+  const inc = AN.income.baseSalary > 0 ? AN.income.baseSalary : AN.income.thisMonth;
+  if(inc > 0){
+    const sv = inc - P.total;
+    anId("anSave").textContent = (sv < 0 ? "−" : "") + anS(Math.abs(sv));
+    anId("anSaveSub").textContent = sv >= 0 ? `${Math.round(sv / inc * 100)} % de tu ingreso de ${anS(inc)}` : "Gastarías más de lo que ganas";
+  } else { anId("anSave").textContent = "—"; anId("anSaveSub").textContent = "Anota tu sueldo para calcularlo"; }
+  anId("anFixed").textContent = anS(fp);
+  const pend = AN.fixedPending;
+  anId("anFixedSub").textContent = pend.length ? `${pend.length} ${pend.length === 1 ? "pago" : "pagos"} hasta el ${M.daysInMonth}` : "Ya pagaste todos tus fijos";
+  const bt = budget || 0;
+  const w = v => bt ? Math.max(0, Math.min(100, v / bt * 100)) : 0;
+  const free = bt - spent - fp;
+  const rel = f => { if(f.late) return "por confirmar"; const k = f.day - M.today; return k === 1 ? "mañana" : k === 0 ? "hoy" : "en " + k + " días"; };
+  let html = "";
+  if(bt){
+    html = `<div class="an-hb-top"><b>Tu presupuesto de ${AN_MESES[M.month]}</b><span>${anS(bt)} · ${Math.round(spent / bt * 100)} % ya gastado, día ${M.today} de ${M.daysInMonth}</span></div>
+      <div class="an-hbar" role="img" aria-label="Presupuesto: gastado, fijos por venir y libre"><i class="b1" style="width:${w(spent)}%"></i><i class="b2" style="width:${Math.min(w(fp), 100 - w(spent))}%"></i></div>
+      <div class="an-hleg"><span><i class="s1"></i>Ya gastado ${anS(spent)}</span><span><i class="s2"></i>Fijos por venir ${anS(fp)}</span><span><i class="s3"></i>${free >= 0 ? "Libre para gastos variables " + anS(free) : "Te pasas " + anS(-free)}</span></div>`;
+  } else html = `<div class="an-hb-top"><b>Tu mes hasta hoy</b><span>${anS(spent)} gastados, día ${M.today} de ${M.daysInMonth}</span></div>`;
+  if(pend.length) html += `<div class="an-hchips"><b>Próximos pagos fijos</b>${pend.slice(0, 6).map(f => `<span class="an-hchip">${f.day} ${AN_MESES[M.month].slice(0, 3)} · ${escHtml(f.name)} ${anS(f.amount)} <em>(${rel(f)})</em></span>`).join("")}</div>`;
+  anId("anHbarBox").innerHTML = html;
+}
+
+/* ---------- categorías ---------- */
+function anCats(){
+  const cats = AN.categories, M = AN.month, prevName = AN_MESES[M.month === 0 ? 11 : M.month - 1];
+  if(!cats.length){ anId("anCats").innerHTML = `<div class="an-empty">Aún no hay gastos este mes para comparar.</div>`; return; }
+  let h = `<div class="an-cat-head"><span>Categoría</span><span>Mes vs. meta</span><span>Gastado</span><span>Frente a ${prevName}</span></div>`;
+  h += cats.map(c => {
+    const proj = c.projected, bud = c.budget, sc = Math.max(bud || 0, proj, c.prevSame, c.used, 1) * 1.02, over = bud ? proj > bud : false;
+    const dd = c.used - c.prevSame, pct = c.prevSame ? dd / c.prevSame * 100 : 0;
+    let dl;
+    if(c.fixed) dl = `<span class="an-dl eq"><b>= Pago fijo</b><small>${c.prevSame ? "en " + prevName + " " + anS(c.prevSame) : "Nuevo este mes"}</small></span>`;
+    else if(!c.prevSame) dl = `<span class="an-dl eq"><b>Nuevo este mes</b><small>Sin gasto en ${prevName}</small></span>`;
+    else if(Math.abs(dd) < 1) dl = `<span class="an-dl eq"><b>= Igual que ${prevName}</b><small>Sin cambio</small></span>`;
+    else { const cls = pct > 15 ? "up" : pct < -10 ? "dn" : dd > 0 ? "up2" : "dn"; dl = `<span class="an-dl ${cls}"><b>${dd > 0 ? "▲" : "▼"} ${anS(Math.abs(dd))} ${dd > 0 ? "más" : "menos"}</b><small>${dd > 0 ? "+" : "−"}${Math.abs(Math.round(pct))} % · en ${prevName.slice(0, 3)}. ${anS(c.prevSame)}</small></span>`; }
+    const pw = v => Math.max(0, v / sc * 100);
+    return `<div class="an-cat-row"><div class="cn" title="${escHtml(c.name)}">${escHtml(c.name)}</div><div class="an-ct" title="${anCap(prevName)} al mismo día: ${anS(c.prevSame)}"><i class="cf" style="width:${pw(c.used)}%"></i><i class="ch ${over ? "over" : ""}" style="left:${pw(c.used)}%;width:${Math.max(0, pw(proj) - pw(c.used))}%"></i>${over ? `<i class="cb" style="left:${pw(bud)}%"></i>` : ""}<i class="co" style="left:calc(${pw(c.prevSame)}% - 1px)"></i></div><div class="an-num ca">${anS(c.used)}<small>${bud ? "de " + anS(bud) : "sin meta"}</small></div>${dl}</div>`;
+  }).join("");
+  anId("anCats").innerHTML = h;
+  const noGoals = cats.every(c => !c.budget);
+  const msgEl = anId("anCatsMsg");
+  msgEl.hidden = !noGoals;
+  if(noGoals) msgEl.innerHTML = `Todavía no le pones meta a ninguna categoría. Hazlo en la pestaña <b>Control</b> y aquí verás cuánto te falta en cada una.`;
+}
+
+/* ---------- calendario ---------- */
+function anHeat(){
+  const M = AN.month, dim = M.daysInMonth, today = M.today;
+  const first = new Date(Date.UTC(M.year, M.month, 1)).getUTCDay(), offset = (first + 6) % 7;
+  const dn = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+  const fixedDay = {}; AN.fixedAll.forEach(f => { fixedDay[f.day] = f; });
+  const vals = []; for(let d = 1; d <= today; d++) vals.push(AN.daily[d - 1] || 0);
+  const nonFixed = vals.filter((v, i) => v > 0 && !fixedDay[i + 1]).sort((a, b) => a - b);
+  const ref = nonFixed.length ? nonFixed[Math.min(nonFixed.length - 1, Math.floor(nonFixed.length * 0.9))] : 1;
+  const lvl = v => v === null ? "f" : v === 0 ? "0" : v / ref < 0.2 ? "1" : v / ref < 0.5 ? "2" : v / ref < 0.85 ? "3" : "4";
+  let h = dn.map(x => `<span class="an-dow">${x}</span>`).join("") + "<span></span>".repeat(offset);
+  for(let d = 1; d <= dim; d++){
+    const v = d <= today ? (AN.daily[d - 1] || 0) : null, wd = (d - 1 + offset) % 7, fx = fixedDay[d];
+    const tip = v === null ? (fx ? `${dn[wd]} ${d}: pago fijo de ${fx.name} (${anS(fx.amount)})` : "Aún no pasa") : `${dn[wd]} ${d}: ${anS(v)}${fx ? " (con pago fijo de " + fx.name + ")" : ""}`;
+    h += `<span class="an-hd l${lvl(v)} ${fx ? "fx" : ""}" title="${escHtml(tip)}">${d}</span>`;
+  }
+  anId("anHeat").innerHTML = h;
+  let heavy = 0, hd = 0; vals.forEach((v, i) => { if(v > heavy){ heavy = v; hd = i + 1; } });
+  const wk = [], we = [];
+  vals.forEach((v, i) => { const d = i + 1; if(fixedDay[d]) return; const w = (d - 1 + offset) % 7; (w === 4 || w === 5 ? we : wk).push(v); });
+  const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+  let msg = heavy > 0 ? `El día más pesado fue el <b>${hd}</b> (${anS(heavy)}${fixedDay[hd] ? ", con " + escHtml(fixedDay[hd].name) : ""}). ` : "Aún no hay gastos este mes. ";
+  if(wk.length >= 3 && we.length >= 2){
+    const a = avg(wk), b = avg(we);
+    msg += `Sin contar los días con pagos fijos, entre semana y domingo gastas unos <b>${anS(a)}</b> por día; viernes y sábado ${b > a * 1.15 ? "suben a" : b < a * 0.85 ? "bajan a" : "quedan en"} <b>${anS(b)}</b>${b >= a * 2 ? ", más del doble" : ""}.`;
+  } else if(heavy > 0) msg += `Con unos días más de datos verás en qué días de la semana gastas más.`;
+  anId("anHeatMsg").innerHTML = msg;
+}
+
+/* ---------- hormiga ---------- */
+function anAnts(){
+  const box = anId("anAnts");
+  if(!AN.ants.length){ box.innerHTML = `<div class="an-empty">Aún no detectamos gastos hormiga ni suscripciones. Aparecen cuando repites compras chicas o te cobran algo cada mes.</div>`; anId("anSaving").hidden = true; return; }
+  anId("anSaving").hidden = false;
+  box.innerHTML = AN.ants.map(a => `<div class="an-ant"><div class="t">${escHtml(a.name)}${a.isNew ? ` <span class="an-pill warn">Nuevo</span>` : ""}<small>${escHtml(a.note)} · ${anS2(a.monthly)}/mes</small></div><div class="an-opts" role="group" aria-label="${escHtml(a.name)}">${[["keep","Mantener"],["half","Reducir a la mitad"],["cut","Eliminar"]].map(([k, l]) => `<button type="button" data-id="${escHtml(a.id)}" data-k="${k}" class="${(anChoice[a.id] || "keep") === k ? "on" : ""}">${l}</button>`).join("")}</div></div>`).join("");
+  const s = anSaved();
+  anId("anSaving").innerHTML = s > 0 ? `Ahorrarías <span class="an-num">${anS2(s)}</span> al mes y <span class="an-num">${anS(s * 12)}</span> al año.` : `Elige una opción arriba para ver cuánto ahorrarías al mes y al año.`;
+  box.querySelectorAll("button").forEach(b => b.onclick = ()=>{ anChoice[b.dataset.id] = b.dataset.k; anScenario = "recorte"; anRenderAll(); });
+}
+
+/* ---------- ingreso: entra / ya comprometido ---------- */
+function anMetaMonthly(g){
+  const left = Math.max(0, g.target - g.saved);
+  if(g.mode === "AMOUNT") return g.monthlyAmount || 0;
+  if(!g.targetMonth) return 0;
+  const [yy, mm] = g.targetMonth.split("-").map(Number);
+  const ml = Math.max(1, (yy * 12 + mm - 1) - (AN.month.year * 12 + AN.month.month));
+  return left / ml;
+}
+function anMetasMes(){ return AN.savings.filter(g => g.currency === anCur() && g.saved < g.target).reduce((s, g) => s + Math.round(anMetaMonthly(g)), 0); }
+function anIncome(){
+  const box = anId("anIncBox"), inc = AN.income;
+  const extras = inc.items.filter(i => i.kind === "EXTRA"), salaries = inc.items.filter(i => i.kind === "SALARY");
+  const extraTot = extras.reduce((s, i) => s + i.amount, 0);
+  const base = inc.baseSalary > 0 ? inc.baseSalary : inc.thisMonth;
+  if(base <= 0 && inc.thisMonth <= 0 && !inc.avg6){
+    box.innerHTML = `<div class="an-empty">Aún no registras ingresos. Anota tu sueldo (por ejemplo, desde el chat) y aquí verás cuánto de tu plata ya está comprometida.</div>`; return;
+  }
+  const modes = [["sueldo", "Solo mi sueldo"], ["extras", "Sueldo y extras recibidos"], ["prom", "Promedio de 6 meses"]].filter(([k]) => k !== "prom" || inc.avg6);
+  if(!modes.some(([k]) => k === anIncMode)) anIncMode = "sueldo";
+  const I = anIncMode === "sueldo" ? base : anIncMode === "extras" ? base + extraTot : inc.avg6;
+  const fijos = AN.fixedMonthlyTotal, deudas = AN.debtsDue, xp = anXtra / 100;
+  const xMeta = anIncMode === "extras" ? Math.round(extraTot * xp) : 0;
+  const metas = anMetasMes() + xMeta, comp = fijos + deudas + metas, libre = Math.max(0, I - comp), pc = I > 0 ? Math.round(comp / I * 100) : 0;
+  let src = "";
+  if(anIncMode === "prom") src = `<div class="an-lg"><span><i class="sw" style="background:#164b8a"></i>Promedio de tus últimos meses<em class="an-tg">Sueldo + extras</em></span><b class="an-num">${anS(inc.avg6)}</b></div>`;
+  else {
+    if(salaries.length) src += salaries.map(i => `<div class="an-lg"><span><i class="sw" style="background:#164b8a"></i>${escHtml(i.name)}<em class="an-tg">Se repite</em></span><b class="an-num">${anS(i.amount)}</b></div>`).join("");
+    else if(inc.baseSalary > 0) src += `<div class="an-lg dim"><span><i class="sw" style="background:#b8c4d4"></i>Sueldo esperado<em class="an-tg">Aún no llega</em></span><b class="an-num">${anS(inc.baseSalary)}</b></div>`;
+    src += extras.map(i => anIncMode === "extras"
+      ? `<div class="an-lg"><span><i class="sw" style="background:#1a8a5e"></i>${escHtml(i.name)}<em class="an-tg">Extra</em></span><b class="an-num">+${anS(i.amount)}</b></div>`
+      : `<div class="an-lg dim"><span><i class="sw" style="background:#b8c4d4"></i>${escHtml(i.name)}<em class="an-tg">No entra al plan</em></span><b class="an-num">${anS(i.amount)}</b></div>`).join("");
+  }
+  src += `<div class="an-tot"><span>Total con el que planificas</span><b class="an-num">${anS(I)}</b></div>`;
+  const parts = [["Pagos fijos", fijos, "#164b8a"], ["Deudas por pagar", deudas, "#5b93d3"], ["Aporte a metas de ahorro", metas, "#1a8a5e"]];
+  const out = parts.map(p => `<div class="an-lg"><span><i class="sw" style="background:${p[2]}"></i>${p[0]}</span><b class="an-num">−${anS(p[1])} <small>${I > 0 ? Math.round(p[1] / I * 100) : 0} %</small></b></div>`).join("") +
+    `<div class="an-tot"><span>Total comprometido</span><b class="an-num">−${anS(comp)}</b></div><div class="an-free"><span>Te queda libre</span><b class="an-num">${anS(libre)}</b></div>`;
+  const stack = [...parts.map(p => [p[1], p[2]]), [libre, "#c3daf3"]].map(p => `<i style="width:${I > 0 ? p[0] / I * 100 : 0}%;background:${p[1]}"></i>`).join("");
+  let msg;
+  if(anIncMode === "sueldo") msg = extraTot > 0 ? `Planificas solo con tu sueldo de <b>${anS(base)}</b>. Tus extras de <b>${anS(extraTot)}</b> no entran al plan: quedan de colchón.` : `Planificas con tu sueldo de <b>${anS(base)}</b>.`;
+  else if(anIncMode === "extras") msg = `Con sueldo y extras ya recibidos suman <b>${anS(I)}</b>. Ojo: los extras no se repiten, así que el próximo mes tu margen sería menor.`;
+  else msg = `Tu ingreso promedio de los últimos meses es <b>${anS(inc.avg6)}</b>. Es la forma más prudente de planificar si tus extras cambian de mes a mes.`;
+  if(comp > I) msg += ` <b>Ojo:</b> lo comprometido supera lo que planificas.`;
+  box.innerHTML = `<div class="an-chips" role="group" aria-label="Con qué ingreso planificar" style="margin:12px 0 0">${modes.map(([k, l]) => `<button type="button" class="an-chip ${anIncMode === k ? "on" : ""}" data-m="${k}">${l}</button>`).join("")}</div>
+    <div class="an-flow"><div class="an-fl fin"><div class="an-fh"><span class="an-ft">Entra</span><b class="an-num">+${anS(I)}</b></div>${src}</div><div class="an-fl fout"><div class="an-fh"><span class="an-ft">Ya comprometido</span><b class="an-num">−${anS(comp)}</b></div>${out}</div></div>
+    <div class="an-cmhead"><b>${pc} % de tu ingreso ya está comprometido</b><span>${Math.max(0, 100 - pc)} % queda libre para tus gastos del día a día</span></div>
+    <div class="an-stack" role="img" aria-label="Reparto del ingreso mensual">${stack}</div>
+    ${anIncMode === "extras" && extraTot > 0 ? `<div class="an-range"><span>Extras a mis metas</span><input id="anXtra" type="range" min="0" max="100" step="10" value="${anXtra}" aria-label="Porcentaje de los extras que va a metas"><output id="anXtraV">${anXtra} %</output></div>` : ""}
+    <div class="an-callout">${msg}</div>`;
+  box.querySelectorAll("[data-m]").forEach(b => b.onclick = ()=>{ anIncMode = b.dataset.m; anIncome(); });
+  const sl = anId("anXtra"); if(sl) sl.oninput = e => { anXtra = +e.target.value; anIncome(); };
+}
+
+/* ---------- metas de ahorro (reales) ---------- */
+function anYm(v){ const [y, m] = v.split("-").map(Number); return y * 12 + (m - 1); }
+function anGoalHtml(g){
+  const nowM = AN.month.year * 12 + AN.month.month, sym = g.currency === "USD" ? "$" : "S/";
+  const pct = g.target ? Math.min(100, g.saved / g.target * 100) : 0;
+  const start = new Date(g.startedAt), startM = start.getFullYear() * 12 + start.getMonth();
+  let status = "", exp = null, msg = "";
+  if(g.mode === "DATE" && g.targetMonth){
+    const total = Math.max(1, anYm(g.targetMonth) - startM), el = Math.min(total, Math.max(0, nowM - startM));
+    const expected = g.target * el / total; exp = Math.min(100, expected / g.target * 100);
+    const diff = g.saved - expected;
+    status = g.saved >= g.target ? `<span class="an-pill ok">Meta cumplida</span>` : diff >= 0 ? `<span class="an-pill ok">Vas ${sym} ${Math.round(diff).toLocaleString("en-US")} adelantado</span>` : `<span class="an-pill warn">Te faltan ${sym} ${Math.round(-diff).toLocaleString("en-US")} para ir al día</span>`;
+  } else status = g.saved >= g.target ? `<span class="an-pill ok">Meta cumplida</span>` : `<span class="an-pill">Faltan ${sym} ${Math.max(0, Math.round(g.target - g.saved)).toLocaleString("en-US")}</span>`;
+  if(g.saved >= g.target) msg = `<b>Meta cumplida.</b> Juntaste ${sym} ${Math.round(g.target).toLocaleString("en-US")}.`;
+  else if(g.mode === "DATE" && g.targetMonth){
+    const ml = Math.max(1, anYm(g.targetMonth) - nowM), [yy, mm] = g.targetMonth.split("-").map(Number);
+    msg = `Para llegar en <b>${AN_MESES[mm - 1]} de ${yy}</b> necesitas apartar <b class="an-num">${sym} ${Math.ceil(anMetaMonthly(g)).toLocaleString("en-US")}</b> al mes durante ${ml} ${ml === 1 ? "mes" : "meses"}.`;
+  } else if(g.mode === "AMOUNT" && g.monthlyAmount){
+    const months = Math.ceil(Math.max(0, g.target - g.saved) / g.monthlyAmount), d = new Date(AN.month.year, AN.month.month + months, 1);
+    msg = `Con <b class="an-num">${sym} ${Number(g.monthlyAmount).toLocaleString("en-US")}</b> al mes llegas en <b>${AN_MESES[d.getMonth()]} de ${d.getFullYear()}</b> (${months} ${months === 1 ? "mes" : "meses"}).`;
+  } else msg = "Define un monto mensual para calcular la fecha.";
+  const nextM = `${AN.month.month === 11 ? AN.month.year + 1 : AN.month.year}-${String(AN.month.month === 11 ? 1 : AN.month.month + 2).padStart(2, "0")}`;
+  return `<div class="an-mform">
+      <label>Nombre<input id="gName" type="text" maxlength="40" value="${escHtml(g.name)}"></label>
+      <label>Monto que quieres juntar<span class="an-mcur"><b>${sym}</b><input id="gTarget" type="number" min="1" step="50" value="${g.target}"></span></label>
+      <label>Ya tienes ahorrado<span class="an-mcur"><b>${sym}</b><input id="gSaved" type="number" min="0" step="50" value="${g.saved}"></span></label>
+      <label>¿Para cuándo?<input id="gDate" type="month" min="${nextM}" value="${g.targetMonth || ""}" ${g.mode === "AMOUNT" ? "disabled" : ""}></label>
+    </div>
+    <div class="an-chips" role="group" aria-label="Cómo calcular" style="margin:12px 0 4px"><button type="button" class="an-chip ${g.mode === "DATE" ? "on" : ""}" data-gm="DATE">Quiero llegar en esa fecha</button><button type="button" class="an-chip ${g.mode === "AMOUNT" ? "on" : ""}" data-gm="AMOUNT">Quiero apartar un monto fijo</button></div>
+    ${g.mode === "AMOUNT" ? `<label for="gMonthly" style="font-weight:600;font-size:14px">Cuánto aparto al mes: <span class="an-num" id="gMonthlyV">${sym} ${Number(g.monthlyAmount || 0).toLocaleString("en-US")}/mes</span></label><input id="gMonthly" type="range" min="50" max="2000" step="25" value="${g.monthlyAmount || 250}">` : ""}
+    <div class="an-mprog"><div class="an-mtrack"><i style="width:${pct}%"></i>${exp !== null ? `<b style="left:${exp}%" title="Dónde deberías ir hoy"></b>` : ""}</div><div class="an-mticks"><span>25 %</span><span>50 %</span><span>75 %</span></div></div>
+    <div class="an-goaltop">${status}<span class="an-num" style="font-weight:700">${Math.round(pct)} %</span></div>
+    <p style="margin:10px 0 0;font-size:14px">${msg}</p>
+    <div class="an-mlog"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="anAmt" type="number" min="1" step="10" placeholder="Monto" aria-label="Monto del aporte" style="width:110px"><button class="an-btn sm" type="button" id="anAdd">Registrar aporte</button><button class="an-del" type="button" id="anDelGoal">Eliminar meta</button></div>
+    <div id="anHist">${g.contributions.slice(0, 3).map(c => `<div class="an-hrow"><span>${new Date(c.paidAt).toLocaleDateString("es-PE", {day:"numeric", month:"short"})}</span><span>Aporte</span><b class="an-num">+${sym} ${Number(c.amount).toLocaleString("en-US")}</b></div>`).join("")}</div></div>`;
+}
+function anMetas(){
+  const box = anId("anMetaBox"), list = AN.savings;
+  if(!list.length){
+    box.innerHTML = `<div class="an-empty">Todavía no tienes metas de ahorro.<br>Crea una para tu viaje, tu fondo de emergencia o lo que quieras juntar.<br><button type="button" class="an-btn" id="anNewGoal" style="margin-top:12px">Crear mi primera meta</button></div>`;
+    anId("anNewGoal").onclick = anCreateGoal; return;
+  }
+  if(anGoalIdx >= list.length) anGoalIdx = 0;
+  const g = list[anGoalIdx];
+  box.innerHTML = `<div class="an-chips" id="anGoalChips" role="tablist" aria-label="Tus metas" style="margin:12px 0">${list.map((x, i) => `<button type="button" class="an-chip ${i === anGoalIdx ? "on" : ""}" data-i="${i}">${escHtml(x.name || "Sin nombre")}</button>`).join("")}<button type="button" class="an-chip" id="anNewGoal">+ Nueva meta</button></div>${anGoalHtml(g)}`;
+  box.querySelectorAll("#anGoalChips [data-i]").forEach(b => b.onclick = ()=>{ anGoalIdx = +b.dataset.i; anMetas(); });
+  anId("anNewGoal").onclick = anCreateGoal;
+  const patch = body => { clearTimeout(anSaveTimer); anSaveTimer = setTimeout(async ()=>{ try{ await api("/savings-goals/" + g.id, {method:"PATCH", body: JSON.stringify(body)}); await anReloadGoals(); }catch(e){ uiAlert(e.message); } }, 600); };
+  anId("gName").oninput = e => { const v = e.target.value.trim(); if(v) patch({name: v}); };
+  anId("gTarget").oninput = e => { const v = +e.target.value; if(v > 0) patch({targetAmount: v}); };
+  anId("gSaved").oninput = e => { const v = Math.max(0, +e.target.value || 0), contrib = g.saved - g.initialSaved; patch({initialSaved: Math.max(0, v - contrib)}); };
+  anId("gDate").onchange = e => { if(e.target.value) patch({targetMonth: e.target.value}); };
+  box.querySelectorAll("[data-gm]").forEach(b => b.onclick = async ()=>{
+    const mode = b.dataset.gm, body = {mode};
+    if(mode === "AMOUNT" && !g.monthlyAmount) body.monthlyAmount = 250;
+    if(mode === "DATE" && !g.targetMonth) body.targetMonth = anId("gDate").min;
+    try{ await api("/savings-goals/" + g.id, {method:"PATCH", body: JSON.stringify(body)}); await anReloadGoals(); }catch(e){ uiAlert(e.message); }
+  });
+  const mo = anId("gMonthly"); if(mo){ mo.oninput = e => { anId("gMonthlyV").textContent = (g.currency === "USD" ? "$" : "S/") + " " + Number(e.target.value).toLocaleString("en-US") + "/mes"; patch({monthlyAmount: +e.target.value}); }; }
+  anId("anAdd").onclick = async ()=>{
+    const v = +anId("anAmt").value; if(!(v > 0)) return;
+    try{ await api("/savings-goals/" + g.id + "/contributions", {method:"POST", body: JSON.stringify({amount: v})}); await anReloadGoals(); }catch(e){ uiAlert(e.message); }
+  };
+  anId("anDelGoal").onclick = async ()=>{
+    if(!await uiConfirm(`¿Eliminar la meta “${g.name}”? Se borran también sus aportes.`)) return;
+    try{ await api("/savings-goals/" + g.id, {method:"DELETE"}); anGoalIdx = 0; await anReloadGoals(); }catch(e){ uiAlert(e.message); }
+  };
+}
+async function anReloadGoals(){
+  AN.savings = await api("/savings-goals");
+  anMetas(); anIncome();
+}
+async function anCreateGoal(){
+  const nextM = `${AN.month.month >= 6 ? AN.month.year + 1 : AN.month.year}-${String(((AN.month.month + 6) % 12) + 1).padStart(2, "0")}`;
+  try{
+    await api("/savings-goals", {method:"POST", body: JSON.stringify({name: "Nueva meta", currency: anCur(), targetAmount: 1000, initialSaved: 0, mode: "DATE", targetMonth: nextM})});
+    await anReloadGoals(); anGoalIdx = AN.savings.length - 1; anMetas();
+  }catch(e){ uiAlert(e.message); }
+}
+
+/* ---------- lo que Gastia notó ---------- */
+function anInsights(){
+  const box = anId("anInsBox"); box.hidden = !AN.insights.length;
+  anId("anIns").innerHTML = AN.insights.map(i => `<div class="an-insight ${i.tone}"><div class="itag">${escHtml(i.tag)}</div><p>${escHtml(i.text)}</p></div>`).join("");
+}
 </script>
 <script>
 (function(){

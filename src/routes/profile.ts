@@ -70,6 +70,7 @@ profileRouter.get(
         fullChat: eff.plan !== "BASIC" && eff.plan !== "FREE",
         canCreateCategories: PLAN_FEATURES[eff.plan].createCategories,
         canConnectEmail: PLAN_FEATURES[eff.plan].emailSync,
+        canUseAnalysis: PLAN_FEATURES[eff.plan].analysis,
         canUseWhatsapp: PLAN_FEATURES[eff.plan].whatsapp,
         webChatDailyCap: PLAN_FEATURES[eff.plan].webChatDailyCap,
         premiumPets: feats.premiumPets,

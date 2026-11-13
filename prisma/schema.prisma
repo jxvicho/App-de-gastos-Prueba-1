@@ -75,6 +75,7 @@ model User {
   onboarding        OnboardingState?
 
   @@map("users")
+  savingsGoals SavingsGoal[]
 }
 
 // Estado del onboarding (qué pasos ya completó, como en las capturas de Clever)
@@ -628,4 +629,40 @@ model AdminAuditLog {
 
   @@index([createdAt])
   @@map("admin_audit_logs")
+}
+
+// ------------------------------------------------------------
+// METAS DE AHORRO (pestaña Análisis): juntar plata para algo, distinto de las metas por categoría (topes de gasto)
+// ------------------------------------------------------------
+
+model SavingsGoal {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String   @db.VarChar(40)
+  currency      String   @default("PEN")
+  targetAmount  Decimal  @db.Decimal(12, 2)
+  initialSaved  Decimal  @default(0) @db.Decimal(12, 2) // lo que ya tenía ahorrado al crear la meta
+  targetMonth   String? // "YYYY-MM": para cuándo quiere llegar (modo DATE)
+  mode          String   @default("DATE") // DATE = llegar en una fecha | AMOUNT = apartar un monto fijo al mes
+  monthlyAmount Decimal? @db.Decimal(12, 2) // aporte mensual (modo AMOUNT)
+  startedAt     DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  contributions SavingsContribution[]
+
+  @@index([userId])
+  @@map("savings_goals")
+}
+
+model SavingsContribution {
+  id        String      @id @default(uuid())
+  goalId    String
+  goal      SavingsGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  amount    Decimal     @db.Decimal(12, 2)
+  paidAt    DateTime    @default(now())
+  createdAt DateTime    @default(now())
+
+  @@index([goalId])
+  @@map("savings_contributions")
 }

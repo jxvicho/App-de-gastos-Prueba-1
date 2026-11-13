@@ -16,6 +16,8 @@ import { debtsRouter } from "./debts";
 import { chatRouter } from "./chat";
 import { billingRouter } from "./billing";
 import { adminRouter } from "./admin";
+import { analysisRouter } from "./analysis";
+import { savingsRouter } from "./savings";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireActiveAccess } from "../middleware/requireActiveAccess";
 
@@ -38,3 +40,5 @@ apiRouter.use("/debts", requireAuth, requireActiveAccess, debtsRouter);
 apiRouter.use("/chat", requireAuth, requireActiveAccess, chatRouter);
 apiRouter.use("/billing", billingRouter);
 apiRouter.use("/admin", adminRouter);
+apiRouter.use("/analysis", requireAuth, requireActiveAccess, analysisRouter);
+apiRouter.use("/savings-goals", requireAuth, requireActiveAccess, savingsRouter);

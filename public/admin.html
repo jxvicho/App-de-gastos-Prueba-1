@@ -227,6 +227,7 @@ ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;fo
         row("Alertas de gasto alto",function(p){return yn(p.features.alerts)})+
         grp("Dashboard")+
         row("Dashboard, deudas, pagos fijos y metas",function(){return yn(true)})+
+        row("Pestaña Análisis",function(p){return yn(p.features.analysis)},"Proyección del mes, presupuesto por categoría, ingreso repartido y metas de ahorro")+
         row("Pagos fijos mensuales",function(p){return lim(p.features.maxRecurring)},"Detectados o agregados a mano; los quitados no cuentan")+
         row("Metas por categoría",function(p){return lim(p.features.maxGoals)},"Suma de metas en soles y en dólares")+
         row("Deudas por cobrar abiertas",function(p){return lim(p.features.maxDebtsPerDirection)},"Las saldadas no cuentan")+
