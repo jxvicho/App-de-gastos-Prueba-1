@@ -1232,7 +1232,7 @@ body.cal-open .controls{z-index:70;}
 </style>
 <style id="analysis-css">
 /* ===== Pestaña Análisis ===== */
-#viewAnalysis{--an-brand:#164b8a;--an-brand-soft:#eaf2fb;--an-ok:#1a8a5e;--an-ok-soft:#e3f5ec;--an-warn:#b8860b;--an-warn-soft:#fbf3e2;--an-bad:#c0392b;--an-bad-soft:#fbe6e4;--an-muted:#5b6675;--an-line:#e3e9f1;--an-ink:#101828;}
+#viewAnalysis{--an-c1:#164b8a;--an-c2:#5b93d3;--an-c3:#c3daf3;--an-h1:#eaf2fb;--an-h2:#c3daf3;--an-h3:#5b93d3;--an-h4:#164b8a;--an-hatch:#c3daf3;--an-brand:#164b8a;--an-brand-soft:#eaf2fb;--an-ok:#1a8a5e;--an-ok-soft:#e3f5ec;--an-warn:#b8860b;--an-warn-soft:#fbf3e2;--an-bad:#c0392b;--an-bad-soft:#fbe6e4;--an-muted:#5b6675;--an-line:#e3e9f1;--an-ink:#101828;}
 #viewAnalysis .an-col{display:flex;flex-direction:column;gap:18px;margin-top:20px;}
 #viewAnalysis .an-num{font-variant-numeric:tabular-nums;}
 #viewAnalysis .an-sub{font-size:12.5px;color:var(--an-muted);margin:0 0 14px;}
@@ -1292,7 +1292,7 @@ body.cal-open .controls{z-index:70;}
 #viewAnalysis .an-legend span{display:inline-flex;align-items:center;gap:6px;}
 #viewAnalysis .an-legend i{display:inline-block;width:12px;height:4px;border-radius:2px;}
 #viewAnalysis .an-legend i.dash{height:0;border-top:3px dashed;background:none;width:14px;}
-#viewAnalysis .an-legend i.hatch{height:10px;width:12px;border-radius:3px;background:repeating-linear-gradient(45deg,#c3daf3,#c3daf3 3px,#fff 3px,#fff 6px);border:1px solid #c3daf3;}
+#viewAnalysis .an-legend i.hatch{height:10px;width:12px;border-radius:3px;background:repeating-linear-gradient(45deg,var(--an-hatch),var(--an-hatch) 3px,#fff 3px,#fff 6px);border:1px solid var(--an-hatch);}
 #viewAnalysis .an-legend i.tickk{width:3px;height:12px;background:var(--an-ink);border-radius:2px;} #viewAnalysis .an-legend i.bl{width:2px;height:12px;background:var(--an-bad);}
 /* filas */
 #viewAnalysis .an-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start;}
@@ -1317,11 +1317,11 @@ body.cal-open .controls{z-index:70;}
 #viewAnalysis .an-heat{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;}
 #viewAnalysis .an-dow{font-size:10.5px;color:var(--an-muted);text-align:center;padding-bottom:2px;}
 #viewAnalysis .an-hd{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;color:var(--an-ink);position:relative;}
-#viewAnalysis .an-hd.l0{background:#f1f4f9;} #viewAnalysis .an-hd.l1{background:#eaf2fb;} #viewAnalysis .an-hd.l2{background:#c3daf3;} #viewAnalysis .an-hd.l3{background:#5b93d3;color:#fff;} #viewAnalysis .an-hd.l4{background:#164b8a;color:#fff;}
+#viewAnalysis .an-hd.l0{background:#f1f4f9;} #viewAnalysis .an-hd.l1{background:var(--an-h1);} #viewAnalysis .an-hd.l2{background:var(--an-h2);} #viewAnalysis .an-hd.l3{background:var(--an-h3);color:#fff;} #viewAnalysis .an-hd.l4{background:var(--an-h4);color:#fff;}
 #viewAnalysis .an-hd.lf{background:transparent;border:1px dashed var(--an-line);color:var(--an-muted);opacity:.75;}
 #viewAnalysis .an-hd.fx::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--an-warn);}
 #viewAnalysis .an-scale{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--an-muted);margin-top:10px;}
-#viewAnalysis .an-scale i{width:16px;height:16px;border-radius:5px;display:inline-block;}
+#viewAnalysis .an-scale i{width:16px;height:16px;border-radius:5px;display:inline-block;aspect-ratio:auto;}
 #viewAnalysis .an-scale .fxl{display:inline-flex;align-items:center;gap:6px;margin-left:auto;} #viewAnalysis .an-scale .fxl i{width:8px;height:8px;border-radius:50%;background:var(--an-warn);}
 /* ingreso */
 #viewAnalysis .an-flow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0;}
@@ -1365,15 +1365,14 @@ body.cal-open .controls{z-index:70;}
 /* bloqueo Gratis */
 #viewAnalysis .an-lock{margin-top:24px;text-align:center;padding:34px 22px;border:1px dashed #c3d3e8;border-radius:18px;background:#fff;} #viewAnalysis .an-lock b{display:block;font-size:18px;margin-bottom:6px;} #viewAnalysis .an-lock p{margin:0 auto 14px;max-width:460px;color:var(--an-muted);font-size:14px;}
 /* tema Rosa */
-:root[data-theme="rosa"] #viewAnalysis{--an-brand:#b83a73;--an-brand-soft:#fce6f0;}
+:root[data-theme="rosa"] #viewAnalysis{--an-brand:#b83a73;--an-brand-soft:#fce6f0;--an-c1:#7a1f4d;--an-c2:#d9769f;--an-c3:#f6c8da;--an-h1:#fdeaf1;--an-h2:#f6c8da;--an-h3:#d9769f;--an-h4:#7a1f4d;--an-hatch:#f6c8da;}
 :root[data-theme="rosa"] #viewAnalysis .an-hero{background:linear-gradient(160deg,#6b1b44 0%,#d9457f 100%);}
 :root[data-theme="rosa"] #viewAnalysis .an-hero .an-btn{color:#7a1f4d;}
 :root[data-theme="rosa"] #viewAnalysis .an-hbar .b2,:root[data-theme="rosa"] #viewAnalysis .an-hleg i.s2{background:repeating-linear-gradient(45deg,#ffc9de,#ffc9de 4px,#e0679a 4px,#e0679a 8px);}
-:root[data-theme="rosa"] #viewAnalysis .an-hd.l4{background:#7a1f4d;} :root[data-theme="rosa"] #viewAnalysis .an-hd.l3{background:#d9769f;}
-:root[data-theme="rosa"] #viewAnalysis .an-hd.l2{background:#f6c8da;} :root[data-theme="rosa"] #viewAnalysis .an-hd.l1{background:#fdeaf1;}
 :root[data-theme="rosa"] #viewAnalysis .an-callout{background:#fdf3f7;border-color:#f1e1e8;}
 :root[data-theme="rosa"] #viewAnalysis .an-act,:root[data-theme="rosa"] #viewAnalysis .an-proj{stroke:#b83a73;}
-:root[data-theme="rosa"] #viewAnalysis .an-ct .cf{background:#b83a73;} :root[data-theme="rosa"] #viewAnalysis .an-ct .ch{background:repeating-linear-gradient(45deg,#f6c8da,#f6c8da 4px,#fdf0f5 4px,#fdf0f5 8px);}
+:root[data-theme="rosa"] #viewAnalysis .an-ct .ch{background:repeating-linear-gradient(45deg,#f6c8da,#f6c8da 4px,#fdf0f5 4px,#fdf0f5 8px);}
+:root[data-theme="rosa"] #viewAnalysis .an-ct{background:#fbeff4;} :root[data-theme="rosa"] #viewAnalysis .an-stack,:root[data-theme="rosa"] #viewAnalysis .an-mtrack{background:#fbeff4;}
 </style>
 </head>
 <body>
@@ -5742,7 +5741,7 @@ function anBuild(){
         <h3 id="anHCal">Cuándo gastas</h3>
         <p class="an-sub">Cada día de ${AN_MESES[AN.month.month]} con todos tus gastos. El punto naranja marca un pago fijo.</p>
         <div class="an-heat" id="anHeat"></div>
-        <div class="an-scale"><span>Menos</span><i style="background:#eaf2fb"></i><i style="background:#c3daf3"></i><i style="background:#5b93d3"></i><i style="background:#164b8a"></i><span>Más</span><span class="fxl"><i></i>Pago fijo</span></div>
+        <div class="an-scale"><span>Menos</span><i class="an-hd l1"></i><i class="an-hd l2"></i><i class="an-hd l3"></i><i class="an-hd l4"></i><span>Más</span><span class="fxl"><i></i>Pago fijo</span></div>
         <div class="an-callout" id="anHeatMsg"></div>
       </section>
     </div>
@@ -5969,19 +5968,19 @@ function anIncome(){
   const xMeta = anIncMode === "extras" ? Math.round(extraTot * xp) : 0;
   const metas = anMetasMes() + xMeta, comp = fijos + deudas + metas, libre = Math.max(0, I - comp), pc = I > 0 ? Math.round(comp / I * 100) : 0;
   let src = "";
-  if(anIncMode === "prom") src = `<div class="an-lg"><span><i class="sw" style="background:#164b8a"></i>Promedio de tus últimos meses<em class="an-tg">Sueldo + extras</em></span><b class="an-num">${anS(inc.avg6)}</b></div>`;
+  if(anIncMode === "prom") src = `<div class="an-lg"><span><i class="sw" style="background:var(--an-c1)"></i>Promedio de tus últimos meses<em class="an-tg">Sueldo + extras</em></span><b class="an-num">${anS(inc.avg6)}</b></div>`;
   else {
-    if(salaries.length) src += salaries.map(i => `<div class="an-lg"><span><i class="sw" style="background:#164b8a"></i>${escHtml(i.name)}<em class="an-tg">Se repite</em></span><b class="an-num">${anS(i.amount)}</b></div>`).join("");
+    if(salaries.length) src += salaries.map(i => `<div class="an-lg"><span><i class="sw" style="background:var(--an-c1)"></i>${escHtml(i.name)}<em class="an-tg">Se repite</em></span><b class="an-num">${anS(i.amount)}</b></div>`).join("");
     else if(inc.baseSalary > 0) src += `<div class="an-lg dim"><span><i class="sw" style="background:#b8c4d4"></i>Sueldo esperado<em class="an-tg">Aún no llega</em></span><b class="an-num">${anS(inc.baseSalary)}</b></div>`;
     src += extras.map(i => anIncMode === "extras"
       ? `<div class="an-lg"><span><i class="sw" style="background:#1a8a5e"></i>${escHtml(i.name)}<em class="an-tg">Extra</em></span><b class="an-num">+${anS(i.amount)}</b></div>`
       : `<div class="an-lg dim"><span><i class="sw" style="background:#b8c4d4"></i>${escHtml(i.name)}<em class="an-tg">No entra al plan</em></span><b class="an-num">${anS(i.amount)}</b></div>`).join("");
   }
   src += `<div class="an-tot"><span>Total con el que planificas</span><b class="an-num">${anS(I)}</b></div>`;
-  const parts = [["Pagos fijos", fijos, "#164b8a"], ["Deudas por pagar", deudas, "#5b93d3"], ["Aporte a metas de ahorro", metas, "#1a8a5e"]];
+  const parts = [["Pagos fijos", fijos, "var(--an-c1)"], ["Deudas por pagar", deudas, "var(--an-c2)"], ["Aporte a metas de ahorro", metas, "#1a8a5e"]];
   const out = parts.map(p => `<div class="an-lg"><span><i class="sw" style="background:${p[2]}"></i>${p[0]}</span><b class="an-num">−${anS(p[1])} <small>${I > 0 ? Math.round(p[1] / I * 100) : 0} %</small></b></div>`).join("") +
     `<div class="an-tot"><span>Total comprometido</span><b class="an-num">−${anS(comp)}</b></div><div class="an-free"><span>Te queda libre</span><b class="an-num">${anS(libre)}</b></div>`;
-  const stack = [...parts.map(p => [p[1], p[2]]), [libre, "#c3daf3"]].map(p => `<i style="width:${I > 0 ? p[0] / I * 100 : 0}%;background:${p[1]}"></i>`).join("");
+  const stack = [...parts.map(p => [p[1], p[2]]), [libre, "var(--an-c3)"]].map(p => `<i style="width:${I > 0 ? p[0] / I * 100 : 0}%;background:${p[1]}"></i>`).join("");
   let msg;
   if(anIncMode === "sueldo") msg = extraTot > 0 ? `Planificas solo con tu sueldo de <b>${anS(base)}</b>. Tus extras de <b>${anS(extraTot)}</b> no entran al plan: quedan de colchón.` : `Planificas con tu sueldo de <b>${anS(base)}</b>.`;
   else if(anIncMode === "extras") msg = `Con sueldo y extras ya recibidos suman <b>${anS(I)}</b>. Ojo: los extras no se repiten, así que el próximo mes tu margen sería menor.`;
