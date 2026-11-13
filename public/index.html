@@ -1170,7 +1170,7 @@ body.cal-open .controls{z-index:70;}
 </style>
 <style id="theme-css">
 /* ===== Temas: "Clásico" es el de siempre (sin reglas). "Rosa" cambia fondo, ícono del chat y títulos. ===== */
-:root[data-theme="rosa"]{--bg:#fdf3f7;--line:#f1e1e8;--accent-chat:#d9457f;}
+:root[data-theme="rosa"]{--bg:#fdf3f7;--line:#f1e1e8;--accent:#d9457f;--accent-chat:#d9457f;}
 :root[data-theme="rosa"] body{
   background:radial-gradient(900px 520px at 88% 100%,#ffe6d2 0%,rgba(255,230,210,0) 70%),
              radial-gradient(900px 440px at 0% 0%,#fbd3e4 0%,rgba(251,211,228,0) 70%),#fff7fa;
@@ -1194,6 +1194,27 @@ body.cal-open .controls{z-index:70;}
 :root[data-theme="rosa"] .sidebar-pet-row{border-color:#f3dbe6;}
 :root[data-theme="rosa"] .sidebar-logout:hover{background:#fbe6ef;color:#7a1f4d;}
 :root[data-theme="rosa"] #wcFab{background:var(--accent-chat);box-shadow:0 10px 24px -8px rgba(217,69,127,.6);}
+/* botones y cajas de color */
+:root[data-theme="rosa"] .wa-card,
+:root[data-theme="rosa"] .budget-card{background:linear-gradient(160deg,#6b1b44 0%,#d9457f 100%);}
+:root[data-theme="rosa"] .budget-card{box-shadow:0 16px 36px -16px rgba(217,69,127,.45);}
+:root[data-theme="rosa"] .wa-head p{color:#ffe3ef;}
+:root[data-theme="rosa"] .budget-lbl{color:#ffd9ea;}
+:root[data-theme="rosa"] .wa-link-row button{color:#7a1f4d;}
+:root[data-theme="rosa"] .btn-save,
+:root[data-theme="rosa"] .cfg-actions .btn-save{background:#d9457f;box-shadow:0 8px 20px -8px #d9457f;}
+:root[data-theme="rosa"] .btn-save:hover{filter:brightness(.95);}
+:root[data-theme="rosa"] .cfg-actions .btn-soft{color:#7a1f4d;border-color:#f3dbe6;}
+:root[data-theme="rosa"] .pref button{color:#c0306a;}
+:root[data-theme="rosa"] .pref button:hover{color:#7a1f4d;}
+:root[data-theme="rosa"] .chip-blue{background:#fde6f0;color:#9c2b62;}
+:root[data-theme="rosa"] .bank.on{background:#fff0f6;}
+:root[data-theme="rosa"] .chip.active,
+:root[data-theme="rosa"] .cal-day.range-start,
+:root[data-theme="rosa"] .cal-day.range-end,
+:root[data-theme="rosa"] .cal-day.range-single,
+:root[data-theme="rosa"] .cal-apply{background:#7a1f4d;border-color:#7a1f4d;}
+:root[data-theme="rosa"] .theme-opt[aria-pressed="true"]{box-shadow:0 0 0 3px rgba(217,69,127,.15);}
 /* selector de estilo en Configuración */
 .theme-opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px;}
 .theme-opt{min-width:0;display:flex;flex-direction:column;gap:8px;text-align:left;border:2px solid var(--line);border-radius:14px;background:#fff;padding:10px;cursor:pointer;font:inherit;color:inherit;}
