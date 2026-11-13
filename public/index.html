@@ -1235,6 +1235,9 @@ body.cal-open .controls{z-index:70;}
 #viewAnalysis{--an-c1:#164b8a;--an-c2:#5b93d3;--an-c3:#c3daf3;--an-h1:#eaf2fb;--an-h2:#c3daf3;--an-h3:#5b93d3;--an-h4:#164b8a;--an-hatch:#c3daf3;--an-brand:#164b8a;--an-brand-soft:#eaf2fb;--an-ok:#1a8a5e;--an-ok-soft:#e3f5ec;--an-warn:#b8860b;--an-warn-soft:#fbf3e2;--an-bad:#c0392b;--an-bad-soft:#fbe6e4;--an-muted:#5b6675;--an-line:#e3e9f1;--an-ink:#101828;}
 #viewAnalysis .an-col{display:flex;flex-direction:column;gap:18px;margin-top:20px;}
 #viewAnalysis .an-num{font-variant-numeric:tabular-nums;}
+#viewAnalysis .an-disc{display:flex;gap:8px;align-items:flex-start;background:var(--an-brand-soft);color:var(--an-ink);border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.45;margin:0 0 16px;}
+#viewAnalysis .an-disc b{color:var(--an-brand);}
+#viewAnalysis .an-disc-foot{font-size:12px;color:var(--an-muted);line-height:1.5;margin:18px 4px 6px;text-align:center;}
 #viewAnalysis .an-sub{font-size:12.5px;color:var(--an-muted);margin:0 0 14px;}
 #viewAnalysis .an-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;}
 #viewAnalysis .an-chips{display:flex;gap:6px;flex-wrap:wrap;}
@@ -1593,7 +1596,9 @@ body.cal-open .controls{z-index:70;}
   <div class="wrap">
     <h1 class="cfg-title">Análisis</h1>
     <p class="cfg-lead">Qué va a pasar con tu plata este mes y los próximos, no solo qué ya gastaste</p>
+    <div class="an-disc" id="anDiscTop"><b>Son estimaciones.</b> Las proyecciones asumen que sigues gastando al ritmo actual y que tus pagos fijos se cobran como siempre; los números reales pueden variar.</div>
     <div id="anBody"></div>
+    <p class="an-disc-foot">Todo lo que ves aquí es una estimación hecha con los movimientos que Gastia tiene registrados hasta hoy. Si falta algún gasto o ingreso, o cambian tus hábitos, los resultados pueden ser distintos. No constituye asesoría financiera.</p>
   </div>
   </div><!-- /#viewAnalysis -->
 
