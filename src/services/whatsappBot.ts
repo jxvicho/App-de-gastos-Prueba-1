@@ -3867,12 +3867,16 @@ export async function notifyPendingTransaction(
   }
 }
 
+function autoRegisteredTitle(petLabel?: PetPersona | null): string {
+  return petLabel ? `${petLabel.emoji} ${petLabel.name} registró un movimiento automáticamente` : "✅ Movimiento registrado automáticamente";
+}
+
 function buildAutoRegisteredBody(
   transaction: Transaction & { category?: { name: string } | null },
   petLabel?: PetPersona | null
 ): string {
   const lines = [
-    petLabel ? `${petLabel.emoji} *${petLabel.name} registró un movimiento automáticamente*` : "✅ *Movimiento registrado automáticamente*",
+    `*${autoRegisteredTitle(petLabel)}*`,
     "",
     `🏪 *Comercio:* ${transaction.merchant || transaction.description || "Sin nombre"}`,
     `💵 *Monto:* ${formatAmount(transaction)}`,
@@ -3906,6 +3910,26 @@ export async function notifyAutoRegisteredTransaction(
     return;
   }
   // Ventana de 24 h cerrada: solo una plantilla aprobada puede salir. Sin plantilla configurada, el aviso queda en el chat web.
+  if (env.WHATSAPP_TEMPLATE_AUTO_TXN_V2) {
+    // v2: encabezado = título (con la mascota si tiene) y el ícono real de la categoría, igual que el mensaje normal.
+    const catName = transaction.category?.name ?? "Sin categoría";
+    const catIcon = transaction.category ? CATEGORY_ICON_BY_NAME.get(transaction.category.name) ?? FALLBACK_CATEGORY_ICON : FALLBACK_CATEGORY_ICON;
+    await sendTemplateMessage(
+      phoneNumber,
+      env.WHATSAPP_TEMPLATE_AUTO_TXN_V2,
+      env.WHATSAPP_TEMPLATE_AUTO_TXN_LANG,
+      [
+        transaction.merchant || transaction.description || "Sin nombre",
+        formatAmount(transaction),
+        catIcon,
+        catName,
+        formatTxnDate(transaction),
+        transaction.bankKey ? formatBankLabel(transaction.bankKey) : "-",
+      ],
+      { kind: "txn_notification", headerText: autoRegisteredTitle(petLabel) }
+    );
+    return;
+  }
   if (!env.WHATSAPP_TEMPLATE_AUTO_TXN) {
     console.log(`WhatsApp: aviso de registro automático no enviado a ${phoneNumber} (ventana cerrada y sin WHATSAPP_TEMPLATE_AUTO_TXN).`);
     return;

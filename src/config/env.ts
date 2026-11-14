@@ -51,6 +51,8 @@ const envSchema = z.object({
   // Vacío = desactivado (el aviso solo queda en el chat web hasta que Meta apruebe la plantilla).
   WHATSAPP_TEMPLATE_AUTO_TXN: z.string().default("gastia_gasto_registrado"),
   WHATSAPP_TEMPLATE_AUTO_TXN_LANG: z.string().default("es_PE"),
+  // Versión 2 de la plantilla (encabezado variable con la mascota + ícono de categoría). Si está vacía se usa la anterior.
+  WHATSAPP_TEMPLATE_AUTO_TXN_V2: z.string().default(""),
   // true: el domingo solo se envía el reporte semanal (se omite el diario ese día).
   SUNDAY_MERGE_DAILY_INTO_WEEKLY: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   // Chat web dentro del dashboard (misma lógica que el bot de WhatsApp). Apagado por defecto.

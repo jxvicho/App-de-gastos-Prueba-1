@@ -72,6 +72,14 @@ si ese día no hubo gastos ni pendientes.
 - Cuerpo: `✅ *Movimiento registrado automáticamente*` + Comercio `{{1}}`, Monto `{{2}}`, Categoría `{{3}}`, Fecha `{{4}}`, Banco `{{5}}` + `Ya quedó anotado en tu dashboard. 👍`
 - Ejemplos: {{1}} Bembos · {{2}} S/ 28.50 · {{3}} Restaurantes · {{4}} 01/11/2026 · {{5}} BCP
 - Sin botones (el movimiento ya está registrado). Ninguna variable al inicio ni al final del texto.
+
+### 3c. `gastia_gasto_registrado_v2` (misma notificación, igual al mensaje normal: mascota + ícono de categoría)
+- Utilidad, Español (PER) → `es_PE`. Nombre en `WHATSAPP_TEMPLATE_AUTO_TXN_V2` (vacío = se sigue usando la 3b).
+- **Encabezado (texto):** `{{1}}` → el título: `🐶 Pipo registró un movimiento automáticamente` si el usuario tiene mascota, o `✅ Movimiento registrado automáticamente` si no.
+- **Cuerpo:** `🏪 *Comercio:* {{1}}` / `💵 *Monto:* {{2}}` / `{{3}} *Categoría:* {{4}}` (`{{3}}` = ícono de la categoría) / `🗓️ *Fecha:* {{5}}` / `🏛️ *Banco:* {{6}}` + `Ya quedó anotado en tu dashboard. 👍`
+- Ejemplos: encabezado `🐶 Pipo registró un movimiento automáticamente` · {{1}} Bembos · {{2}} S/ 28.50 · {{3}} 🍔 · {{4}} Restaurantes · {{5}} 01/11/2026 · {{6}} BCP
+- Cuando Meta la apruebe: poner `WHATSAPP_TEMPLATE_AUTO_TXN_V2=gastia_gasto_registrado_v2` en el `.env` y `docker compose restart backend`.
+
 - Se usa para quien tiene plan Unlimited y registro automático. Con la ventana abierta se manda el mensaje normal. Sin esta plantilla, el aviso solo llega al chat web.
 
 ## 4. `gastia_cobro_fallido` (aviso de cobro fallido, solo cuando la ventana de 24 h está cerrada)

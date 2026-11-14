@@ -436,6 +436,8 @@ export interface TemplateOpts extends SendOpts {
   urlButtonSuffix?: string;
   /** Payloads de los botones de respuesta rápida de la plantilla, en orden (índice 0, 1, 2). */
   quickReplyPayloads?: string[];
+  /** Texto de la variable {{1}} del encabezado (plantillas con encabezado de texto variable). */
+  headerText?: string;
 }
 
 function urlButtonComponent(suffix: string) {
@@ -468,6 +470,7 @@ export async function sendTemplateMessage(
       }
       components.push({ type: "header", parameters: [{ type: "image", image: { id: mediaId } }] });
     }
+    if (opts.headerText !== undefined) components.push({ type: "header", parameters: [{ type: "text", text: opts.headerText }] });
     if (bodyParams.length) components.push(bodyComponent(bodyParams));
     if (opts.urlButtonSuffix !== undefined) components.push(urlButtonComponent(opts.urlButtonSuffix));
     (opts.quickReplyPayloads ?? []).forEach((payload, index) => {
