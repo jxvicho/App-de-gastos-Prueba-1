@@ -105,6 +105,8 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
   const incomeItemsByMonth = new Map<number, Map<string, number[]>>();
   const thisMonthIncome: { name: string; key: string; amount: number; salary: boolean }[] = [];
   const last30: { key: string; name: string; amount: number }[] = [];
+  // Gastos de este mes que no coinciden con ningún pago fijo por nombre: candidatos a emparejar con un fijo marcado como pagado.
+  const monthVar: { key: string; amount: number; catId: string; catName: string; used: boolean }[] = [];
 
   for (const t of txns) {
     const w = wall(t);
@@ -133,6 +135,7 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
       const c = catRow(catId, catName);
       c.used += amount;
       if (isFixed) c.fixedUsed += amount;
+      else monthVar.push({ key, amount, catId, catName, used: false });
     } else if (ty === prevY && tm === prevM) {
       prevDaily[td - 1] += amount;
       const c = catRow(catId, catName);
@@ -144,14 +147,34 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
     if (ageDays >= 0 && ageDays < 30) last30.push({ key: keyOf(t), name: nameOf(t), amount });
   }
 
-  // Pagos fijos que el usuario marcó como pagados este mes y de los que aún no hay cargo registrado:
-  // cuentan como gasto fijo ya hecho (si después llega el cargo, manda el cargo real y no se duplica).
+  // Pagos fijos que el usuario marcó como pagados este mes y sin cargo con el mismo nombre:
+  //  1) si hay un gasto de este mes con nombre y monto parecidos, ese gasto ES el pago fijo (se reclasifica de
+  //     variable a fijo; el monto ya está en el gasto, así que no se suma otra vez);
+  //  2) si no hay ninguno, cuenta el monto del pago fijo como gasto fijo ya hecho.
   const curYm = `${y}-${String(m + 1).padStart(2, "0")}`;
-  const manualPaid = recurring.filter((r) => r.paidMonth === curYm && !chargedKeys.has(r.merchantKey || merchantKeyOf(r.merchant)));
-  for (const r of manualPaid) {
-    const amt = Number(r.amount);
-    daily[Math.max(0, Math.min(Math.min(r.dayOfMonth, dim), today) - 1)] += amt;
-    spentFixed += amt;
+  const tokensOf = (k: string) => k.split(" ").filter(Boolean);
+  const similarName = (a: string, b: string) => {
+    const A = tokensOf(a), B = tokensOf(b);
+    if (!A.length || !B.length) return false;
+    const sa = new Set(A), sb = new Set(B);
+    return A.every((t) => sb.has(t)) || (B.length >= 2 && B.every((t) => sa.has(t)));
+  };
+  for (const r of recurring) {
+    const rk = r.merchantKey || merchantKeyOf(r.merchant);
+    if (r.paidMonth !== curYm || chargedKeys.has(rk)) continue;
+    const amt = Number(r.amount), tol = Math.max(1, amt * 0.15);
+    const hit = monthVar
+      .filter((v) => !v.used && similarName(rk, v.key) && Math.abs(v.amount - amt) <= tol)
+      .sort((a, b) => Math.abs(a.amount - amt) - Math.abs(b.amount - amt))[0];
+    if (hit) {
+      hit.used = true;
+      spentFixed += hit.amount;
+      catRow(hit.catId, hit.catName).fixedUsed += hit.amount;
+    } else {
+      daily[Math.max(0, Math.min(Math.min(r.dayOfMonth, dim), today) - 1)] += amt;
+      spentFixed += amt;
+    }
+    chargedKeys.add(rk);
   }
 
   const spent = daily.reduce((a, b) => a + b, 0);

@@ -3930,7 +3930,7 @@ function renderRecurring(){
     list.innerHTML = REC.map((r,i)=>`
       <div class="rec-row ${r.isActive?"":"off"}" data-id="${r.id}">
         <span class="rec-dot" style="background:${REC_COLORS[i % REC_COLORS.length]}"></span>
-        <div class="rec-main"><b>${sbEsc(r.merchant)}</b><span>Día ${r.dayOfMonth} de cada mes · ${r.source === "MANUAL" ? "Agregado por ti" : "Detectado por Gastia"}</span></div>
+        <div class="rec-main"><b>${sbEsc(r.merchant)}</b><span>Día ${r.dayOfMonth} de cada mes · ${r.source === "MANUAL" ? "Agregado por ti" : "Detectado por Gastia"}</span><div class="txn-note-row"><button type="button" class="txn-note-btn" data-act="note" title="${r.note?"Editar nota":"Agregar nota"}" aria-label="${r.note?"Editar nota":"Agregar nota"}">✏️</button>${r.note?`<span class="txn-note">${sbEsc(r.note)}</span>`:""}</div></div>
         <span class="rec-amt">${sbMoney(r.amount, r.currency)}</span>
         ${r.isActive ? `<button type="button" class="rec-pay ${r.paidMonth === recMonthKey() ? "on" : ""}" data-act="paid" title="Marca este pago como ya pagado este mes: los cálculos de Análisis dejan de contarlo como pendiente" aria-pressed="${r.paidMonth === recMonthKey()}">${r.paidMonth === recMonthKey() ? "✓ Pagado" : "Marcar pagado"}</button>` : ""}
         <button type="button" class="mini-sw ${r.isActive?"on":""}" data-act="toggle" title="${r.isActive?"Pausar":"Activar"}" aria-label="Activar o pausar"></button>
@@ -3948,6 +3948,11 @@ document.getElementById("recList").addEventListener("click", async e=>{
       await loadRecurring();
     } else if(btn.dataset.act === "paid"){
       await api("/recurring-payments/" + r.id, { method:"PATCH", body: JSON.stringify({ paid: r.paidMonth !== recMonthKey() }) });
+      await loadRecurring();
+    } else if(btn.dataset.act === "note"){
+      const val = await uiPrompt("Nota para reconocer este pago (ej. alquiler del depa). Déjala vacía para borrarla:", r.note || "");
+      if(val === null) return;
+      await api("/recurring-payments/" + r.id, { method:"PATCH", body: JSON.stringify({ note: val.trim().slice(0,80) || null }) });
       await loadRecurring();
     } else if(btn.dataset.act === "edit"){
       openRecModal(r);
