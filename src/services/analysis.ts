@@ -103,7 +103,7 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
   const incomeByMonth = new Map<number, number>();
   const salaryByMonth = new Map<number, number>(); // lo que el usuario clasificó como "Sueldo"
   const incomeItemsByMonth = new Map<number, Map<string, number[]>>();
-  const thisMonthIncome: { name: string; key: string; amount: number; salary: boolean }[] = [];
+  const thisMonthIncome: { name: string; key: string; amount: number; salary: boolean; refund: boolean }[] = [];
   const last30: { key: string; name: string; amount: number }[] = [];
   // Gastos de este mes que no coinciden con ningún pago fijo por nombre: candidatos a emparejar con un fijo marcado como pagado.
   const monthVar: { key: string; amount: number; catId: string; catName: string; used: boolean }[] = [];
@@ -114,15 +114,15 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
     const amount = Number(t.amount);
     const k = ymKey(ty, tm);
     if (t.type === "INCOME") {
-      if (isRefundCat(t.category?.name)) continue; // una devolución no es ingreso
+      const refund = isRefundCat(t.category?.name); // un reembolso suma como ingreso variable (nunca como sueldo)
       incomeByMonth.set(k, (incomeByMonth.get(k) ?? 0) + amount);
       if (isSalaryCat(t.category?.name)) salaryByMonth.set(k, (salaryByMonth.get(k) ?? 0) + amount);
-      const key = keyOf(t);
+      const key = refund ? "" : keyOf(t); // sin clave: un reembolso nunca se confunde con un ingreso que se repite
       const byKey = incomeItemsByMonth.get(k) ?? new Map<string, number[]>();
       byKey.set(key, [...(byKey.get(key) ?? []), amount]);
       incomeItemsByMonth.set(k, byKey);
       if (ty === y && tm === m && td <= today) incomeDaily[td - 1] += amount;
-      if (ty === y && tm === m) thisMonthIncome.push({ name: nameOf(t), key, amount, salary: isSalaryCat(t.category?.name) });
+      if (ty === y && tm === m) thisMonthIncome.push({ name: nameOf(t), key, amount, salary: isSalaryCat(t.category?.name), refund });
       continue;
     }
     const catId = t.category?.id ?? "none";
@@ -231,7 +231,7 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
     : r2([...recurringIncome].reduce((sum, key) => sum + median(monthsSeen.get(key)!), 0));
   const incomeItems = thisMonthIncome
     .sort((a, b) => b.amount - a.amount)
-    .map((i) => ({ name: i.name, amount: r2(i.amount), kind: (hasSalaryCat ? i.salary : recurringIncome.has(i.key)) ? "SALARY" : "EXTRA" }));
+    .map((i) => ({ name: i.name, amount: r2(i.amount), kind: !i.refund && (hasSalaryCat ? i.salary : recurringIncome.has(i.key)) ? "SALARY" : "EXTRA" }));
   const histWith = histIncome.filter((v) => v > 0);
   const incomeThisMonth = r2(incomeByMonth.get(kThis) ?? 0);
 
