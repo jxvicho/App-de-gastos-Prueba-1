@@ -77,7 +77,17 @@ savingsRouter.delete("/:id", asyncHandler(async (req, res) => {
   res.status(204).end();
 }));
 
-const contribSchema = z.object({ amount: z.number().positive("El aporte debe ser mayor a 0").max(100_000_000) });
+const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida");
+const contribSchema = z.object({ amount: z.number().positive("El aporte debe ser mayor a 0").max(100_000_000), paidAt: dateStr.optional() });
+const contribPatchSchema = z.object({ amount: z.number().positive("El aporte debe ser mayor a 0").max(100_000_000).optional(), paidAt: dateStr.optional() });
+
+// "YYYY-MM-DD" → mediodía de Lima (así el día no se corre al guardarlo en UTC). No se aceptan fechas futuras.
+function limaNoon(d: string): Date {
+  const date = new Date(`${d}T12:00:00-05:00`);
+  if (Number.isNaN(date.getTime())) throw new AppError("Fecha inválida", 422);
+  if (date.getTime() > Date.now() + 36 * 3600_000) throw new AppError("La fecha del aporte no puede ser futura", 422);
+  return date;
+}
 
 savingsRouter.post("/:id/contributions", asyncHandler(async (req, res) => {
   await assertAnalysisPlan(req.userId!);
@@ -85,6 +95,28 @@ savingsRouter.post("/:id/contributions", asyncHandler(async (req, res) => {
   if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? "Datos inválidos", 422);
   const owned = await prisma.savingsGoal.findFirst({ where: { id: req.params.id, userId: req.userId } });
   if (!owned) throw new AppError("Meta no encontrada", 404);
-  await prisma.savingsContribution.create({ data: { goalId: owned.id, amount: parsed.data.amount } });
+  await prisma.savingsContribution.create({ data: { goalId: owned.id, amount: parsed.data.amount, ...(parsed.data.paidAt ? { paidAt: limaNoon(parsed.data.paidAt) } : {}) } });
   res.status(201).json({ ok: true });
+}));
+
+// Editar un aporte (monto y/o fecha).
+savingsRouter.patch("/:id/contributions/:cid", asyncHandler(async (req, res) => {
+  await assertAnalysisPlan(req.userId!);
+  const parsed = contribPatchSchema.safeParse(req.body);
+  if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? "Datos inválidos", 422);
+  const row = await prisma.savingsContribution.findFirst({ where: { id: req.params.cid, goalId: req.params.id, goal: { userId: req.userId } } });
+  if (!row) throw new AppError("Aporte no encontrado", 404);
+  await prisma.savingsContribution.update({
+    where: { id: row.id },
+    data: { ...(parsed.data.amount !== undefined ? { amount: parsed.data.amount } : {}), ...(parsed.data.paidAt ? { paidAt: limaNoon(parsed.data.paidAt) } : {}) },
+  });
+  res.json({ ok: true });
+}));
+
+// Eliminar un aporte (también con el plan vencido, igual que borrar la meta).
+savingsRouter.delete("/:id/contributions/:cid", asyncHandler(async (req, res) => {
+  const row = await prisma.savingsContribution.findFirst({ where: { id: req.params.cid, goalId: req.params.id, goal: { userId: req.userId } } });
+  if (!row) throw new AppError("Aporte no encontrado", 404);
+  await prisma.savingsContribution.delete({ where: { id: row.id } });
+  res.status(204).end();
 }));

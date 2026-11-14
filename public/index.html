@@ -1255,6 +1255,8 @@ body.cal-open .controls{z-index:70;}
 #viewAnalysis .an-ct .cf.over{background:var(--an-bad);border-radius:0;} #viewAnalysis .an-ct .cb{box-shadow:0 0 0 1px #fff;z-index:1;}
 #viewAnalysis .an-cat-row .ca small .bad{color:var(--an-bad);font-weight:700;} #viewAnalysis .an-cat-row .ca small .warn{color:var(--an-warn);font-weight:700;}
 #viewAnalysis .an-legend i.over{background:var(--an-bad);} #viewAnalysis .an-legend i.hatch.over{background:repeating-linear-gradient(45deg,#f3b8b1,#f3b8b1 3px,#fff 3px,#fff 6px);border-color:#f3b8b1;}
+#viewAnalysis .an-hrow.edit{align-items:center;flex-wrap:wrap;color:var(--an-ink);} #viewAnalysis .an-hrow.edit input{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--an-line);border-radius:8px;}
+#viewAnalysis .an-hact{display:inline-flex;gap:6px;align-items:center;} #viewAnalysis .an-hbtn{border:0;background:none;cursor:pointer;font-size:13px;padding:0 2px;opacity:.5;} #viewAnalysis .an-hbtn:hover{opacity:1;}
 #viewAnalysis .an-sub{font-size:12.5px;color:var(--an-muted);margin:0 0 14px;}
 #viewAnalysis .an-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;}
 #viewAnalysis .an-chips{display:flex;gap:6px;flex-wrap:wrap;}
@@ -5711,7 +5713,7 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
 /* =========================================================
    ANÁLISIS (Pro): todo se calcula en /api/analysis; aquí solo se dibuja
    ========================================================= */
-let AN = null, anScenario = "actual", anIncMode = "sueldo", anHorizon = "hoy", anShowInc = false, anXtra = 30, anGoalIdx = 0, anChoice = {}, anSaveTimer = null;
+let AN = null, anScenario = "actual", anIncMode = "sueldo", anHorizon = "hoy", anShowInc = false, anEditCid = null, anHistAll = false, anXtra = 30, anGoalIdx = 0, anChoice = {}, anSaveTimer = null;
 const anId = id => document.getElementById(id);
 const anCur = ()=> state.heroCurrency === "USD" ? "USD" : "PEN";
 const anSym = ()=> anCur() === "USD" ? "$" : "S/";
@@ -6089,6 +6091,7 @@ function anIncome(){
 
 /* ---------- metas de ahorro (reales) ---------- */
 function anYm(v){ const [y, m] = v.split("-").map(Number); return y * 12 + (m - 1); }
+function anTodayStr(){ const M = AN.month; return M.year + "-" + String(M.month + 1).padStart(2, "0") + "-" + String(M.today).padStart(2, "0"); }
 function anGoalHtml(g){
   const nowM = AN.month.year * 12 + AN.month.month, sym = g.currency === "USD" ? "$" : "S/";
   const pct = g.target ? Math.min(100, g.saved / g.target * 100) : 0;
@@ -6109,6 +6112,10 @@ function anGoalHtml(g){
     msg = `Con <b class="an-num">${sym} ${Number(g.monthlyAmount).toLocaleString("en-US")}</b> al mes llegas en <b>${AN_MESES[d.getMonth()]} de ${d.getFullYear()}</b> (${months} ${months === 1 ? "mes" : "meses"}).`;
   } else msg = "Define un monto mensual para calcular la fecha.";
   const nextM = `${AN.month.month === 11 ? AN.month.year + 1 : AN.month.year}-${String(AN.month.month === 11 ? 1 : AN.month.month + 2).padStart(2, "0")}`;
+  const lima = (iso, o) => new Date(iso).toLocaleDateString("es-PE", Object.assign({timeZone: "America/Lima"}, o));
+  const hist = (anHistAll ? g.contributions : g.contributions.slice(0, 5)).map(c => anEditCid === c.id
+    ? `<div class="an-hrow edit"><input id="cDate" type="date" value="${new Date(c.paidAt).toLocaleDateString("en-CA", {timeZone: "America/Lima"})}" max="${anTodayStr()}" aria-label="Fecha del aporte"><span class="an-mcur"><b>${sym}</b><input id="cAmt" type="number" min="1" step="10" value="${Number(c.amount)}" aria-label="Monto del aporte" style="width:100px"></span><span class="an-hact"><button class="an-btn sm" type="button" data-csave="${c.id}">Guardar</button><button class="an-del" type="button" data-ccancel>Cancelar</button></span></div>`
+    : `<div class="an-hrow"><span>${lima(c.paidAt, {day: "numeric", month: "short"})}</span><span>Aporte</span><b class="an-num">+${sym} ${Number(c.amount).toLocaleString("en-US")}</b><span class="an-hact"><button type="button" class="an-hbtn" data-cedit="${c.id}" title="Editar aporte" aria-label="Editar aporte">✏️</button><button type="button" class="an-hbtn" data-cdel="${c.id}" title="Eliminar aporte" aria-label="Eliminar aporte">🗑️</button></span></div>`).join("");
   return `<div class="an-mform">
       <label>Nombre<input id="gName" type="text" maxlength="40" value="${escHtml(g.name)}"></label>
       <label>Monto que quieres juntar<span class="an-mcur"><b>${sym}</b><input id="gTarget" type="number" min="1" step="50" value="${g.target}"></span></label>
@@ -6120,8 +6127,8 @@ function anGoalHtml(g){
     <div class="an-mprog"><div class="an-mtrack"><i style="width:${pct}%"></i>${exp !== null ? `<b style="left:${exp}%" title="Dónde deberías ir hoy"></b>` : ""}</div><div class="an-mticks"><span>25 %</span><span>50 %</span><span>75 %</span></div></div>
     <div class="an-goaltop">${status}<span class="an-num" style="font-weight:700">${Math.round(pct)} %</span></div>
     <p style="margin:10px 0 0;font-size:14px">${msg}</p>
-    <div class="an-mlog"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="anAmt" type="number" min="1" step="10" placeholder="Monto" aria-label="Monto del aporte" style="width:110px"><button class="an-btn sm" type="button" id="anAdd">Registrar aporte</button><button class="an-del" type="button" id="anDelGoal">Eliminar meta</button></div>
-    <div id="anHist">${g.contributions.slice(0, 3).map(c => `<div class="an-hrow"><span>${new Date(c.paidAt).toLocaleDateString("es-PE", {day:"numeric", month:"short"})}</span><span>Aporte</span><b class="an-num">+${sym} ${Number(c.amount).toLocaleString("en-US")}</b></div>`).join("")}</div></div>`;
+    <div class="an-mlog"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="anAmt" type="number" min="1" step="10" placeholder="Monto" aria-label="Monto del aporte" style="width:110px"><input id="anAptDate" type="date" value="${anTodayStr()}" max="${anTodayStr()}" aria-label="Fecha del aporte" style="width:140px"><button class="an-btn sm" type="button" id="anAdd">Registrar aporte</button><button class="an-del" type="button" id="anDelGoal">Eliminar meta</button></div>
+    <div id="anHist">${hist}${g.contributions.length > 5 ? `<button type="button" class="an-del" data-chall style="margin-top:6px">${anHistAll ? "Ver menos" : "Ver todos (" + g.contributions.length + ")"}</button>` : ""}</div></div>`;
 }
 function anMetas(){
   const box = anId("anMetaBox"), list = AN.savings;
@@ -6148,8 +6155,22 @@ function anMetas(){
   const mo = anId("gMonthly"); if(mo){ mo.oninput = e => { anId("gMonthlyV").textContent = (g.currency === "USD" ? "$" : "S/") + " " + Number(e.target.value).toLocaleString("en-US") + "/mes"; patch({monthlyAmount: +e.target.value}); }; }
   anId("anAdd").onclick = async ()=>{
     const v = +anId("anAmt").value; if(!(v > 0)) return;
-    try{ await api("/savings-goals/" + g.id + "/contributions", {method:"POST", body: JSON.stringify({amount: v})}); await anReloadGoals(); }catch(e){ uiAlert(e.message); }
+    const dt = anId("anAptDate").value, body = {amount: v};
+    if(dt && dt !== anTodayStr()) body.paidAt = dt;
+    try{ await api("/savings-goals/" + g.id + "/contributions", {method:"POST", body: JSON.stringify(body)}); await anReloadGoals(); }catch(e){ uiAlert(e.message); }
   };
+  box.querySelectorAll("[data-cedit]").forEach(b => b.onclick = ()=>{ anEditCid = b.dataset.cedit; anMetas(); });
+  box.querySelectorAll("[data-ccancel]").forEach(b => b.onclick = ()=>{ anEditCid = null; anMetas(); });
+  box.querySelectorAll("[data-chall]").forEach(b => b.onclick = ()=>{ anHistAll = !anHistAll; anMetas(); });
+  box.querySelectorAll("[data-csave]").forEach(b => b.onclick = async ()=>{
+    const v = +anId("cAmt").value, dt = anId("cDate").value; if(!(v > 0)) return uiAlert("Escribe un monto mayor a 0");
+    try{ await api("/savings-goals/" + g.id + "/contributions/" + b.dataset.csave, {method:"PATCH", body: JSON.stringify({amount: v, paidAt: dt || undefined})}); anEditCid = null; await anReloadGoals(); }catch(e){ uiAlert(e.message); }
+  });
+  box.querySelectorAll("[data-cdel]").forEach(b => b.onclick = async ()=>{
+    const c = g.contributions.find(x => x.id === b.dataset.cdel); if(!c) return;
+    if(!await uiConfirm("¿Eliminar este aporte de " + (g.currency === "USD" ? "$" : "S/") + " " + Number(c.amount).toLocaleString("en-US") + "? Tu ahorro de la meta bajará en ese monto.")) return;
+    try{ await api("/savings-goals/" + g.id + "/contributions/" + c.id, {method:"DELETE"}); await anReloadGoals(); }catch(e){ uiAlert(e.message); }
+  });
   anId("anDelGoal").onclick = async ()=>{
     if(!await uiConfirm(`¿Eliminar la meta “${g.name}”? Se borran también sus aportes.`)) return;
     try{ await api("/savings-goals/" + g.id, {method:"DELETE"}); anGoalIdx = 0; await anReloadGoals(); }catch(e){ uiAlert(e.message); }

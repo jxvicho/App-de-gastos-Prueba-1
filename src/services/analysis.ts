@@ -57,7 +57,7 @@ export async function loadSavingsGoals(userId: string): Promise<SavingsGoalRow[]
     targetMonth: g.targetMonth,
     monthlyAmount: g.monthlyAmount === null ? null : Number(g.monthlyAmount),
     startedAt: g.startedAt.toISOString(),
-    contributions: g.contributions.slice(0, 5).map((c) => ({ id: c.id, amount: Number(c.amount), paidAt: c.paidAt.toISOString() })),
+    contributions: g.contributions.slice(0, 60).map((c) => ({ id: c.id, amount: Number(c.amount), paidAt: c.paidAt.toISOString() })),
   }));
 }
 
