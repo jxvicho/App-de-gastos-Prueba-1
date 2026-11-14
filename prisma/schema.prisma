@@ -332,6 +332,7 @@ model RecurringPayment {
   source        String   @default("DETECTED") // DETECTED | MANUAL
   ignored       Boolean  @default(false) // el usuario lo quitó: no se vuelve a detectar
   categoryId    String?
+  paidMonth     String? // "YYYY-MM" (Lima): el usuario lo marcó como pagado ese mes
 
   @@unique([userId, merchantKey, currency])
   @@map("recurring_payments")

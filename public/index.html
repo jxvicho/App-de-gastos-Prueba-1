@@ -1040,6 +1040,9 @@ body.cal-open .controls{z-index:70;}
 .rec-empty{padding:14px 4px;font-size:13.5px;color:#5a6a80;line-height:1.5;}
 .rec-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid #edf1f7;}
 .rec-row.off{opacity:.55;}
+.rec-pay{border:1px solid var(--line,#d9e1ec);background:#fff;color:#445166;border-radius:999px;padding:4px 11px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.rec-pay:hover{border-color:#1a8a5e;color:#1a8a5e;}
+.rec-pay.on{background:#e3f5ec;border-color:#1a8a5e;color:#1a8a5e;}
 .rec-dot{width:12px;height:12px;border-radius:50%;flex:none;}
 .rec-main{flex:1 1 auto;min-width:0;}
 .rec-main b{display:block;font-size:14px;color:#0b2545;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -3897,6 +3900,7 @@ document.getElementById("recZoom").addEventListener("click", e=>{
   chart.addEventListener("pointerup", end); chart.addEventListener("pointercancel", end);
 })();
 
+function recMonthKey(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
 function renderRecurring(){
   const active = REC.filter(r=>r.isActive);
   { const mx = ((state.features || {}).limits || {}).recurring; const n = REC.length;
@@ -3928,6 +3932,7 @@ function renderRecurring(){
         <span class="rec-dot" style="background:${REC_COLORS[i % REC_COLORS.length]}"></span>
         <div class="rec-main"><b>${sbEsc(r.merchant)}</b><span>Día ${r.dayOfMonth} de cada mes · ${r.source === "MANUAL" ? "Agregado por ti" : "Detectado por Gastia"}</span></div>
         <span class="rec-amt">${sbMoney(r.amount, r.currency)}</span>
+        ${r.isActive ? `<button type="button" class="rec-pay ${r.paidMonth === recMonthKey() ? "on" : ""}" data-act="paid" title="Marca este pago como ya pagado este mes: los cálculos de Análisis dejan de contarlo como pendiente" aria-pressed="${r.paidMonth === recMonthKey()}">${r.paidMonth === recMonthKey() ? "✓ Pagado" : "Marcar pagado"}</button>` : ""}
         <button type="button" class="mini-sw ${r.isActive?"on":""}" data-act="toggle" title="${r.isActive?"Pausar":"Activar"}" aria-label="Activar o pausar"></button>
         <button type="button" class="rec-btn" data-act="edit">Editar</button>
         <button type="button" class="rec-btn del" data-act="del" title="Quitar" aria-label="Quitar">✕</button>
@@ -3940,6 +3945,9 @@ document.getElementById("recList").addEventListener("click", async e=>{
   try {
     if(btn.dataset.act === "toggle"){
       await api("/recurring-payments/" + r.id, { method:"PATCH", body: JSON.stringify({ isActive: !r.isActive }) });
+      await loadRecurring();
+    } else if(btn.dataset.act === "paid"){
+      await api("/recurring-payments/" + r.id, { method:"PATCH", body: JSON.stringify({ paid: r.paidMonth !== recMonthKey() }) });
       await loadRecurring();
     } else if(btn.dataset.act === "edit"){
       openRecModal(r);

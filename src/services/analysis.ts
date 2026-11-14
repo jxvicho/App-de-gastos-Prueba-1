@@ -144,12 +144,22 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
     if (ageDays >= 0 && ageDays < 30) last30.push({ key: keyOf(t), name: nameOf(t), amount });
   }
 
+  // Pagos fijos que el usuario marcó como pagados este mes y de los que aún no hay cargo registrado:
+  // cuentan como gasto fijo ya hecho (si después llega el cargo, manda el cargo real y no se duplica).
+  const curYm = `${y}-${String(m + 1).padStart(2, "0")}`;
+  const manualPaid = recurring.filter((r) => r.paidMonth === curYm && !chargedKeys.has(r.merchantKey || merchantKeyOf(r.merchant)));
+  for (const r of manualPaid) {
+    const amt = Number(r.amount);
+    daily[Math.max(0, Math.min(Math.min(r.dayOfMonth, dim), today) - 1)] += amt;
+    spentFixed += amt;
+  }
+
   const spent = daily.reduce((a, b) => a + b, 0);
   const spentVariable = Math.max(0, spent - spentFixed);
 
   // ---------- pagos fijos que faltan ----------
   const fixedPending = recurring
-    .filter((r) => !chargedKeys.has(r.merchantKey || merchantKeyOf(r.merchant)))
+    .filter((r) => !chargedKeys.has(r.merchantKey || merchantKeyOf(r.merchant)) && r.paidMonth !== curYm)
     .map((r) => {
       const day = Math.min(r.dayOfMonth, dim);
       return { id: r.id, name: r.merchant, amount: Number(r.amount), day, late: day <= today };

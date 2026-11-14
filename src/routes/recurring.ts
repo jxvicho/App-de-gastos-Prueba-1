@@ -60,6 +60,7 @@ const patchSchema = z.object({
   amount: z.number().positive().max(1_000_000).optional(),
   dayOfMonth: z.number().int().min(1).max(31).optional(),
   isActive: z.boolean().optional(),
+  paid: z.boolean().optional(), // marcar / desmarcar como pagado este mes
 });
 
 recurringRouter.patch(
@@ -69,9 +70,17 @@ recurringRouter.patch(
     if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? "Datos inválidos", 422);
     const row = await prisma.recurringPayment.findFirst({ where: { id: req.params.id, userId: req.userId } });
     if (!row) throw new AppError("Pago recurrente no encontrado", 404);
+    const { paid, ...fields } = parsed.data;
+    if (paid !== undefined && Object.keys(fields).length === 0) {
+      // Solo marcar/desmarcar como pagado: no cuenta como edición del pago.
+      const L = new Date(Date.now() - 5 * 3600_000); // hora de Lima
+      const ym = `${L.getUTCFullYear()}-${String(L.getUTCMonth() + 1).padStart(2, "0")}`;
+      const marked = await prisma.recurringPayment.update({ where: { id: row.id }, data: { paidMonth: paid ? ym : null } });
+      return res.json(marked);
+    }
     const updated = await prisma.recurringPayment.update({
       where: { id: row.id },
-      data: { ...parsed.data, source: "MANUAL" }, // editado a mano: la detección ya no lo pisa
+      data: { ...fields, ...(paid !== undefined ? { paidMonth: null } : {}), source: "MANUAL" }, // editado a mano: la detección ya no lo pisa
     });
     res.json(updated);
   })
