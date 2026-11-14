@@ -59,6 +59,37 @@ function detectGreetingIntent(normalizedText: string): boolean {
   return GREETING_PHRASES.some((phrase) => trimmed === phrase || trimmed.startsWith(`${phrase} `));
 }
 
+// Agradecimientos sueltos ("gracias", "muchas gracias", "genial, gracias", un 👍…). Se exige que sea TODO el mensaje, y
+// se excluyen a propósito "ok", "listo", "dale", "sí"… solos (son confirmaciones) y "ok gracias"/"no gracias" (los
+// resuelven los flujos de confirmación existentes).
+const THANKS_TEXT_RE = new RegExp(
+  "^(?:(?:muchas|muchisimas|mil|un millon de|miles de)\\s+)?gracias(?:\\s+(?:totales|por todo|por la ayuda|por avisarme|de nuevo|nuevamente|gastia|bot|amigo|crack))?$" +
+  "|^(?:thanks|thank you|thx|te agradezco|se agradece|muy amable)$" +
+  "|^(?:genial|perfecto|excelente|listo|vale|bueno|buenisimo|super|bacan|chevere)\\s+(?:muchas\\s+)?gracias$"
+);
+const THANKS_EMOJI_RE = /^(?:[\u{1F44D}\u{1F64F}\u{1F44F}\u{1F64C}\u{1F4AA}\u{1F91D}\u{2764}\u{1F60A}\u{1F601}\u{1F642}\u{1F60D}\u{1F970}\u{1F525}]\uFE0F?[\u{1F3FB}-\u{1F3FF}]?\s*){1,5}$/u;
+
+function detectThanksIntent(normalizedText: string, allowEmojiOnly: boolean): boolean {
+  const t = normalizedText.replace(/^[¡¿]+/, "").trim();
+  if (!t || t.length > 40) return false;
+  if (THANKS_EMOJI_RE.test(t)) return allowEmojiOnly;
+  const words = t.replace(/[\s!¡.,¿?]+$/g, "").replace(/[\s\p{Extended_Pictographic}\uFE0F\u{1F3FB}-\u{1F3FF}]+$/gu, "").trim();
+  if (!words || isPlainYes(words) || isPlainNo(words)) return false;
+  return THANKS_TEXT_RE.test(words);
+}
+
+function buildThanksReply(userName: string, petLabel: PetPersona | null): string {
+  const firstName = userName?.trim().split(/\s+/)[0] ?? "";
+  const e = petLabel ? petLabel.emoji : "😊";
+  const options = [
+    `¡De nada${firstName ? ", " + firstName : ""}! ${e} Aquí estoy para lo que necesites.`,
+    `¡Con gusto! ${e} Cualquier cosa me dices.`,
+    `¡A ti! ${e} Para eso estoy: cuando quieras anotar o consultar algo, escríbeme.`,
+    `¡Un gusto ayudarte${firstName ? ", " + firstName : ""}! ${e}`,
+  ];
+  return options[Math.floor(Math.random() * options.length)];
+}
+
 /** Saludo cálido + mini-menú de lo que Gastia puede hacer, en vez de cualquier intento de adivinar una transacción. */
 function buildGreetingReply(userName: string, petLabel: PetPersona | null): string {
   const firstName = userName?.trim().split(/\s+/)[0] ?? "";
@@ -2589,6 +2620,15 @@ export async function handleIncomingMessage(
   if (detectGreetingIntent(normalized)) {
     console.log(`WhatsApp: SALUDO detectado de ${from}, respondiendo con menú de bienvenida.`);
     await sendTextMessage(from, buildGreetingReply(user.name, petLabel));
+    return;
+  }
+
+  // -0.45) Agradecimiento suelto ("gracias", "muchas gracias", 👍…): se responde amable y no se interpreta como
+  // movimiento ni cae en el "no logré identificar a qué movimiento te referías".
+  const noPendingQuestion = !pendingCategoryByUserId.get(user.id) && !followUpByUserId.get(user.id) && !disambiguationByUserId.get(user.id);
+  if (detectThanksIntent(normalized, noPendingQuestion)) {
+    console.log(`WhatsApp: AGRADECIMIENTO detectado de ${from}, respondiendo.`);
+    await sendTextMessage(from, buildThanksReply(user.name, petLabel));
     return;
   }
 
