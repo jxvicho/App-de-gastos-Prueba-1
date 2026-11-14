@@ -44,7 +44,10 @@ export async function syncGmailAccount(account: EmailAccountWithSenders): Promis
 
   const gmail = getGmailClient(decrypt(account.refreshToken));
 
-  const since = account.lastSyncedAt ?? new Date(Date.now() - FIRST_SYNC_LOOKBACK_DAYS * 86_400_000);
+  // Nunca se lee más atrás de 7 días: una cuenta nueva, o una que estuvo en pausa (plan Gratis, plan vencido),
+  // no importa el historial viejo. Con la sincronización al día, la marca de última lectura manda.
+  const oldestAllowed = new Date(Date.now() - FIRST_SYNC_LOOKBACK_DAYS * 86_400_000);
+  const since = account.lastSyncedAt && account.lastSyncedAt > oldestAllowed ? account.lastSyncedAt : oldestAllowed;
   const afterEpoch = Math.floor(since.getTime() / 1000);
 
   await learnConfirmedSenders(account.userId, account.bankSenders);

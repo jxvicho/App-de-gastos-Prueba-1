@@ -74,7 +74,10 @@ export async function syncOutlookAccount(account: EmailAccountWithSenders): Prom
 
   const client = Client.init({ authProvider: (done) => done(null, accessToken) });
 
-  const since = account.lastSyncedAt ?? new Date(Date.now() - FIRST_SYNC_LOOKBACK_DAYS * 86_400_000);
+  // Nunca se lee más atrás de 7 días: una cuenta nueva, o una que estuvo en pausa (plan Gratis, plan vencido),
+  // no importa el historial viejo. Con la sincronización al día, la marca de última lectura manda.
+  const oldestAllowed = new Date(Date.now() - FIRST_SYNC_LOOKBACK_DAYS * 86_400_000);
+  const since = account.lastSyncedAt && account.lastSyncedAt > oldestAllowed ? account.lastSyncedAt : oldestAllowed;
   const sinceIso = since.toISOString();
 
   await learnConfirmedSenders(account.userId, account.bankSenders);
