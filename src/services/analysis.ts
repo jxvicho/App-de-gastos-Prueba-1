@@ -92,10 +92,10 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
   const daily = new Array(today).fill(0) as number[];
   const incomeDaily = new Array(today).fill(0) as number[];
   const prevDaily = new Array(prevDim).fill(0) as number[];
-  const catThis = new Map<string, { id: string; name: string; used: number; prevSame: number; prevFull: number; fixedUsed: number }>();
+  const catThis = new Map<string, { id: string; name: string; used: number; prevSame: number; prevFull: number; fixedUsed: number; n: number; maxTxn: number }>();
   const catRow = (id: string, name: string) => {
     let c = catThis.get(id);
-    if (!c) { c = { id, name, used: 0, prevSame: 0, prevFull: 0, fixedUsed: 0 }; catThis.set(id, c); }
+    if (!c) { c = { id, name, used: 0, prevSame: 0, prevFull: 0, fixedUsed: 0, n: 0, maxTxn: 0 }; catThis.set(id, c); }
     return c;
   };
   let spentFixed = 0;
@@ -134,6 +134,8 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
       if (isFixed) { spentFixed += amount; chargedKeys.add(key); }
       const c = catRow(catId, catName);
       c.used += amount;
+      c.n += 1;
+      if (amount > c.maxTxn) c.maxTxn = amount;
       if (isFixed) c.fixedUsed += amount;
       else monthVar.push({ key, amount, catId, catName, used: false });
     } else if (ty === prevY && tm === prevM) {
@@ -197,11 +199,16 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
     .filter((c) => c.used > 0 || goalBy.has(c.id))
     .map((c) => {
       const fixed = c.used > 0 && c.fixedUsed / c.used >= 0.8;
-      const projected = fixed ? c.used : (c.used / Math.max(1, today)) * dim;
-      return { id: c.id, name: c.name, used: r2(c.used), prevSame: r2(c.prevSame), prevFull: r2(c.prevFull), budget: goalBy.get(c.id) ?? null, projected: r2(projected), fixed };
+      // Una compra grande y puntual (≥ 60 % de la categoría y ≥ S/ 100) no se repite todos los días: se deja tal cual
+      // y solo se proyecta el resto del gasto. Así una sola consulta o compra no infla el cierre del mes.
+      const oneOff = !fixed && c.n >= 1 && c.maxTxn >= 100 && c.maxTxn >= 0.6 * c.used;
+      const projected = fixed ? c.used : oneOff ? c.used + ((c.used - c.maxTxn) / Math.max(1, today)) * (dim - today) : (c.used / Math.max(1, today)) * dim;
+      return { id: c.id, name: c.name, used: r2(c.used), prevSame: r2(c.prevSame), prevFull: r2(c.prevFull), budget: goalBy.get(c.id) ?? null, projected: r2(projected), fixed, bigTxn: oneOff ? r2(c.maxTxn) : null };
     })
-    .sort((a, b) => b.used - a.used)
-    .slice(0, 7);
+    // Las categorías con meta no se pierden aunque gasten poco: primero ellas, luego por gasto; se muestran 8 como máximo.
+    .sort((a, b) => Number(b.budget !== null) - Number(a.budget !== null) || b.used - a.used)
+    .slice(0, 8)
+    .sort((a, b) => b.used - a.used);
 
   // ---------- ingreso ----------
   const kThis = ymKey(y, m);

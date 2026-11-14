@@ -1252,6 +1252,9 @@ body.cal-open .controls{z-index:70;}
 #viewAnalysis .an-incbtn{margin:10px 0 0;} #viewAnalysis .an-inc{fill:none;stroke:var(--an-ok);stroke-width:3;stroke-linejoin:round;} #viewAnalysis .an-incx{stroke:var(--an-ok);stroke-width:2;stroke-dasharray:2 5;opacity:.7;}
 #viewAnalysis .an-gap{stroke-width:2;} #viewAnalysis .an-gap.ok{stroke:var(--an-ok);} #viewAnalysis .an-gap.bad{stroke:var(--an-bad);}
 #viewAnalysis .an-gapl{font-size:12px;font-weight:800;font-family:inherit;paint-order:stroke;stroke:#fff;stroke-width:4px;} #viewAnalysis .an-gapl.ok{fill:var(--an-ok);} #viewAnalysis .an-gapl.bad{fill:var(--an-bad);}
+#viewAnalysis .an-ct .cf.over{background:var(--an-bad);border-radius:0;} #viewAnalysis .an-ct .cb{box-shadow:0 0 0 1px #fff;z-index:1;}
+#viewAnalysis .an-cat-row .ca small .bad{color:var(--an-bad);font-weight:700;} #viewAnalysis .an-cat-row .ca small .warn{color:var(--an-warn);font-weight:700;}
+#viewAnalysis .an-legend i.over{background:var(--an-bad);} #viewAnalysis .an-legend i.hatch.over{background:repeating-linear-gradient(45deg,#f3b8b1,#f3b8b1 3px,#fff 3px,#fff 6px);border-color:#f3b8b1;}
 #viewAnalysis .an-sub{font-size:12.5px;color:var(--an-muted);margin:0 0 14px;}
 #viewAnalysis .an-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;}
 #viewAnalysis .an-chips{display:flex;gap:6px;flex-wrap:wrap;}
@@ -1316,7 +1319,7 @@ body.cal-open .controls{z-index:70;}
 #viewAnalysis .an-row.wide{grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);}
 @media(max-width:900px){#viewAnalysis .an-row,#viewAnalysis .an-row.wide{grid-template-columns:1fr;}}
 /* categorías */
-#viewAnalysis .an-cat-head,#viewAnalysis .an-cat-row{display:grid;grid-template-columns:92px minmax(0,1fr) 98px 132px;gap:10px;align-items:center;}
+#viewAnalysis .an-cat-head,#viewAnalysis .an-cat-row{display:grid;grid-template-columns:92px minmax(0,1fr) 118px 132px;gap:10px;align-items:center;}
 #viewAnalysis .an-cat-head{font-size:10.5px;font-weight:700;color:var(--an-muted);text-transform:uppercase;letter-spacing:.05em;padding:2px 0 8px;border-bottom:1px solid var(--an-line);}
 #viewAnalysis .an-cat-head span:nth-child(3),#viewAnalysis .an-cat-head span:nth-child(4){text-align:right;}
 #viewAnalysis .an-cat-row{padding:9px 0;border-bottom:1px solid var(--an-line);font-size:13px;} #viewAnalysis .an-cat-row:last-child{border-bottom:0;}
@@ -5768,9 +5771,9 @@ function anBuild(){
     <div class="an-row wide">
       <section class="card" aria-labelledby="anHCats">
         <h3 id="anHCats">Presupuesto por categoría</h3>
-        <p class="an-sub">Cada barra muestra lo que llevas y lo que llegarías a gastar a este ritmo. La marca oscura es lo que llevabas en ${AN_MESES[AN.month.month === 0 ? 11 : AN.month.month - 1]} el mismo día; a la derecha ves la diferencia en soles.</p>
+        <p class="an-sub">Cada barra muestra lo que llevas y lo que llegarías a gastar a este ritmo; lo rojo es lo que pasa de tu meta (la línea roja). La marca oscura es lo que llevabas en ${AN_MESES[AN.month.month === 0 ? 11 : AN.month.month - 1]} el mismo día; a la derecha ves la diferencia en soles.</p>
         <div id="anCats"></div>
-        <div class="an-legend" style="margin-top:12px"><span><i style="background:var(--an-brand)"></i>Gastado</span><span><i class="hatch"></i>A este ritmo</span><span><i class="tickk"></i>${prev}, mismo día</span><span><i class="bl"></i>Meta (si te pasas)</span></div>
+        <div class="an-legend" style="margin-top:12px"><span><i style="background:var(--an-brand)"></i>Gastado</span><span><i class="over"></i>Gastado sobre la meta</span><span><i class="hatch"></i>A este ritmo</span><span><i class="hatch over"></i>Pasarías la meta</span><span><i class="tickk"></i>${prev}, mismo día</span><span><i class="bl"></i>Meta</span></div>
         <div class="an-callout" id="anCatsMsg" hidden></div>
       </section>
       <section class="card" aria-labelledby="anHCal">
@@ -5931,15 +5934,24 @@ function anCats(){
   if(!cats.length){ anId("anCats").innerHTML = `<div class="an-empty">Aún no hay gastos este mes para comparar.</div>`; return; }
   let h = `<div class="an-cat-head"><span>Categoría</span><span>Mes vs. meta</span><span>Gastado</span><span>Frente a ${prevName}</span></div>`;
   h += cats.map(c => {
-    const proj = c.projected, bud = c.budget, sc = Math.max(bud || 0, proj, c.prevSame, c.used, 1) * 1.02, over = bud ? proj > bud : false;
+    const used = c.used, bud = c.budget, proj = Math.max(c.projected, used), over = bud ? proj > bud : false;
+    // Escala: la meta, lo gastado y la proyección de ESTE mes (el mes anterior ya no estira las barras: su marca se corta en el borde).
+    const sc = Math.max(bud || 0, proj, used, 1) * 1.04, pw = v => Math.min(100, Math.max(0, v / sc * 100));
+    const cap = bud || Infinity, seg = (cls, from, to) => to > from ? `<i class="${cls}" style="left:${pw(from)}%;width:${pw(to) - pw(from)}%"></i>` : "";
     const dd = c.used - c.prevSame, pct = c.prevSame ? dd / c.prevSame * 100 : 0;
     let dl;
     if(c.fixed) dl = `<span class="an-dl eq"><b>= Pago fijo</b><small>${c.prevSame ? "en " + prevName + " " + anS(c.prevSame) : "Nuevo este mes"}</small></span>`;
     else if(!c.prevSame) dl = `<span class="an-dl eq"><b>Nuevo este mes</b><small>Sin gasto en ${prevName}</small></span>`;
     else if(Math.abs(dd) < 1) dl = `<span class="an-dl eq"><b>= Igual que ${prevName}</b><small>Sin cambio</small></span>`;
+    else if(c.prevSame >= 1000 && c.prevSame >= 3 * Math.max(c.used, 1)) dl = `<span class="an-dl eq"><b>▼ ${anS(Math.abs(dd))} menos</b><small>${prevName} fue muy alto (${anS(c.prevSame)})</small></span>`;
     else { const cls = pct > 15 ? "up" : pct < -10 ? "dn" : dd > 0 ? "up2" : "dn"; dl = `<span class="an-dl ${cls}"><b>${dd > 0 ? "▲" : "▼"} ${anS(Math.abs(dd))} ${dd > 0 ? "más" : "menos"}</b><small>${dd > 0 ? "+" : "−"}${Math.abs(Math.round(pct))} % · en ${prevName.slice(0, 3)}. ${anS(c.prevSame)}</small></span>`; }
-    const pw = v => Math.max(0, v / sc * 100);
-    return `<div class="an-cat-row"><div class="cn" title="${escHtml(c.name)}">${escHtml(c.name)}</div><div class="an-ct" title="${anCap(prevName)} al mismo día: ${anS(c.prevSame)}"><i class="cf" style="width:${pw(c.used)}%"></i><i class="ch ${over ? "over" : ""}" style="left:${pw(c.used)}%;width:${Math.max(0, pw(proj) - pw(c.used))}%"></i>${over ? `<i class="cb" style="left:${pw(bud)}%"></i>` : ""}<i class="co" style="left:calc(${pw(c.prevSame)}% - 1px)"></i></div><div class="an-num ca">${anS(c.used)}<small>${bud ? "de " + anS(bud) : "sin meta"}</small></div>${dl}</div>`;
+    const bars = seg("cf", 0, Math.min(used, cap)) + (bud ? seg("cf over", bud, used) : "") +
+      seg("ch", used, Math.min(proj, cap)) + (bud ? seg("ch over", Math.max(used, bud), proj) : "") +
+      (bud ? `<i class="cb" style="left:calc(${pw(bud)}% - 1px)"></i>` : "") +
+      `<i class="co" style="left:calc(${Math.min(pw(c.prevSame), 99.4)}% - 1px)"></i>`;
+    const sub = !bud ? "sin meta" : used > bud ? `<span class="bad">+${anS(used - bud)} sobre la meta</span>` : over ? `<span class="warn">llegarías a ${anS(proj)}</span>` : `de ${anS(bud)}`;
+    const tip = `${anCap(prevName)} al mismo día: ${anS(c.prevSame)}` + (c.bigTxn ? ` · Incluye una compra grande de ${anS(c.bigTxn)}: no se proyecta repetida` : "");
+    return `<div class="an-cat-row"><div class="cn" title="${escHtml(c.name)}">${escHtml(c.name)}</div><div class="an-ct" title="${escHtml(tip)}">${bars}</div><div class="an-num ca">${anS(used)}<small>${sub}</small></div>${dl}</div>`;
   }).join("");
   anId("anCats").innerHTML = h;
   const noGoals = cats.every(c => !c.budget);
