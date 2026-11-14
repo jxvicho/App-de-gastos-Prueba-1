@@ -1246,6 +1246,9 @@ body.cal-open .controls{z-index:70;}
 #viewAnalysis .an-grp>summary::before{content:"▾";font-size:10px;margin-right:6px;} #viewAnalysis .an-grp:not([open])>summary::before{content:"▸";} #viewAnalysis .an-grp>summary span{flex:1;}
 #viewAnalysis .an-lg b{white-space:nowrap;flex:none;} #viewAnalysis .an-free.over{background:var(--an-bad-soft);color:var(--an-bad);}
 #viewAnalysis .an-legend i.sq{height:10px;width:12px;border-radius:3px;} #viewAnalysis .an-legend2{margin:-6px 0 14px;}
+#viewAnalysis .an-incbtn{margin:10px 0 0;} #viewAnalysis .an-inc{fill:none;stroke:var(--an-ok);stroke-width:3;stroke-linejoin:round;} #viewAnalysis .an-incx{stroke:var(--an-ok);stroke-width:2;stroke-dasharray:2 5;opacity:.7;}
+#viewAnalysis .an-gap{stroke-width:2;} #viewAnalysis .an-gap.ok{stroke:var(--an-ok);} #viewAnalysis .an-gap.bad{stroke:var(--an-bad);}
+#viewAnalysis .an-gapl{font-size:12px;font-weight:800;font-family:inherit;paint-order:stroke;stroke:#fff;stroke-width:4px;} #viewAnalysis .an-gapl.ok{fill:var(--an-ok);} #viewAnalysis .an-gapl.bad{fill:var(--an-bad);}
 #viewAnalysis .an-sub{font-size:12.5px;color:var(--an-muted);margin:0 0 14px;}
 #viewAnalysis .an-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;}
 #viewAnalysis .an-chips{display:flex;gap:6px;flex-wrap:wrap;}
@@ -5692,7 +5695,7 @@ body.wc-big #pg,#pg.chat-open{display:none !important;}
 /* =========================================================
    ANÁLISIS (Pro): todo se calcula en /api/analysis; aquí solo se dibuja
    ========================================================= */
-let AN = null, anScenario = "actual", anIncMode = "sueldo", anHorizon = "hoy", anXtra = 30, anGoalIdx = 0, anChoice = {}, anSaveTimer = null;
+let AN = null, anScenario = "actual", anIncMode = "sueldo", anHorizon = "hoy", anShowInc = false, anXtra = 30, anGoalIdx = 0, anChoice = {}, anSaveTimer = null;
 const anId = id => document.getElementById(id);
 const anCur = ()=> state.heroCurrency === "USD" ? "USD" : "PEN";
 const anSym = ()=> anCur() === "USD" ? "$" : "S/";
@@ -5737,8 +5740,9 @@ function anBuild(){
     <section class="card" aria-labelledby="anHRitmo">
       <div class="an-head"><div><h3 id="anHRitmo">Ritmo del mes</h3><p class="an-sub" style="margin:0">Gasto acumulado día a día, comparado con ${AN_MESES[AN.month.month === 0 ? 11 : AN.month.month - 1]} y con tu presupuesto.</p></div>
         <div class="an-chips" role="group" aria-label="Escenario"><button type="button" class="an-chip on" data-sc="actual">A mi ritmo actual</button><button type="button" class="an-chip" data-sc="recorte">Con mis recortes</button></div></div>
+      <div class="an-chips an-incbtn" role="group" aria-label="Ingresos en el gráfico"><button type="button" class="an-chip" id="anIncTgl" aria-pressed="false">+ Mostrar mis ingresos</button></div>
       <div class="an-scroll"><svg id="anPace" viewBox="0 0 1000 260" role="img" aria-label="Gasto acumulado del mes con proyección"></svg></div>
-      <div class="an-legend"><span><i style="background:var(--an-brand)"></i>${anCap(AN_MESES[AN.month.month])} real</span><span><i class="dash" style="border-color:var(--an-brand)"></i>Proyección</span><span><i style="background:#b8c4d4"></i>${prev}</span><span><i class="dash" style="border-color:var(--an-bad)"></i>Presupuesto</span></div>
+      <div class="an-legend"><span><i style="background:var(--an-brand)"></i>${anCap(AN_MESES[AN.month.month])} real</span><span><i class="dash" style="border-color:var(--an-brand)"></i>Proyección</span><span><i style="background:#b8c4d4"></i>${prev}</span><span><i class="dash" style="border-color:var(--an-bad)"></i>Presupuesto</span><span id="anIncLeg" hidden><i style="background:var(--an-ok)"></i>Ingresos acumulados</span></div>
       <div class="an-callout" id="anPaceMsg"></div>
     </section>
 
@@ -5789,6 +5793,7 @@ function anBuild(){
 }
 function anBindStatic(){
   document.querySelectorAll("#anBody [data-sc]").forEach(b => b.onclick = ()=>{ anScenario = b.dataset.sc; anRenderAll(); });
+  const tg = anId("anIncTgl"); if(tg) tg.onclick = ()=>{ anShowInc = !anShowInc; anPace(); };
 }
 function anRenderAll(){
   anPace(); anCats(); anHeat(); anAnts(); anIncome(); anMetas(); anInsights();
@@ -5819,8 +5824,9 @@ function anNiceStep(max){
 function anPace(){
   const M = AN.month, P = anProjection(), prevCum = anCum(AN.prevDaily), dim = M.daysInMonth, done = M.today;
   const budget = AN.budget, prevEnd = prevCum.length ? prevCum[prevCum.length - 1] : 0;
+  const incCum = anShowInc ? anCum(AN.income.daily || []) : [], incNow = incCum.length ? incCum[Math.min(done, incCum.length) - 1] || 0 : 0;
   const W = 1000, H = 260, l = 58, r = 24, t = 16, b = 30, iw = W - l - r, ih = H - t - b;
-  const ymax0 = Math.max(P.total, budget || 0, prevEnd, 1) * 1.06, step = anNiceStep(ymax0), ymax = Math.ceil(ymax0 / step) * step;
+  const ymax0 = Math.max(P.total, budget || 0, prevEnd, incNow, 1) * 1.06, step = anNiceStep(ymax0), ymax = Math.ceil(ymax0 / step) * step;
   const x = d => l + (d - 1) / Math.max(1, dim - 1) * iw, y = v => t + ih - (v / ymax) * ih;
   let s = "";
   for(let v = 0; v <= ymax + 0.001; v += step){ s += `<line class="an-gl" x1="${l}" x2="${W - r}" y1="${y(v)}" y2="${y(v)}"/><text class="an-tk" x="${l - 8}" y="${y(v) + 4}" text-anchor="end">${v ? anS(v) : 0}</text>`; }
@@ -5830,6 +5836,15 @@ function anPace(){
   const actPath = P.cum.map((v, i) => (i ? "L" : "M") + x(i + 1) + " " + y(v)).join(" ");
   s += `<path class="an-area" d="${actPath} L${x(done)} ${y(0)} L${x(1)} ${y(0)} Z"/><path class="an-act" d="${actPath}"/>`;
   if(P.pts.length > 1) s += `<path class="an-proj" d="${P.pts.map((p, i) => (i ? "L" : "M") + x(p[0]) + " " + y(p[1])).join(" ")}"/>`;
+  if(anShowInc && incCum.length){
+    s += `<path class="an-inc" d="${incCum.map((v, i) => (i ? "L" : "M") + x(i + 1) + " " + y(v)).join(" ")}"/>`;
+    s += `<line class="an-incx" x1="${x(done)}" x2="${x(dim)}" y1="${y(incNow)}" y2="${y(incNow)}"/>`;
+    const gap = (xx, yi, ye, label, anchor) => { const d = yi - ye, my = (y(yi) + y(ye)) / 2, good = d >= 0;
+      return `<line class="an-gap ${good ? "ok" : "bad"}" x1="${xx}" x2="${xx}" y1="${y(yi)}" y2="${y(ye)}"/><line class="an-gap ${good ? "ok" : "bad"}" x1="${xx - 5}" x2="${xx + 5}" y1="${y(yi)}" y2="${y(yi)}"/><line class="an-gap ${good ? "ok" : "bad"}" x1="${xx - 5}" x2="${xx + 5}" y1="${y(ye)}" y2="${y(ye)}"/><text class="an-gapl ${good ? "ok" : "bad"}" x="${anchor === "end" ? xx - 9 : xx + 9}" y="${my + 4}" text-anchor="${anchor}">${label}</text>`; };
+    const dn = incNow - (P.cum[done - 1] || 0), de = incNow - P.total;
+    s += gap(x(done) + 6, incNow, P.cum[done - 1] || 0, `${dn >= 0 ? "Te sobran" : "Te faltan"} ${anS(Math.abs(dn))} hoy`, "start");
+    s += gap(x(dim), incNow, P.total, `${de >= 0 ? "Sobrarían" : "Faltarían"} ${anS(Math.abs(de))} al cierre`, "end");
+  }
   s += `<line class="an-today" x1="${x(done)}" x2="${x(done)}" y1="${t}" y2="${y(0)}"/><text class="an-todayl" x="${x(done) + 6}" y="${t + 10}">Hoy</text>`;
   const over = budget ? P.total > budget : false;
   s += `<circle cx="${x(dim)}" cy="${y(P.total)}" r="5" class="${over ? "an-endbad" : "an-endok"}"/><text class="an-endl" x="${x(dim) - 10}" y="${y(P.total) + (over ? -12 : 20)}" text-anchor="end">${anS(P.total)}</text>`;
@@ -5843,6 +5858,10 @@ function anPace(){
   else if(P.total > budget) msg = `A tu ritmo (<b>${anS2(P.rate)} por día</b> en gastos variables) te pasas. ${allowed > 0 ? `Para llegar justo al presupuesto tendrías que gastar <b>${anS2(allowed)} por día</b> los ${left} días que faltan.` : `Ya no alcanza el presupuesto con los pagos fijos que faltan.`} ${prevEnd ? `${anCap(prevName)} cerró en <b>${anS(prevEnd)}</b>.` : ""}`;
   else msg = `Con ${anScenario === "recorte" ? "tus recortes" : "tu ritmo"} cumples el presupuesto: puedes gastar hasta <b>${anS2(allowed)} por día</b> en variables y aun así llegar. ${prevEnd ? `${anCap(prevName)} cerró en <b>${anS(prevEnd)}</b>.` : ""}`;
   if(done < 3) msg += ` <i>Van pocos días del mes: la proyección todavía es aproximada.</i>`;
+  if(anShowInc){ const dn = incNow - (P.cum[done - 1] || 0), de = incNow - P.total;
+    msg += ` <b>Ingresos del mes:</b> ${anS(incNow)} recibidos. Hoy ${dn >= 0 ? `te sobran <b>${anS(dn)}</b>` : `has gastado <b>${anS(-dn)}</b> más de lo que ingresó`}; al cierre, con lo ya recibido, ${de >= 0 ? `sobrarían <b>${anS(de)}</b>` : `faltarían <b>${anS(-de)}</b>`} (estimado, sin contar ingresos que aún lleguen).`; }
+  const tg = anId("anIncTgl"); if(tg){ tg.classList.toggle("on", anShowInc); tg.setAttribute("aria-pressed", anShowInc); tg.textContent = anShowInc ? "Ocultar mis ingresos" : "+ Mostrar mis ingresos"; }
+  const lg = anId("anIncLeg"); if(lg) lg.hidden = !anShowInc;
   anId("anPaceMsg").innerHTML = msg;
   anHero(P, allowed);
 }

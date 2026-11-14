@@ -90,6 +90,7 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
 
   // ---------- gastos por día (este mes y el anterior) ----------
   const daily = new Array(today).fill(0) as number[];
+  const incomeDaily = new Array(today).fill(0) as number[];
   const prevDaily = new Array(prevDim).fill(0) as number[];
   const catThis = new Map<string, { id: string; name: string; used: number; prevSame: number; prevFull: number; fixedUsed: number }>();
   const catRow = (id: string, name: string) => {
@@ -118,6 +119,7 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
       const byKey = incomeItemsByMonth.get(k) ?? new Map<string, number[]>();
       byKey.set(key, [...(byKey.get(key) ?? []), amount]);
       incomeItemsByMonth.set(k, byKey);
+      if (ty === y && tm === m && td <= today) incomeDaily[td - 1] += amount;
       if (ty === y && tm === m) thisMonthIncome.push({ name: nameOf(t), key, amount, salary: isSalaryCat(t.category?.name) });
       continue;
     }
@@ -244,7 +246,7 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
     fixedPendingTotal,
     fixedMonthlyTotal,
     fixedAll: recurring.map((r) => ({ name: r.merchant, amount: Number(r.amount), day: Math.min(r.dayOfMonth, dim) })),
-    income: { thisMonth: incomeThisMonth, baseSalary, items: incomeItems, history: histIncome.map(r2), avg6: histWith.length ? r2(histWith.reduce((a, b) => a + b, 0) / histWith.length) : null },
+    income: { daily: incomeDaily.map(r2), thisMonth: incomeThisMonth, baseSalary, items: incomeItems, history: histIncome.map(r2), avg6: histWith.length ? r2(histWith.reduce((a, b) => a + b, 0) / histWith.length) : null },
     debtsDue: r2(debtsDue),
     categories,
     ants: ants.slice(0, 6),
