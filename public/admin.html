@@ -234,6 +234,10 @@ ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;fo
         row("Deudas por pagar abiertas",function(p){return lim(p.features.maxDebtsPerDirection)},"Las saldadas no cuentan")+
         row("Crear categorías propias",function(p){return yn(p.features.createCategories)},"Todos pueden usar las predefinidas")+
         row("Mascotas disponibles",function(p){return p.features.premiumPets?'Todas <small>perro, gato, chancho, capibara</small>':'Perro, gato o ninguna'},"Chancho y capibara se desbloquean en Pro")+
+        grp("Límites anti-abuso")+
+        row("Movimientos nuevos al mes",function(p){return '<b>'+p.features.maxTxnPerMonth+'</b>'},"Se aplica al crear desde el dashboard (el chat de Gratis ya está limitado a 5 mensajes al día); cuenta también los borrados; se renueva el día 1 (Lima)")+
+        row("Movimientos nuevos por hora",function(p){return '<b>'+p.features.maxTxnPerHour+'</b>'},"Frena scripts y importaciones masivas")+
+        row("Cambios por minuto",function(p){return '<b>'+p.features.writesPerMinute+'</b>'},"Crear, editar o borrar cualquier cosa, por usuario (no por IP)")+
         grp("Cuenta y vinculación")+
         row("Registro",function(){return 'Sin celular ni correo'},"Todos empiezan en Gratis")+
         row("Vincular WhatsApp desde Configuración",function(p){return yn(p.features.whatsapp,p.features.whatsapp?"con código":"")},"Se verifica con un código de 6 dígitos enviado por WhatsApp")+
@@ -249,7 +253,7 @@ ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;fo
       $("planPrices").innerHTML=pr;
       var D=G.dunning;
       $("planConds").innerHTML=[
-        "<b>Gratis:</b> todo usuario nuevo empieza aquí. Dashboard y chat web con "+P[0].features.webChatDailyCap+" mensajes al día. Sin correo, sin WhatsApp (queda apagado \"acepto mensajes\") y sin crear categorías. Mascotas: perro, gato o ninguna. Topes: hasta "+P[0].features.maxRecurring+" pagos fijos, "+P[0].features.maxGoals+" metas (entre soles y dólares), "+P[0].features.maxDebtsPerDirection+" deudas por cobrar y "+P[0].features.maxDebtsPerDirection+" por pagar abiertas. Sin pestaña Análisis. Sin prueba y sin cobro.",
+        "<b>Gratis:</b> todo usuario nuevo empieza aquí. Dashboard y chat web con "+P[0].features.webChatDailyCap+" mensajes al día. Sin correo, sin WhatsApp (queda apagado \"acepto mensajes\") y sin crear categorías. Mascotas: perro, gato o ninguna. Topes: hasta "+P[0].features.maxRecurring+" pagos fijos, "+P[0].features.maxGoals+" metas (entre soles y dólares), "+P[0].features.maxDebtsPerDirection+" deudas por cobrar y "+P[0].features.maxDebtsPerDirection+" por pagar abiertas. Sin pestaña Análisis. Anti-abuso: hasta "+P[0].features.maxTxnPerMonth+" movimientos nuevos al mes, "+P[0].features.maxTxnPerHour+" por hora y "+P[0].features.writesPerMinute+" cambios por minuto. Sin prueba y sin cobro.",
         "<b>Al llegar al tope (Gratis):</b> no se puede agregar uno nuevo y el panel avisa que pase a Pro. Editar, saldar o quitar lo existente siempre se puede. Si un usuario baja de Pro a Gratis con más de lo permitido, no se borra nada: conserva todo y solo queda sin poder agregar más hasta bajar del tope.",
         "<b>Registro:</b> el formulario solo pide nombre, correo y contraseña; no pide celular ni correo del banco. Quien elige Pro se registra igual y vincula todo desde Configuración.",
         "<b>Pro:</b> todo lo anterior más pestaña Análisis, lectura de correo, registro automático opcional, resumen diario, alertas, WhatsApp, categorías propias y todas las mascotas. Al iniciar sesión el chat web le explica cómo vincular correo y WhatsApp.",
@@ -273,6 +277,8 @@ ul.cond{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;fo
       }).join("")+'</tbody>';
       $("planGlobal").innerHTML='<tbody>'+
         '<tr><td>Tope duro de mensajes salientes por usuario al día<small>Cualquier plan, WhatsApp</small></td><td>'+G.dailyHardCapPerUser+'</td></tr>'+
+        '<tr><td>Peticiones por minuto por IP<small>Toda la API, antes de iniciar sesión incluido (el registro y el login tienen topes propios más bajos)</small></td><td>'+G.ipRequestsPerMinute+'</td></tr>'+
+        '<tr><td>Tamaño máximo de cada petición<small>Webhooks de Meta y Culqi: '+esc(G.webhookBodyLimit)+'; fotos y audios del chat: 6 MB (solo planes de pago)</small></td><td>'+esc(G.jsonBodyLimit)+'</td></tr>'+
         '<tr><td>Tarifa Meta (Perú, por mensaje)</td><td>US$ '+G.metaRateUsd.toFixed(3)+'</td></tr>'+
         '<tr><td>Mensajes de servicio gratis por mes<small>Compartidos entre todos los usuarios</small></td><td>'+G.metaFreeServiceMessages+'</td></tr>'+
         '<tr><td>Mensajes que cuentan para el tope mensual</td><td>'+G.counted.map(esc).join(", ")+'</td></tr>'+

@@ -11,6 +11,9 @@ import {
   BILLING_PERIOD_MONTHS, PLAN_PRICE_BY_PERIOD_PEN, PLAN_LABELS, PLAN_FEATURES, PLAN_LIMITS, PLAN_PRICES_FOR_PANEL, VISIBLE_PLANS,
   TRIAL_DAYS_BY_PERIOD, BILLING_PERIOD_LABELS, DUNNING, DAILY_HARD_CAP_PER_USER, DAILY_SUMMARY_HOUR_LIMA, META_RATE_USD_PE,
   META_FREE_SERVICE_MESSAGES_PER_MONTH, COUNTED_MESSAGE_KINDS,
+  IP_REQUESTS_PER_MINUTE,
+  JSON_BODY_LIMIT,
+  WEBHOOK_BODY_LIMIT,
 } from "../config/plans";
 import { getEffectivePlan, limaMonthStart } from "../services/plans";
 import { isAccessRestricted } from "../services/billing";
@@ -118,6 +121,9 @@ adminRouter.get(
         periodLabels: BILLING_PERIOD_LABELS,
         periodMonths: BILLING_PERIOD_MONTHS,
         dunning: DUNNING,
+        ipRequestsPerMinute: IP_REQUESTS_PER_MINUTE,
+        jsonBodyLimit: JSON_BODY_LIMIT,
+        webhookBodyLimit: WEBHOOK_BODY_LIMIT,
         paymentsEnabled: env.PAYMENTS_ENABLED,
         counted: COUNTED_MESSAGE_KINDS,
       },

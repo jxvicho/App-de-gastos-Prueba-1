@@ -14,6 +14,9 @@ import { scheduleDailyReportRepeatable } from "./queues/dailyReportQueue";
 import { keepDatabaseAwake } from "./config/keepAlive";
 import { sendPreChargeNotices, downgradeExpiredSubscriptions } from "./services/billing";
 import { rateLimit } from "./middleware/rateLimit";
+import { JSON_BODY_LIMIT, WEBHOOK_BODY_LIMIT, IP_REQUESTS_PER_MINUTE } from "./config/plans";
+
+const isWebhookPath = (url: string) => url.startsWith("/api/whatsapp/webhook") || url.startsWith("/api/billing/culqi-webhook");
 
 const app = express();
 
@@ -39,11 +42,24 @@ app.use(
   })
 );
 app.use(cors({ origin: env.DASHBOARD_BASE_URL, credentials: true }));
+// Cuerpo JSON acotado: 50 kb en la API normal (un movimiento pesa menos de 1 kb); los webhooks de Meta y Culqi
+// pueden traer más y se firman, así que tienen su propio tope.
 app.use(
   express.json({
+    limit: JSON_BODY_LIMIT,
     // Guardamos el buffer crudo del body: el webhook de WhatsApp firma el
     // payload exacto que Meta envía, y validar contra el JSON re-serializado
     // por Express (distinto orden de keys/espacios) rompería la firma HMAC.
+    type: (req) => !isWebhookPath(req.url ?? ""),
+    verify: (req, _res, buf) => {
+      (req as express.Request).rawBody = buf;
+    },
+  })
+);
+app.use(
+  express.json({
+    limit: WEBHOOK_BODY_LIMIT,
+    type: (req) => isWebhookPath(req.url ?? ""),
     verify: (req, _res, buf) => {
       (req as express.Request).rawBody = buf;
     },
@@ -51,7 +67,7 @@ app.use(
 );
 
 // Tope general por IP. Los webhooks (Meta, Culqi) quedan fuera: llegan de pocas IPs y en ráfagas.
-const generalLimiter = rateLimit({ name: "api", windowMs: 60 * 1000, max: 600 });
+const generalLimiter = rateLimit({ name: "api", windowMs: 60 * 1000, max: IP_REQUESTS_PER_MINUTE });
 app.use("/api", (req, res, next) => {
   if (req.path.startsWith("/whatsapp/webhook") || req.path.startsWith("/billing/culqi-webhook")) return next();
   return generalLimiter(req, res, next);

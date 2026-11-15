@@ -4,6 +4,7 @@ import { prisma } from "../config/prisma";
 import { AppError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/requireAuth";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { assertTxnCreationAllowed } from "../services/planLimits";
 
 export const transactionsRouter = Router();
 
@@ -80,6 +81,7 @@ transactionsRouter.post(
   asyncHandler(async (req, res) => {
     const parsed = createTransactionSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.issues[0].message, 422);
+    await assertTxnCreationAllowed(req.userId!);
 
     // La categoría debe ser del usuario y coincidir con el tipo: las de gasto
     // para gastos y las de ingreso para ingresos. Sin categoría, el ingreso

@@ -130,16 +130,26 @@ export interface PlanFeatures {
   maxGoals: number | null;
   /** Máximo de deudas abiertas (sin saldar) por cobrar y, aparte, por pagar. null = sin límite. */
   maxDebtsPerDirection: number | null;
+  /** Movimientos nuevos que puede crear al mes (Lima) y por hora, creados desde el dashboard. Evita spam y llenar la base. */
+  maxTxnPerMonth: number;
+  maxTxnPerHour: number;
+  /** Escrituras (crear, editar o borrar) por minuto y por usuario en toda la API. */
+  writesPerMinute: number;
 }
+
+/** Topes anti-abuso: tamaño máximo del cuerpo JSON y peticiones por minuto por IP. */
+export const JSON_BODY_LIMIT = "50kb";
+export const WEBHOOK_BODY_LIMIT = "1mb";
+export const IP_REQUESTS_PER_MINUTE = 600;
 
 /** Tope del plan Gratis para pagos fijos, metas y deudas (por cobrar y por pagar, cada una). */
 export const FREE_LIMIT = 5;
 
 export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
-  FREE: { emailSync: false, analysis: false, whatsapp: false, autoRegister: false, dailySummary: false, alerts: false, createCategories: false, perTxnWhatsapp: false, webChatDailyCap: 5, maxEmailAccounts: 0, premiumPets: false, chatMedia: false, maxRecurring: FREE_LIMIT, maxGoals: FREE_LIMIT, maxDebtsPerDirection: FREE_LIMIT },
-  BASIC: { emailSync: true, analysis: false, whatsapp: true, autoRegister: false, dailySummary: false, alerts: false, createCategories: true, perTxnWhatsapp: false, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
-  PRO: { emailSync: true, analysis: true, whatsapp: true, autoRegister: true, dailySummary: true, alerts: true, createCategories: true, perTxnWhatsapp: false, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
-  UNLIMITED: { emailSync: true, analysis: true, whatsapp: true, autoRegister: true, dailySummary: true, alerts: true, createCategories: true, perTxnWhatsapp: true, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
+  FREE: { emailSync: false, analysis: false, whatsapp: false, autoRegister: false, dailySummary: false, alerts: false, createCategories: false, perTxnWhatsapp: false, webChatDailyCap: 5, maxEmailAccounts: 0, premiumPets: false, chatMedia: false, maxRecurring: FREE_LIMIT, maxGoals: FREE_LIMIT, maxDebtsPerDirection: FREE_LIMIT, maxTxnPerMonth: 300, maxTxnPerHour: 60, writesPerMinute: 60 },
+  BASIC: { maxTxnPerMonth: 1500, maxTxnPerHour: 200, writesPerMinute: 120, emailSync: true, analysis: false, whatsapp: true, autoRegister: false, dailySummary: false, alerts: false, createCategories: true, perTxnWhatsapp: false, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
+  PRO: { maxTxnPerMonth: 1500, maxTxnPerHour: 200, writesPerMinute: 120, emailSync: true, analysis: true, whatsapp: true, autoRegister: true, dailySummary: true, alerts: true, createCategories: true, perTxnWhatsapp: false, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
+  UNLIMITED: { maxTxnPerMonth: 3000, maxTxnPerHour: 300, writesPerMinute: 180, emailSync: true, analysis: true, whatsapp: true, autoRegister: true, dailySummary: true, alerts: true, createCategories: true, perTxnWhatsapp: true, webChatDailyCap: WEB_CHAT_HARD_CAP_PER_USER, maxEmailAccounts: 2, premiumPets: true, chatMedia: true, maxRecurring: null, maxGoals: null, maxDebtsPerDirection: null },
 };
 
 /** Planes visibles hoy en la web (Básico y Unlimited quedan ocultos; siguen existiendo para datos y overrides). */
