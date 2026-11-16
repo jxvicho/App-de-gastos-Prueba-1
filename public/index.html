@@ -1301,7 +1301,7 @@ body.cal-open .controls{z-index:70;}
 @media(max-width:820px){#viewAnalysis .an-hero{grid-template-columns:1fr;grid-template-areas:"m" "k" "b";padding:22px;}#viewAnalysis .an-hh-kpis{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));}#viewAnalysis .an-hero .val{font-size:38px;}}
 /* gráfico del ritmo */
 #viewAnalysis .an-scroll{overflow-x:auto;}
-#viewAnalysis #anPace{width:100%;height:auto;min-width:560px;display:block;}
+#viewAnalysis #anPace{width:100%;height:auto;display:block;}
 #viewAnalysis .an-gl{stroke:#e6edf6;stroke-width:1;} #viewAnalysis .an-tk{font-size:11px;fill:var(--an-muted);font-family:inherit;}
 #viewAnalysis .an-bud{stroke:var(--an-bad);stroke-width:1.5;stroke-dasharray:6 4;} #viewAnalysis .an-budl{font-size:11px;font-weight:700;fill:var(--an-bad);font-family:inherit;}
 #viewAnalysis .an-prev{fill:none;stroke:#b8c4d4;stroke-width:2;}
@@ -1309,7 +1309,7 @@ body.cal-open .controls{z-index:70;}
 #viewAnalysis .an-area{fill:var(--an-brand-soft);opacity:.7;stroke:none;}
 #viewAnalysis .an-proj{fill:none;stroke:var(--an-brand);stroke-width:3;stroke-dasharray:7 5;}
 #viewAnalysis .an-today{stroke:#e5484d;stroke-width:1.5;stroke-dasharray:4 3;} #viewAnalysis .an-todayl{font-size:11px;font-weight:700;fill:#e5484d;font-family:inherit;}
-#viewAnalysis .an-endbad{fill:var(--an-bad);} #viewAnalysis .an-endok{fill:var(--an-ok);} #viewAnalysis .an-endl{font-size:13px;font-weight:700;fill:var(--an-ink);font-family:inherit;}
+#viewAnalysis .an-endbad{fill:var(--an-bad);} #viewAnalysis .an-endok{fill:var(--an-ok);} #viewAnalysis .an-endl{font-size:13px;font-weight:700;fill:var(--an-ink);font-family:inherit;paint-order:stroke;stroke:#fff;stroke-width:4px;}
 #viewAnalysis .an-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--an-muted);margin-top:8px;}
 #viewAnalysis .an-legend span{display:inline-flex;align-items:center;gap:6px;}
 #viewAnalysis .an-legend i{display:inline-block;width:12px;height:4px;border-radius:2px;}
@@ -5813,6 +5813,10 @@ function anBindStatic(){
   document.querySelectorAll("#anBody [data-sc]").forEach(b => b.onclick = ()=>{ anScenario = b.dataset.sc; anRenderAll(); });
   const tg = anId("anIncTgl"); if(tg) tg.onclick = ()=>{ anShowInc = !anShowInc; anPace(); };
 }
+let anResizeT = null, anLastW = 0;
+window.addEventListener("resize", () => { clearTimeout(anResizeT); anResizeT = setTimeout(() => {
+  const el = document.getElementById("anPace"); if(!el || typeof AN === "undefined" || !AN || !el.parentElement) return;
+  const w = el.parentElement.clientWidth; if(w && w !== anLastW){ anLastW = w; try{ anPace(); }catch(e){} } }, 150); });
 function anRenderAll(){
   anPace(); anCats(); anHeat(); anAnts(); anIncome(); anMetas(); anInsights();
   document.querySelectorAll("#anBody [data-sc]").forEach(b => b.classList.toggle("on", b.dataset.sc === anScenario));
@@ -5843,13 +5847,16 @@ function anPace(){
   const M = AN.month, P = anProjection(), prevCum = anCum(AN.prevDaily), dim = M.daysInMonth, done = M.today;
   const budget = AN.budget, prevEnd = prevCum.length ? prevCum[prevCum.length - 1] : 0;
   const incCum = anShowInc ? anCum(AN.income.daily || []) : [], incNow = incCum.length ? incCum[Math.min(done, incCum.length) - 1] || 0 : 0;
-  const W = 1000, H = 260, l = 58, r = 24, t = 16, b = 30, iw = W - l - r, ih = H - t - b;
+  const svgEl = anId("anPace"), cw = Math.round((svgEl.parentElement && svgEl.parentElement.clientWidth) || 1000);
+  const W = Math.max(300, Math.min(1000, cw)), compact = W < 640, H = compact ? 300 : 260, l = compact ? 34 : 58, r = compact ? 14 : 70, t = 18, b = 30, iw = W - l - r, ih = H - t - b;
+  svgEl.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const tw = str => str.length * (compact ? 6.6 : 7.2);
   const ymax0 = Math.max(P.total, budget || 0, prevEnd, incNow, 1) * 1.06, step = anNiceStep(ymax0), ymax = Math.ceil(ymax0 / step) * step;
   const x = d => l + (d - 1) / Math.max(1, dim - 1) * iw, y = v => t + ih - (v / ymax) * ih;
   let s = "";
-  for(let v = 0; v <= ymax + 0.001; v += step){ s += `<line class="an-gl" x1="${l}" x2="${W - r}" y1="${y(v)}" y2="${y(v)}"/><text class="an-tk" x="${l - 8}" y="${y(v) + 4}" text-anchor="end">${v ? anS(v) : 0}</text>`; }
-  [1,5,10,15,20,25,dim].forEach(d => { s += `<text class="an-tk" x="${x(d)}" y="${H - 8}" text-anchor="middle">${d}</text>`; });
-  if(budget) s += `<line class="an-bud" x1="${l}" x2="${W - r}" y1="${y(budget)}" y2="${y(budget)}"/><text class="an-budl" x="${l + 8}" y="${y(budget) - 6}">Presupuesto ${anS(budget)}</text>`;
+  for(let v = 0; v <= ymax + 0.001; v += step){ s += `<line class="an-gl" x1="${l}" x2="${W - r}" y1="${y(v)}" y2="${y(v)}"/><text class="an-tk" x="${l - 8}" y="${y(v) + 4}" text-anchor="end">${v ? (compact ? (v >= 1000 ? +(v / 1000).toFixed(1) + "k" : v) : anS(v)) : 0}</text>`; }
+  (compact ? [1,10,20,dim] : [1,5,10,15,20,25,dim]).forEach(d => { s += `<text class="an-tk" x="${x(d)}" y="${H - 8}" text-anchor="middle">${d}</text>`; });
+  if(budget) s += `<line class="an-bud" x1="${l}" x2="${W - r}" y1="${y(budget)}" y2="${y(budget)}"/><text class="an-budl" x="${W - r - 6}" y="${y(budget) - 6}" text-anchor="end">${compact ? "Presup." : "Presupuesto"} ${anS(budget)}</text>`;
   if(prevCum.length) s += `<path class="an-prev" d="${prevCum.map((v, i) => (i ? "L" : "M") + x(i + 1) + " " + y(v)).join(" ")}"/>`;
   const actPath = P.cum.map((v, i) => (i ? "L" : "M") + x(i + 1) + " " + y(v)).join(" ");
   s += `<path class="an-area" d="${actPath} L${x(done)} ${y(0)} L${x(1)} ${y(0)} Z"/><path class="an-act" d="${actPath}"/>`;
@@ -5857,15 +5864,29 @@ function anPace(){
   if(anShowInc && incCum.length){
     s += `<path class="an-inc" d="${incCum.map((v, i) => (i ? "L" : "M") + x(i + 1) + " " + y(v)).join(" ")}"/>`;
     s += `<line class="an-incx" x1="${x(done)}" x2="${x(dim)}" y1="${y(incNow)}" y2="${y(incNow)}"/>`;
-    const gap = (xx, yi, ye, label, anchor) => { const d = yi - ye, my = (y(yi) + y(ye)) / 2, good = d >= 0;
-      return `<line class="an-gap ${good ? "ok" : "bad"}" x1="${xx}" x2="${xx}" y1="${y(yi)}" y2="${y(ye)}"/><line class="an-gap ${good ? "ok" : "bad"}" x1="${xx - 5}" x2="${xx + 5}" y1="${y(yi)}" y2="${y(yi)}"/><line class="an-gap ${good ? "ok" : "bad"}" x1="${xx - 5}" x2="${xx + 5}" y1="${y(ye)}" y2="${y(ye)}"/><text class="an-gapl ${good ? "ok" : "bad"}" x="${anchor === "end" ? xx - 9 : xx + 9}" y="${my + 4}" text-anchor="${anchor}">${label}</text>`; };
+    const gapLines = (xx, yi, ye) => { const good = yi - ye >= 0, c = "an-gap " + (good ? "ok" : "bad");
+      return `<line class="${c}" x1="${xx}" x2="${xx}" y1="${y(yi)}" y2="${y(ye)}"/><line class="${c}" x1="${xx - 5}" x2="${xx + 5}" y1="${y(yi)}" y2="${y(yi)}"/><line class="${c}" x1="${xx - 5}" x2="${xx + 5}" y1="${y(ye)}" y2="${y(ye)}"/>`; };
+    const gapText = (xx, yi, ye, label, anchor, dy) => { const good = yi - ye >= 0, my = (y(yi) + y(ye)) / 2 + 4 + (dy || 0);
+      return `<text class="an-gapl ${good ? "ok" : "bad"}" x="${anchor === "end" ? xx - 9 : xx + 9}" y="${my}" text-anchor="${anchor}">${label}</text>`; };
     const dn = incNow - (P.cum[done - 1] || 0), de = incNow - P.total;
-    s += gap(x(done) + 6, incNow, P.cum[done - 1] || 0, `${dn >= 0 ? "Te sobran" : "Te faltan"} ${anS(Math.abs(dn))} hoy`, "start");
-    s += gap(x(dim), incNow, P.total, `${de >= 0 ? "Sobrarían" : "Faltarían"} ${anS(Math.abs(de))} al cierre`, "end");
+    const l1 = compact ? `${dn >= 0 ? "Sobran" : "Faltan"} ${anS(Math.abs(dn))}` : `${dn >= 0 ? "Te sobran" : "Te faltan"} ${anS(Math.abs(dn))} hoy`;
+    const l2 = compact ? `${de >= 0 ? "Sobrarían" : "Faltarían"} ${anS(Math.abs(de))}` : `${de >= 0 ? "Sobrarían" : "Faltarían"} ${anS(Math.abs(de))} al cierre`;
+    const x1 = x(done) + 6, x2 = x(dim);
+    s += gapLines(x1, incNow, P.cum[done - 1] || 0) + gapLines(x2, incNow, P.total);
+    // "hoy": a la derecha de la barra si cabe; si no, a la izquierda
+    const a1 = x1 + 9 + tw(l1) <= W - r ? "start" : "end";
+    const r1 = a1 === "start" ? [x1 + 9, x1 + 9 + tw(l1)] : [x1 - 9 - tw(l1), x1 - 9];
+    const r2 = [x2 - 9 - tw(l2), x2 - 9];
+    const my1 = (y(incNow) + y(P.cum[done - 1] || 0)) / 2, my2 = (y(incNow) + y(P.total)) / 2;
+    const clash = r1[0] < r2[1] && r2[0] < r1[1] && Math.abs(my1 - my2) < 16;
+    if(!compact){ s += gapText(x1, incNow, P.cum[done - 1] || 0, l1, a1);
+      s += gapText(x2, incNow, P.total, l2, "end", clash ? (my2 >= my1 ? 16 : -16) : 0); }
   }
   s += `<line class="an-today" x1="${x(done)}" x2="${x(done)}" y1="${t}" y2="${y(0)}"/><text class="an-todayl" x="${x(done) + 6}" y="${t + 10}">Hoy</text>`;
   const over = budget ? P.total > budget : false;
-  s += `<circle cx="${x(dim)}" cy="${y(P.total)}" r="5" class="${over ? "an-endbad" : "an-endok"}"/><text class="an-endl" x="${x(dim) - 10}" y="${y(P.total) + (over ? -12 : 20)}" text-anchor="end">${anS(P.total)}</text>`;
+  // con ingresos visibles, la etiqueta del total va del lado contrario a la barra verde para no montarse
+  const endUp = anShowInc && incCum.length ? incNow < P.total : over;
+  s += `<circle cx="${x(dim)}" cy="${y(P.total)}" r="5" class="${over ? "an-endbad" : "an-endok"}"/><text class="an-endl" ${compact ? `x="${x(dim) - 10}" y="${Math.min(y(0) - 4, Math.max(t + 12, y(P.total) + (endUp ? -12 : 20)))}" text-anchor="end"` : `x="${x(dim) + 10}" y="${y(P.total) + 4}" text-anchor="start"`}>${anS(P.total)}</text>`;
   anId("anPace").innerHTML = s;
 
   const left = M.daysLeft, allowed = budget && left > 0 ? (budget - AN.spent - AN.fixedPendingTotal) / left : null;
