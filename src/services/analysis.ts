@@ -152,7 +152,7 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
   // Pagos fijos que el usuario marcó como pagados este mes y sin cargo con el mismo nombre:
   //  1) si hay un gasto de este mes con nombre y monto parecidos, ese gasto ES el pago fijo (se reclasifica de
   //     variable a fijo; el monto ya está en el gasto, así que no se suma otra vez);
-  //  2) si no hay ninguno, cuenta el monto del pago fijo como gasto fijo ya hecho.
+  //  2) si no hay ninguno, solo se marca como hecho (deja de figurar como pendiente); no se inventa un gasto.
   const curYm = `${y}-${String(m + 1).padStart(2, "0")}`;
   const tokensOf = (k: string) => k.split(" ").filter(Boolean);
   const similarName = (a: string, b: string) => {
@@ -181,10 +181,9 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
       hit.used = true;
       spentFixed += hit.amount;
       catRow(hit.catId, hit.catName).fixedUsed += hit.amount;
-    } else {
-      daily[Math.max(0, Math.min(Math.min(r.dayOfMonth, dim), today) - 1)] += amt;
-      spentFixed += amt;
     }
+    // Sin gasto que lo respalde, el pago marcado solo se da por hecho (sale de "por venir"): NO suma al gasto del mes,
+    // para que "Ritmo del mes" siempre coincida con lo gastado que muestra el Dashboard.
     chargedKeys.add(rk);
   }
 
