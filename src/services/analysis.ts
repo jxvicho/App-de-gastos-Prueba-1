@@ -167,7 +167,7 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
     const amt = Number(r.amount), tol = Math.max(1, amt * 0.15);
     // Se busca el gasto que ES este pago, de más a menos seguro: por nombre del comercio; por nombre de la categoría
     // (p. ej. una transferencia "Op. 9856" en la categoría "Depa Lince" para el pago fijo "Pago depa Lince"); o por un
-    // monto casi idéntico (±0.5 %, mín. S/ 0.50), porque un pago fijo marcado como pagado rara vez coincide con otro gasto.
+    // monto casi idéntico (±0.1 %, solo si el pago fijo es de S/ 100 o más; en montos chicos coinciden gastos distintos por casualidad).
     const rkName = merchantKeyOf(r.merchant);
     const closest = (pred: (v: (typeof monthVar)[number]) => boolean, tolerance: number) =>
       monthVar
@@ -176,7 +176,7 @@ export async function buildAnalysis(userId: string, currency: "PEN" | "USD") {
     const hit =
       closest((v) => similarName(rk, v.key), tol) ??
       closest((v) => { const ck = merchantKeyOf(v.catName); return !!ck && (similarName(rk, ck) || similarName(rkName, ck)); }, tol) ??
-      closest(() => true, Math.max(0.5, amt * 0.005));
+      (amt >= 100 ? closest(() => true, Math.max(0.1, amt * 0.001)) : undefined);
     if (hit) {
       hit.used = true;
       spentFixed += hit.amount;
